@@ -1,13 +1,36 @@
 {
   "expo": {
-    "name": "লেখনী কাহিনী",
+    "name": "Lekhoni Kahini",
     "slug": "lekhoni-kahini",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "assetBundlePatterns": ["**/*"],
     "android": {
       "package": "com.lekhoni.kahini",
-      "adaptiveIcon": { "backgroundColor": "#0B7A65" }
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#087A63"
+      },
+      "icon": "./assets/store-icon.png",
+      "splash": {
+        "image": "./assets/splash.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#FFFFFF"
+      },
+    },
+    "plugins": [],
+    "extra": {
+      "eas": {
+        "projectId": ""
+      }
     }
   }
 }

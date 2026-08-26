@@ -2,3 +2,5 @@ node_modules/
 .expo/
 dist/
 *.tsbuildinfo
+google-services.json
+google-service-account.json
