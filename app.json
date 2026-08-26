@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "লেখনী কাহিনী",
+    "slug": "lekhoni-kahini",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "android": {
+      "package": "com.lekhoni.kahini",
+      "adaptiveIcon": { "backgroundColor": "#0B7A65" }
+    }
+  }
+}

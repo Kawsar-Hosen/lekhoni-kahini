@@ -1,0 +1,25 @@
+import { Language } from './types';
+
+const words = {
+  en: {
+    home: 'Home', library: 'Library', categories: 'Categories', episodes: 'Episodes', menu: 'Menu',
+    librarySub: 'Your stories, always with you', categoriesSub: 'Find stories by your favorite genre', episodesSub: 'Latest chapters from ongoing stories',
+    search: 'Search', notifications: 'Notifications', settings: 'Settings', writer: 'Writer Panel',
+    downloads: 'Downloads', favorites: 'Favorites', history: 'Last Opened', bookmarks: 'Bookmarks', collection: 'Your Collection',
+    recent: 'Recently Added', latest: 'Latest Episodes', seeAll: 'See all', newEpisode: 'NEW EPISODE', readNow: 'Read now',
+    details: 'Book Details', summary: 'Summary', chapters: 'Chapters', startReading: 'Start reading', offline: 'Saved offline',
+    dark: 'Dark mode', newAlerts: 'New episode alerts', wifi: 'Download on Wi-Fi only', sync: 'Sync content', clearSearch: 'Clear search history',
+    appearance: 'Appearance', data: 'Notifications & data', language: 'Language', languageSub: 'Choose your app language', saved: 'Language saved',
+    english: 'English', bangla: 'বাংলা', hindi: 'हिन्दी', popular: 'Popular now', results: 'results', morning: 'Good morning', afternoon: 'Good afternoon', evening: 'Good evening', night: 'Good night', choose: 'What will you read today?', reader: 'Reader', writerApp: 'Writer & App', regularReader: 'Regular reader', books: 'books', noNotifications: 'No notifications yet', notificationsTitle: 'Notifications', openLink: 'Open', like: 'Good', dislike: 'Bad', fav: 'Fav', downloaded: 'Saved', downloadIt: 'Download', mins: 'min read', shareBook: 'Share this book', timesViewed: 'times', seeAllText: 'See all →',
+  },
+  bn: {
+    home: 'হোম', library: 'লাইব্রেরি', categories: 'বিভাগ', episodes: 'পর্ব', menu: 'মেনু', librarySub: 'আপনার গল্প, সবসময় সঙ্গে', categoriesSub: 'পছন্দের ধরনের গল্প খুঁজুন', episodesSub: 'চলমান গল্পের সাম্প্রতিক অধ্যায়',
+    search: 'অনুসন্ধান', notifications: 'নোটিফিকেশন', settings: 'সেটিংস', writer: 'লেখক প্যানেল', downloads: 'ডাউনলোড', favorites: 'পছন্দের', history: 'শেষ খোলা', bookmarks: 'বুকমার্ক', collection: 'আপনার সংগ্রহ', recent: 'সম্প্রতি যোগ হয়েছে', latest: 'সর্বশেষ পর্ব', seeAll: 'সব দেখুন', newEpisode: 'নতুন পর্ব', readNow: 'এখনই পড়ুন', details: 'বইয়ের বিস্তারিত', summary: 'কাহিনী সংক্ষেপ', chapters: 'অধ্যায়সমূহ', startReading: 'পড়া শুরু করুন', offline: 'অফলাইনে সংরক্ষিত', dark: 'ডার্ক মোড', newAlerts: 'নতুন পর্বের খবর', wifi: 'শুধু Wi-Fi-তে ডাউনলোড', sync: 'কনটেন্ট সিঙ্ক করুন', clearSearch: 'অনুসন্ধানের ইতিহাস মুছুন', appearance: 'দেখার ধরন', data: 'নোটিফিকেশন ও ডেটা', language: 'ভাষা', languageSub: 'অ্যাপের ভাষা নির্বাচন করুন', saved: 'ভাষা সংরক্ষিত', english: 'English', bangla: 'বাংলা', hindi: 'हिन्दी', popular: 'জনপ্রিয় এখন', results: 'টি ফলাফল', morning: 'শুভ সকাল', afternoon: 'শুভ অপরাহ্ন', evening: 'শুভ সন্ধ্যা', night: 'শুভ রাত্রি', choose: 'আজ কোন গল্পে ডুব দেবেন?', reader: 'পাঠক', writerApp: 'লেখক ও অ্যাপ', regularReader: 'নিয়মিত পাঠক', books: 'টি বই', noNotifications: 'কোনো নোটিফিকেশন নেই', notificationsTitle: 'নোটিফিকেশন', openLink: 'লিংক', like: 'ভালো', dislike: 'মন্দ', fav: 'পছন্দ', downloaded: 'সংরক্ষিত', downloadIt: 'ডাউনলোড', mins: 'মিনিটের পাঠ', shareBook: 'বইটি শেয়ার করুন', timesViewed: 'বার', seeAllText: 'সব দেখুন →',
+  },
+  hi: {
+    home: 'होम', library: 'लाइब्रेरी', categories: 'श्रेणियाँ', episodes: 'एपिसोड', menu: 'मेन्यू', librarySub: 'आपकी कहानियाँ, हमेशा साथ', categoriesSub: 'अपनी पसंदीदा शैली की कहानी खोजें', episodesSub: 'चल रही कहानियों के नवीनतम अध्याय',
+    search: 'खोजें', notifications: 'सूचनाएँ', settings: 'सेटिंग्स', writer: 'लेखक पैनल', downloads: 'डाउनलोड', favorites: 'पसंदीदा', history: 'अंतिम बार खोला', bookmarks: 'बुकमार्क', collection: 'आपका संग्रह', recent: 'हाल ही में जोड़ा गया', latest: 'नवीनतम एपिसोड', seeAll: 'सभी देखें', newEpisode: 'नया एपिसोड', readNow: 'अभी पढ़ें', details: 'पुस्तक विवरण', summary: 'सारांश', chapters: 'अध्याय', startReading: 'पढ़ना शुरू करें', offline: 'ऑफ़लाइन सहेजा गया', dark: 'डार्क मोड', newAlerts: 'नए एपिसोड की सूचना', wifi: 'केवल Wi-Fi पर डाउनलोड', sync: 'कंटेंट सिंक करें', clearSearch: 'खोज इतिहास मिटाएँ', appearance: 'दिखावट', data: 'सूचनाएँ और डेटा', language: 'भाषा', languageSub: 'ऐप की भाषा चुनें', saved: 'भाषा सहेजी गई', english: 'English', bangla: 'বাংলা', hindi: 'हिन्दी', popular: 'अभी लोकप्रिय', results: 'परिणाम', morning: 'सुप्रभात', afternoon: 'शुभ दोपहर', evening: 'शुभ संध्या', night: 'शुभ रात्रि', choose: 'आज आप क्या पढ़ेंगे?', reader: 'पाठक', writerApp: 'लेखक और ऐप', regularReader: 'नियमित पाठक', books: 'पुस्तकें', noNotifications: 'कोई सूचना नहीं', notificationsTitle: 'सूचनाएँ', openLink: 'खोलें', like: 'अच्छा', dislike: 'बुरा', fav: 'पसंद', downloaded: 'सहेजा गया', downloadIt: 'डाउनलोड', mins: 'मिनट का पठन', shareBook: 'यह किताब शेयर करें', timesViewed: 'बार', seeAllText: 'सभी देखें →',
+  },
+} as const;
+export type CopyKey = keyof typeof words.en;
+export function copy(language: Language, key: CopyKey) { return words[language][key] || words.en[key]; }
