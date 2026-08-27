@@ -109,3 +109,166 @@ export function getOfflineBooks(): Book[] { return bundledBooks; }
 export function getOfflineCategories() { return bundledCategories; }
 export function getOfflineNotices() { return bundledNotices; }
 export { bundledBooks, bundledCategories, bundledNotices };
+
+// --- Writer Auth ---
+export type Writer = { id: string; username: string; writer_name: string; email?: string; bio?: string; avatar_url?: string | null; follower_count?: number; created_at?: string };
+
+export async function writerSignup(username: string, writerName: string, email: string, password: string): Promise<{ writer: Writer; token: string } | null> {
+  const r = await apiFetch<{ writer?: Writer; token?: string; error?: string }>('/api/public/writers/signup', {
+    method: 'POST', body: JSON.stringify({ username, writer_name: writerName, email, password }),
+  });
+  if (r?.writer && r?.token) return { writer: r.writer, token: r.token };
+  return null;
+}
+
+export async function writerLogin(emailOrUsername: string, password: string): Promise<{ writer: Writer; token: string } | null> {
+  const r = await apiFetch<{ writer?: Writer; token?: string; error?: string }>('/api/public/writers/login', {
+    method: 'POST', body: JSON.stringify({ email_or_username: emailOrUsername, password }),
+  });
+  if (r?.writer && r?.token) return { writer: r.writer, token: r.token };
+  return null;
+}
+
+export async function verifyWriterToken(token: string): Promise<Writer | null> {
+  const r = await apiFetch<{ writer?: Writer }>('/api/public/writers/verify', {
+    method: 'POST', body: JSON.stringify({ token }),
+  });
+  return r?.writer || null;
+}
+
+export async function fetchPublicWriters(): Promise<Writer[]> {
+  return (await apiFetch<Writer[]>('/api/public/writers')) || [];
+}
+
+// --- Follows ---
+export async function fetchFollowedWriters(deviceId: string): Promise<Writer[]> {
+  return (await apiFetch<Writer[]>(`/api/public/follows?device_id=${deviceId}`)) || [];
+}
+
+export async function followWriter(deviceId: string, writerId: string): Promise<boolean> {
+  const r = await apiFetch<{ ok: boolean }>('/api/public/follows', {
+    method: 'POST', body: JSON.stringify({ device_id: deviceId, writer_id: writerId }),
+  });
+  return Boolean(r?.ok);
+}
+
+export async function unfollowWriter(deviceId: string, writerId: string): Promise<boolean> {
+  const r = await apiFetch<{ ok: boolean }>(`/api/public/follows/${writerId}?device_id=${deviceId}`, {
+    method: 'DELETE',
+  });
+  return Boolean(r?.ok);
+}
+
+// --- Writer Studio (authenticated) ---
+export type Story = { id: string; title: string; description: string; status: string; cover_url: string | null; category: string; views: number; likes: number; chapters_count: number; created_at: string; updated_at: string };
+export type StoryChapter = { id: string; title: string; body: string; position: number; minutes: number; created_at: string };
+export type WriterStats = { stories: number; views: number; followers: number; activities: { id: string; type: string; data: any; created_at: string }[] };
+export type WriterProfileFull = Writer & { email?: string; bio?: string };
+
+async function writerApiFetch<T>(path: string, token: string, init?: RequestInit): Promise<T | null> {
+  return apiFetch<T>(path, { ...init, headers: { Authorization: `Bearer ${token}`, ...init?.headers } });
+}
+
+export async function fetchWriterStats(token: string): Promise<WriterStats | null> {
+  return writerApiFetch<WriterStats>('/api/writer/stats', token);
+}
+
+export async function fetchWriterStories(token: string): Promise<Story[]> {
+  return (await writerApiFetch<Story[]>('/api/writer/stories', token)) || [];
+}
+
+export async function createWriterStory(token: string, title: string, description: string, category: string, coverUrl?: string): Promise<Story | null> {
+  return writerApiFetch<Story>('/api/writer/stories', token, {
+    method: 'POST', body: JSON.stringify({ title, description, category, cover_url: coverUrl }),
+  });
+}
+
+export async function updateWriterStory(token: string, storyId: string, patch: { title?: string; description?: string; status?: string; category?: string }): Promise<boolean> {
+  const r = await writerApiFetch<{ ok: boolean }>(`/api/writer/stories/${storyId}`, token, {
+    method: 'PUT', body: JSON.stringify(patch),
+  });
+  return Boolean(r?.ok);
+}
+
+export async function deleteWriterStory(token: string, storyId: string): Promise<boolean> {
+  const r = await writerApiFetch<{ ok: boolean }>(`/api/writer/stories/${storyId}`, token, {
+    method: 'DELETE',
+  });
+  return Boolean(r?.ok);
+}
+
+export async function fetchWriterStoryDetail(token: string, storyId: string): Promise<(Story & { chapters: StoryChapter[] }) | null> {
+  return writerApiFetch<Story & { chapters: StoryChapter[] }>(`/api/writer/stories/${storyId}`, token);
+}
+
+export async function createStoryChapter(token: string, storyId: string, title: string, body: string): Promise<StoryChapter | null> {
+  return writerApiFetch<StoryChapter>(`/api/writer/stories/${storyId}/chapters`, token, {
+    method: 'POST', body: JSON.stringify({ title, body }),
+  });
+}
+
+export async function updateStoryChapter(token: string, storyId: string, chapterId: string, patch: { title?: string; body?: string }): Promise<boolean> {
+  const r = await writerApiFetch<{ ok: boolean }>(`/api/writer/stories/${storyId}/chapters/${chapterId}`, token, {
+    method: 'PUT', body: JSON.stringify(patch),
+  });
+  return Boolean(r?.ok);
+}
+
+export async function deleteStoryChapter(token: string, storyId: string, chapterId: string): Promise<boolean> {
+  const r = await writerApiFetch<{ ok: boolean }>(`/api/writer/stories/${storyId}/chapters/${chapterId}`, token, {
+    method: 'DELETE',
+  });
+  return Boolean(r?.ok);
+}
+
+export async function fetchWriterProfile(token: string): Promise<WriterProfileFull | null> {
+  return writerApiFetch<WriterProfileFull>('/api/writer/profile', token);
+}
+
+export async function updateWriterProfile(token: string, patch: { writer_name?: string; bio?: string; avatar_url?: string; username?: string }): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT);
+    const res = await fetch(`${API_BASE}/api/writer/profile`, {
+      method: 'PUT',
+      signal: controller.signal,
+      headers: { 'content-type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(patch),
+    });
+    clearTimeout(timer);
+    const body = await res.json().catch(() => null);
+    if (!res.ok) return { ok: false, error: body?.error || `HTTP ${res.status}` };
+    return body || { ok: true };
+  } catch { return { ok: false, error: 'Network error' }; }
+}
+
+export type WriterDashboard = { stories: number; totalViews: number; followers: number; published: number; pending: number; recent: { id: string; title: string; status: string; views: number; created_at: string; updated_at: string }[]; activities: { id: string; type: string; data: any; created_at: string }[] };
+
+export async function fetchWriterDashboard(token: string): Promise<WriterDashboard | null> {
+  return writerApiFetch<WriterDashboard>('/api/writer/dashboard', token);
+}
+
+export type WriterNotification = { id: string; title: string; body: string; type: string; story_id?: string; is_read: boolean; url?: string; created_at: string };
+
+export async function fetchWriterNotifications(token: string): Promise<WriterNotification[]> {
+  return (await writerApiFetch<WriterNotification[]>('/api/writer/notifications', token)) || [];
+}
+
+export async function markWriterNotificationsRead(token: string, ids?: string[]): Promise<boolean> {
+  const r = await writerApiFetch<{ ok: boolean }>('/api/writer/notifications/read', token, {
+    method: 'POST', body: JSON.stringify({ ids }),
+  });
+  return Boolean(r?.ok);
+}
+
+export async function deleteWriterNotification(token: string, id: string): Promise<boolean> {
+  const r = await writerApiFetch<{ ok: boolean }>(`/api/writer/notifications/${id}`, token, { method: 'DELETE' });
+  return Boolean(r?.ok);
+}
+
+export async function submitStoryForReview(token: string, storyId: string): Promise<boolean> {
+  const r = await writerApiFetch<{ ok: boolean; status: string }>(`/api/writer/stories/${storyId}/submit`, token, {
+    method: 'POST',
+  });
+  return Boolean(r?.ok);
+}

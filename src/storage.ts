@@ -12,8 +12,10 @@ function generateDeviceId(): string {
 
 export const initialState: LocalState = {
   name: '', deviceId: generateDeviceId(), favorites: ['megh'], downloads: ['nodi'], history: ['nodi', 'ghori'], positions: { 'nodi-1': 34 },
-  bookmarks: [], searchHistory: [], settings: { dark: false, fontSize: 19, lineHeight: 32, notifications: true, wifiOnly: true, language: 'en' },
+  bookmarks: [], searchHistory: [], settings: { dark: false, fontSize: 19, lineHeight: 32, notifications: true, wifiOnly: true, language: 'bn', themeId: 'katagolap' },
   readNotifications: [], reactions: {}, remoteBooks: [], online: false, lastSync: '',
+  writer: null, writerToken: null, followedWriters: [],
+  readingActivity: {},
 };
 
 export async function loadState(): Promise<LocalState> {
@@ -21,7 +23,7 @@ export async function loadState(): Promise<LocalState> {
     const saved = await AsyncStorage.getItem(KEY);
     if (!saved) return initialState;
     const parsed = JSON.parse(saved);
-    return { ...initialState, ...parsed, deviceId: parsed.deviceId || generateDeviceId(), settings: { ...initialState.settings, ...parsed.settings }, remoteBooks: parsed.remoteBooks || [], online: false };
+    return { ...initialState, ...parsed, deviceId: parsed.deviceId || generateDeviceId(), settings: { ...initialState.settings, ...parsed.settings }, remoteBooks: parsed.remoteBooks || [], online: false, writer: parsed.writer || null, writerToken: parsed.writerToken || null, followedWriters: parsed.followedWriters || [], readingActivity: parsed.readingActivity || {} };
   } catch { return initialState; }
 }
 export async function saveState(state: LocalState) {

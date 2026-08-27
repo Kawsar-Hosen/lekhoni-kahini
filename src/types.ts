@@ -5,13 +5,19 @@ export type Book = {
   description: string; updated: string; chapters: Chapter[]; cover_url?: string | null;
 };
 export type Language = 'en' | 'bn' | 'hi';
-export type Settings = { dark: boolean; fontSize: number; lineHeight: number; notifications: boolean; wifiOnly: boolean; language: Language };
+export type ThemeId = 'katagolap' | 'sepia' | 'midnight' | 'godhuli' | 'sagar' | 'oronno' | 'lavender' | 'golapi';
+export type Settings = { dark: boolean; fontSize: number; lineHeight: number; notifications: boolean; wifiOnly: boolean; language: Language; themeId: ThemeId };
 export type Comment = { id: string; book_id: string; device_id: string; name: string; body: string; status: string; created_at: string };
+export type WriterProfile = { id: string; username: string; writer_name: string; bio?: string; avatar_url?: string | null; follower_count?: number; followed_at?: string };
 export type LocalState = {
   name: string; deviceId: string; favorites: string[]; downloads: string[]; history: string[];
   positions: Record<string, number>; bookmarks: string[]; searchHistory: string[];
   settings: Settings; readNotifications: string[]; reactions: Record<string, 'like' | 'dislike'>;
   remoteBooks: Book[]; online: boolean; lastSync: string;
+  writer?: { id: string; username: string; writer_name: string; avatar_url?: string; bio?: string } | null;
+  writerToken?: string | null;
+  followedWriters: WriterProfile[];
+  readingActivity: Record<string, { minutes: number; episodes: number }>;
 };
 export type Route =
   | { name: 'main' }
