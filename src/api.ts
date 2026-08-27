@@ -4,7 +4,7 @@ import { books as bundledBooks, categories as bundledCategories, notices as bund
 const API_BASE = 'https://lekhoni-admin-api.smdkawsar2.workers.dev';
 const TIMEOUT = 6000;
 
-type RemoteBook = { id:string; title:string; author:string; cover_url:string|null; status:string; views:number|string; likes:number|string; dislikes:number|string; description:string|null; category:string|null; color:string; accent:string; is_new?:boolean; featured?:boolean; updated_at:string };
+type RemoteBook = { id:string; title:string; author:string; cover_url:string|null; status:string; views:number|string; likes:number|string; dislikes:number|string; description:string|null; category:string|null; color:string; accent:string; is_new?:boolean; featured?:boolean; home_section?:string|null; views_visible?:boolean; updated_at:string };
 type RemoteChapter = { id:string; book_id:string; title:string; body:string; position:number; sort_order?:number; minutes?:number };
 type RemoteComment = { id:string; book_id:string; display_name:string; body:string; status:string; created_at:string };
 type RemoteNotification = { id:string; title:string; body:string; icon:string|null; url:string|null; created_at:string };
@@ -41,16 +41,15 @@ function mergeRemoteBooks(remote: RemoteBook[], chaptersByBook: Record<string, R
     const chs = (chaptersByBook[b.id] || [])
       .sort((a, c) => (a.sort_order ?? a.position) - (c.sort_order ?? c.position))
       .map(c => ({ id: c.id, title: c.title, body: c.body, minutes: c.minutes || 5 }));
-    if (!chs.length) return null;
     return {
       id: b.id, title: b.title, author: b.author, category: b.category || 'উপন্যাস',
       categoryIcon: toCategoryIcon(b.category), color: b.color || toBookColor(b.id),
-      accent: b.accent || toAccent(b.id), views: `${b.views}`, rating: 4.5,
+      accent: b.accent || toAccent(b.id),       views: `${b.views}`, rating: 4.5,
+      featured: Boolean(b.featured), homeSection: b.home_section || undefined, views_visible: b.views_visible !== false,
       description: b.description || '', updated: 'অনলাইন', isNew: Boolean(b.is_new), chapters: chs, cover_url: b.cover_url || null,
     };
   }).filter(Boolean) as Book[];
 }
-
 export async function fetchRemoteBooks(): Promise<Book[]> {
   const booksData = await apiFetch<RemoteBook[]>('/api/public/books');
   if (!booksData || !booksData.length) return [];
@@ -73,6 +72,7 @@ export async function fetchRemoteBook(id: string): Promise<Book | null> {
     id: b.id, title: b.title, author: b.author, category: b.category || 'উপন্যাস',
     categoryIcon: toCategoryIcon(b.category), color: b.color || toBookColor(b.id),
     accent: b.accent || toAccent(b.id), views: `${b.views}`, rating: 4.5,
+    featured: Boolean(b.featured), homeSection: b.home_section || undefined,
     description: b.description || '', updated: 'অনলাইন', isNew: Boolean(b.is_new), chapters: chs, cover_url: b.cover_url || null,
   };
 }
@@ -103,6 +103,39 @@ export async function fetchRemoteNotifications(): Promise<RemoteNotification[]> 
 type RemoteCategory = { id: string; name: string; icon: string; color: string; cover_url: string | null };
 export async function fetchRemoteCategories(): Promise<RemoteCategory[]> {
   return (await apiFetch<RemoteCategory[]>('/api/public/categories')) || [];
+}
+
+export type HomeSectionConfig = { key: string; enabled: boolean; title?: string };
+export async function fetchHomeConfig(): Promise<HomeSectionConfig[]> {
+  return (await apiFetch<HomeSectionConfig[]>('/api/home-config')) || [];
+}
+
+export type HomeSectionsData = {
+  sections: { key: string; title: string; books: RemoteBook[] }[];
+  writers: { id: string; writer_name: string; bio: string; avatar_url: string | null; follower_count: number }[];
+  viewsVisible?: boolean;
+};
+export async function fetchHomeSections(): Promise<HomeSectionsData | null> {
+  return await apiFetch<HomeSectionsData>('/api/home-sections');
+}
+
+export type UserStatePayload = {
+  settings?: Record<string, unknown>;
+  favorites?: string[];
+  downloads?: string[];
+  history?: string[];
+  positions?: Record<string, number>;
+  bookmarks?: unknown[];
+};
+export async function fetchUserState(deviceKey: string): Promise<{ synced: boolean; state?: UserStatePayload & Record<string, unknown> }> {
+  return (await apiFetch<{ synced: boolean; state?: any }>(`/api/public/user-state?device_key=${encodeURIComponent(deviceKey)}`)) || { synced: false };
+}
+export async function saveUserState(deviceKey: string, payload: UserStatePayload): Promise<boolean> {
+  const r = await apiFetch<{ ok?: boolean }>('/api/public/user-state', {
+    method: 'PUT',
+    body: JSON.stringify({ device_key: deviceKey, ...payload }),
+  });
+  return Boolean(r?.ok);
 }
 
 export function getOfflineBooks(): Book[] { return bundledBooks; }

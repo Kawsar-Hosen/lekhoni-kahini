@@ -2,11 +2,14 @@ export type Chapter = { id: string; title: string; minutes: number; body: string
 export type Book = {
   id: string; title: string; author: string; category: string; categoryIcon: string;
   color: string; accent: string; views: string; rating: number; isNew?: boolean;
+  featured?: boolean; homeSection?: string; views_visible?: boolean;
   description: string; updated: string; chapters: Chapter[]; cover_url?: string | null;
 };
 export type Language = 'en' | 'bn' | 'hi';
-export type ThemeId = 'katagolap' | 'sepia' | 'midnight' | 'godhuli' | 'sagar' | 'oronno' | 'lavender' | 'golapi';
-export type Settings = { dark: boolean; fontSize: number; lineHeight: number; notifications: boolean; wifiOnly: boolean; language: Language; themeId: ThemeId };
+export type ThemeId = 'katagolap' | 'sepia' | 'midnight' | 'godhuli' | 'sagar' | 'oronno' | 'lavender' | 'golapi' | 'shapla' | 'golap';
+export type FontFamily = 'default' | 'serif' | 'loose';
+export type PageMode = 'scroll' | 'page';
+export type Settings = { dark: boolean; fontSize: number; lineHeight: number; lineSpacing: number; fontFamily: FontFamily; pageMode: PageMode; notifications: boolean; wifiOnly: boolean; language: Language; themeId: ThemeId };
 export type Comment = { id: string; book_id: string; device_id: string; name: string; body: string; status: string; created_at: string };
 export type WriterProfile = { id: string; username: string; writer_name: string; bio?: string; avatar_url?: string | null; follower_count?: number; followed_at?: string };
 export type LocalState = {

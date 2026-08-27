@@ -12,7 +12,7 @@ function generateDeviceId(): string {
 
 export const initialState: LocalState = {
   name: '', deviceId: generateDeviceId(), favorites: ['megh'], downloads: ['nodi'], history: ['nodi', 'ghori'], positions: { 'nodi-1': 34 },
-  bookmarks: [], searchHistory: [], settings: { dark: false, fontSize: 19, lineHeight: 32, notifications: true, wifiOnly: true, language: 'bn', themeId: 'katagolap' },
+  bookmarks: [], searchHistory: [], settings: { dark: false, fontSize: 19, lineHeight: 32, lineSpacing: 1.0, fontFamily: 'default', pageMode: 'scroll', notifications: true, wifiOnly: true, language: 'bn', themeId: 'katagolap' },
   readNotifications: [], reactions: {}, remoteBooks: [], online: false, lastSync: '',
   writer: null, writerToken: null, followedWriters: [],
   readingActivity: {},
@@ -31,4 +31,7 @@ export async function saveState(state: LocalState) {
     const toSave = { ...state, online: false, remoteBooks: [] };
     await AsyncStorage.setItem(KEY, JSON.stringify(toSave));
   } catch { /* The bundled catalog remains usable if storage is unavailable. */ }
+}
+export async function clearState() {
+  try { await AsyncStorage.removeItem(KEY); } catch { /* ignore */ }
 }
