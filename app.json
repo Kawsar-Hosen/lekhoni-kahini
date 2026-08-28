@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#FFFFFF"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "android": {
       "package": "com.lekhoni.kahini",
       "versionCode": 1,
@@ -24,9 +26,11 @@
         "image": "./assets/splash.png",
         "resizeMode": "contain",
         "backgroundColor": "#FFFFFF"
-      },
+      }
     },
-    "plugins": [],
+    "plugins": [
+      "expo-font"
+    ],
     "extra": {
       "eas": {
         "projectId": ""

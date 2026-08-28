@@ -5,6 +5,7 @@ import { Feather } from '@expo/vector-icons';
 import Svg, { Path, Polyline, Ellipse, Circle, G } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFonts } from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { books as bundledBooks, categories as bundledCategories, notices as bundledNotices } from './src/data';
 import { initialState, loadState, saveState, clearState } from './src/storage';
@@ -20,6 +21,7 @@ const I = (name:string) => (Feather.glyphMap as Record<string,unknown>)[name] ? 
 
 export default function App(){ return <SafeAreaProvider><AppShell/></SafeAreaProvider>; }
 function AppShell(){
+ const [fontsLoaded]=useFonts({HindSiliguriMedium:require('./assets/HindSiliguri-Medium.ttf')});
  const [state,setState]=useState<LocalState>(initialState); const [loaded,setLoaded]=useState(false); const [screen,setScreen]=useState<Screen>({type:'main'}); const [tab,setTab]=useState<Tab>('home'); const [allBooks,setAllBooks]=useState<Book[]>(bundledBooks); const [allCategories,setAllCategories]=useState<[string,string,string,string|null][]>(bundledCategories.map(c=>[c[0],c[1],c[2],null])); const [publicWriters,setPublicWriters]=useState<import('./src/types').WriterProfile[]>([]); const [homeSections,setHomeSections]=useState<HomeSectionConfig[]>([]); const [homeData,setHomeData]=useState<HomeSectionsData|null>(null); const [remoteNotices,setRemoteNotices]=useState<{id:string;title:string;body:string;icon:string;url:string;time:string}[]>([]); const syncRef=useRef(false);
  const theme=themeFor(state.settings.themeId,state.settings.dark);
   const [dlBooks,setDlBooks]=useState<Record<string,Book>>({});
@@ -34,7 +36,7 @@ function AppShell(){
   useEffect(()=>{const id=setInterval(syncRemote,30000);syncRemote();return()=>clearInterval(id)},[syncRemote]);
   useEffect(()=>{if(!loaded||!state.deviceId)return;const t=setTimeout(()=>{saveUserState(state.deviceId,{settings:state.settings as any,favorites:state.favorites,downloads:state.downloads,history:state.history,positions:state.positions,bookmarks:state.bookmarks as any}).catch(()=>{})},2000);return()=>clearTimeout(t)},[loaded,state]);
  const update=(p:Partial<LocalState>)=>setState(s=>({...s,...p})); const open=(id:string)=>{update({history:[id,...state.history.filter(x=>x!==id)].slice(0,20)});setScreen({type:'book',id})}; const read=(id:string,chapter:number)=>setScreen({type:'reader',id,chapter});
- if(!loaded)return <View style={[styles.center,{backgroundColor:theme.bg}]}><Image source={require('./assets/loading-icon.png')} style={{width:120,height:120,borderRadius:30}} resizeMode="contain"/><Text style={[styles.brand,{color:theme.ink,marginTop:16,fontSize:28,fontWeight:'900',letterSpacing:1}]}>Lekhoni Kahini</Text></View>;
+ if(!loaded||!fontsLoaded)return <View style={[styles.center,{backgroundColor:theme.bg}]}><Image source={require('./assets/loading-icon.png')} style={{width:120,height:120,borderRadius:30}} resizeMode="contain"/><T style={[styles.brand,{color:theme.ink,marginTop:16,fontSize:28,fontWeight:'900',letterSpacing:1,fontFamily:'HindSiliguriMedium'}]}>Lekhoni Kahini</T></View>;
  if(!state.name)return <NameGate theme={theme} lang={state.settings.language} onDone={(name,lang)=>{update({name,settings:{...state.settings,language:lang}})}}/>;
   const common={theme,state,update,setScreen,open,read,allBooks,allCategories,publicWriters,homeSections,homeData,remoteNotices,dlBooks,downloadBook,removeDownload}; let body:React.ReactNode;
  if(screen.type==='main')body=<Main {...common} tab={tab} setTab={setTab}/>;
@@ -49,10 +51,12 @@ function AppShell(){
  return <View style={{flex:1,backgroundColor:theme.bg}}><StatusBar style={state.settings.dark?'light':'dark'}/>{body}</View>;
 }
 type C={theme:Theme;state:LocalState;update:(p:Partial<LocalState>)=>void;setScreen:(s:Screen)=>void;open:(id:string)=>void;read:(id:string,c:number)=>void;allBooks:Book[];allCategories:[string,string,string,string|null][];publicWriters:import('./src/types').WriterProfile[];homeSections:HomeSectionConfig[];homeData:HomeSectionsData|null;remoteNotices:{id:string;title:string;body:string;icon:string;url:string;time:string}[];dlBooks:Record<string,Book>;downloadBook:(id:string)=>void;removeDownload:(id:string)=>void};
+const F='HindSiliguriMedium';
+function T({style,...rest}:React.ComponentProps<typeof Text>){return <Text {...rest} style={[style,{fontFamily:F,fontWeight:'500'}]}/>}
 const tr=(p:C,key:CopyKey)=>copy(p.state.settings.language,key);
 function greet(p:C){const h=new Date().getHours();const key=h<12?'morning':h<17?'afternoon':h<21?'evening':'night';return tr(p,key as CopyKey);}
 function Page({children,theme}:{children:React.ReactNode;theme:Theme}){const insets=useSafeAreaInsets();return <ScrollView style={{flex:1,backgroundColor:theme.bg}} contentContainerStyle={{paddingTop:insets.top+12,paddingHorizontal:18,paddingBottom:110}} showsVerticalScrollIndicator={false}>{children}</ScrollView>}
-function NameGate({theme,lang,onDone}:{theme:Theme;lang:import('./src/types').Language;onDone:(n:string,l:import('./src/types').Language)=>void}){const[name,setName]=useState('');const[curLang,setCurLang]=useState<import('./src/types').Language>(lang);const langs:[import('./src/types').Language,string][]=[['bn','বাংলা'],['en','English'],['hi','हिन्दी']];const{height}=useWindowDimensions();return <KeyboardAvoidingView style={{flex:1,backgroundColor:theme.bg}} behavior={Platform.OS==='ios'?'padding':'height'}><ScrollView contentContainerStyle={{paddingHorizontal:25,paddingTop:80,paddingBottom:40}} keyboardShouldPersistTaps="handled"><View style={{alignItems:'center',marginBottom:10}}><Image source={require('./assets/adaptive-icon.png')} style={[styles.gateIcon]} resizeMode="contain"/></View><Text style={[styles.eyebrow,{color:theme.primary,textAlign:'center'}]}>{copy(curLang,'welcome')}</Text><Text style={[styles.gateTitle,{color:theme.ink,textAlign:'center'}]}>{copy(curLang,'nameQuestion')}</Text><Text style={[styles.copy,{color:theme.muted,textAlign:'center'}]}>{copy(curLang,'gateHint')}</Text><TextInput autoFocus value={name} onChangeText={setName} placeholder={copy(curLang,'namePlaceholder')} placeholderTextColor={theme.muted} style={[styles.input,{color:theme.ink,backgroundColor:theme.card,borderColor:theme.line}]}/><Button title={copy(curLang,'startBtn')} icon="arrow-right" disabled={!name.trim()} onPress={()=>onDone(name.trim(),curLang)}/><Text style={[styles.note,{color:theme.muted}]}>{copy(curLang,'nameNote')}</Text><View style={styles.langRow2}>{langs.map(([code,label])=><Pressable key={code} onPress={()=>setCurLang(code)} style={[styles.langBtn2,{backgroundColor:curLang===code?theme.primary:theme.card,borderColor:curLang===code?theme.primary:theme.line}]}><Text style={{color:curLang===code?'#fff':theme.ink,fontWeight:'800',fontSize:13}}>{label}</Text></Pressable>)}</View></ScrollView></KeyboardAvoidingView>}
+function NameGate({theme,lang,onDone}:{theme:Theme;lang:import('./src/types').Language;onDone:(n:string,l:import('./src/types').Language)=>void}){const[name,setName]=useState('');const[curLang,setCurLang]=useState<import('./src/types').Language>(lang);const langs:[import('./src/types').Language,string][]=[['bn','বাংলা'],['en','English'],['hi','हिन्दी']];const{height}=useWindowDimensions();return <KeyboardAvoidingView style={{flex:1,backgroundColor:theme.bg}} behavior={Platform.OS==='ios'?'padding':'height'}><ScrollView contentContainerStyle={{paddingHorizontal:25,paddingTop:80,paddingBottom:40}} keyboardShouldPersistTaps="handled"><View style={{alignItems:'center',marginBottom:10}}><Image source={require('./assets/adaptive-icon.png')} style={[styles.gateIcon]} resizeMode="contain"/></View><T style={[styles.eyebrow,{color:theme.primary,textAlign:'center'}]}>{copy(curLang,'welcome')}</T><T style={[styles.gateTitle,{color:theme.ink,textAlign:'center'}]}>{copy(curLang,'nameQuestion')}</T><T style={[styles.copy,{color:theme.muted,textAlign:'center'}]}>{copy(curLang,'gateHint')}</T><TextInput autoFocus value={name} onChangeText={setName} placeholder={copy(curLang,'namePlaceholder')} placeholderTextColor={theme.muted} style={[styles.input,{color:theme.ink,backgroundColor:theme.card,borderColor:theme.line}]}/><Button title={copy(curLang,'startBtn')} icon="arrow-right" disabled={!name.trim()} onPress={()=>onDone(name.trim(),curLang)}/><T style={[styles.note,{color:theme.muted}]}>{copy(curLang,'nameNote')}</T><View style={styles.langRow2}>{langs.map(([code,label])=><Pressable key={code} onPress={()=>setCurLang(code)} style={[styles.langBtn2,{backgroundColor:curLang===code?theme.primary:theme.card,borderColor:curLang===code?theme.primary:theme.line}]}><T style={{color:curLang===code?'#fff':theme.ink,fontWeight:'800',fontSize:13}}>{label}</T></Pressable>)}</View></ScrollView></KeyboardAvoidingView>}
 function Main(p:C&{tab:Tab;setTab:(t:Tab)=>void}){
  const {width:screenW}=useWindowDimensions();
  const {theme,tab,setTab}=p;
@@ -64,14 +68,14 @@ function Main(p:C&{tab:Tab;setTab:(t:Tab)=>void}){
  React.useEffect(()=>{Animated.timing(slideAnim,{toValue:tabIdx,duration:170,easing:Easing.bezier(0.25,0.1,0.25,1),useNativeDriver:false}).start();prevTab.current=tab},[tabIdx]);
  const navW=screenW-40;
  const itemW=(navW-12)/tabs.length;
- return <View style={{flex:1}}>{content}<View style={{position:'absolute',bottom:24,left:20,right:20,backgroundColor:theme.card,borderRadius:24,flexDirection:'row',paddingVertical:10,paddingHorizontal:6,shadowColor:'#000',shadowOpacity:0.08,shadowRadius:20,shadowOffset:{width:0,height:8},elevation:8,borderWidth:1,borderColor:theme.line,overflow:'hidden'}}><Animated.View style={{position:'absolute',top:10,bottom:10,left:6,width:itemW,backgroundColor:theme.tint,borderRadius:16,transform:[{translateX:slideAnim.interpolate({inputRange:[0,1,2,3,4],outputRange:[0,itemW,itemW*2,itemW*3,itemW*4]})}]}}/>{tabs.map((x,i)=><Pressable key={x[0]} onPress={()=>setTab(x[0])} style={{flex:1,alignItems:'center',gap:4,paddingVertical:6,zIndex:1}}><Feather name={I(x[1])} size={20} color={tab===x[0]?theme.primary:theme.muted}/><Text allowFontScaling={false} numberOfLines={1} style={{fontSize:9,fontWeight:'800',color:tab===x[0]?theme.primary:theme.muted}}>{tr(p,x[2])}</Text></Pressable>)}</View></View>
+ return <View style={{flex:1}}>{content}<View style={{position:'absolute',bottom:24,left:20,right:20,backgroundColor:theme.card,borderRadius:24,flexDirection:'row',paddingVertical:10,paddingHorizontal:6,shadowColor:'#000',shadowOpacity:0.08,shadowRadius:20,shadowOffset:{width:0,height:8},elevation:8,borderWidth:1,borderColor:theme.line,overflow:'hidden'}}><Animated.View style={{position:'absolute',top:10,bottom:10,left:6,width:itemW,backgroundColor:theme.tint,borderRadius:16,transform:[{translateX:slideAnim.interpolate({inputRange:[0,1,2,3,4],outputRange:[0,itemW,itemW*2,itemW*3,itemW*4]})}]}}/>{tabs.map((x,i)=><Pressable key={x[0]} onPress={()=>setTab(x[0])} style={{flex:1,alignItems:'center',gap:4,paddingVertical:6,zIndex:1}}><Feather name={I(x[1])} size={20} color={tab===x[0]?theme.primary:theme.muted}/><T allowFontScaling={false} numberOfLines={1} style={{fontSize:9,fontWeight:'800',color:tab===x[0]?theme.primary:theme.muted}}>{tr(p,x[2])}</T></Pressable>)}</View></View>
 }
-function Header({title,sub,theme,action,onNotif,unreadCount}:{title:string;sub?:string;theme:Theme;action?:React.ReactNode;onNotif?:()=>void;unreadCount?:number}){return <View style={styles.header}><View style={{flex:1,marginRight:12}}><Text numberOfLines={1} style={[styles.title,{color:theme.ink}]}>{title}</Text>{sub&&<Text numberOfLines={1} style={{color:theme.muted,marginTop:4}}>{sub}</Text>}</View><View style={{flexDirection:'row',alignItems:'center',gap:18}}>{action}<Pressable onPress={()=>onNotif?onNotif():null} style={{position:'relative'}}><Feather name="bell" size={20} color={theme.ink}/>{!!unreadCount&&<View style={[styles.badge,{backgroundColor:'#EF4444'}]}><Text style={styles.badgeText}>{unreadCount}</Text></View>}</Pressable></View></View>}
-function Home(p:C){const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const books=p.allBooks;const byViews=(a:Book,b:Book)=>+b.views-(+a.views);const G='#2AA876',AU='#D9A407',BL='#3B82F6',PU='#8B5CF6';const order=['featured','newEpisodes','mostPopular','weeklyPopular','monthlyPopular','popularAuthors'];const cfg=(p.homeSections.length?p.homeSections:order.map(k=>({key:k,enabled:true}))).filter(c=>c.enabled).map(c=>c.key);const toBook=(b:any):Book=>({id:b.id,title:b.title,author:b.author,views:`${b.views}`,rating:4.5,color:b.color,accent:b.accent,category:b.category||'',categoryIcon:'book-open',description:b.description||'',updated:'',chapters:[],isNew:Boolean(b.is_new),featured:Boolean(b.featured),views_visible: b.views_visible !== false,cover_url:b.cover_url||null});const hd=p.homeData;const hlist=(k:string):Book[]=>{if(hd){const s=hd.sections.find(x=>x.key===k);if(s&&s.books&&s.books.length)return s.books.slice(0,12).map((b:any)=>toBook(b) as Book).filter((b:any)=>b&&b.id);}return[];};const htitle=(k:string)=>hd?(hd.sections.find(x=>x.key===k)?.title||''):'';const section=(title:string,icon:string,accent:string,list:Book[],rank?:boolean)=><View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:accent+'22'}]}><Feather name={I(icon)} size={14} color={accent}/></View><Text style={[styles.sectionTitle,{color:p.theme.ink}]}>{title}</Text></View><Pressable onPress={()=>p.setScreen({type:'list',title,ids:list.map(x=>x.id)})} style={[styles.seeAllPill,{backgroundColor:accent+'1A'}]}><Text style={{color:accent,fontWeight:'800',fontSize:12}}>{tr(p,'seeAllText')}</Text></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b,i)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={accent} rank={rank?i:undefined} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>;const authors=()=>p.publicWriters.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{p.publicWriters.map(w=><AuthorCard key={w.id} writer={w} theme={p.theme} lang={p.state.settings.language} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} bookCount={p.allBooks.filter(b=>b.author===w.writer_name).length}/>)}</ScrollView>:<Empty theme={p.theme}/>;const content=(k:string)=>{if(k==='featured'){const fl=hlist('featured');return <Featured {...p} list={fl}/>;}if(k==='popularAuthors')return <View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:'#EC4899'+'22'}]}><Feather name="users" size={14} color="#EC4899"/></View><Text style={[styles.sectionTitle,{color:p.theme.ink}]}>{htitle('popularAuthors')||tr(p,'popularAuthors')}</Text></View></View>{authors()}</View>;if(k==='newEpisodes'){const l=hlist('newEpisodes');return section(htitle('newEpisodes')||tr(p,'newEpisodes'),'zap',G,l.length?l:books);}if(k==='weeklyPopular'){const l=hlist('weeklyPopular');return section(htitle('weeklyPopular')||tr(p,'weeklyPopular'),'calendar',BL,l.length?l:[...books].sort(byViews),true);}if(k==='monthlyPopular'){const l=hlist('monthlyPopular');return section(htitle('monthlyPopular')||tr(p,'monthlyPopular'),'star',PU,l.length?l:[...books].sort(byViews),true);}if(k==='mostPopular'){const l=hlist('mostPopular');return section(htitle('mostPopular')||tr(p,'mostPopular'),'trending-up',AU,l.length?l:[...books].sort(byViews),true);}return null;};return <Page theme={p.theme}><Header title={`${greet(p)}, ${p.state.name}`} sub={tr(p,'choose')} theme={p.theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un} action={<Pressable onPress={()=>p.setScreen({type:'search'})}><Feather name="search" size={21} color={p.theme.ink}/></Pressable>}/>{cfg.map(k=><React.Fragment key={k}>{content(k)}</React.Fragment>)}</Page>}
-function LibraryLink({title,icon,n,theme,onPress}:{title:string;icon:string;n:number;theme:Theme;onPress:()=>void}){const scale=React.useRef(new Animated.Value(1)).current;const pressIn=()=>{Animated.spring(scale,{toValue:0.96,useNativeDriver:true}).start()};const pressOut=()=>{Animated.spring(scale,{toValue:1,friction:3,tension:40,useNativeDriver:true}).start()};return <Animated.View style={{transform:[{scale}],width:'48.5%'}}><Pressable onPress={onPress} onPressIn={pressIn} onPressOut={pressOut} style={{backgroundColor:theme.card,borderRadius:20,borderWidth:1,borderColor:theme.line,paddingVertical:20,paddingHorizontal:16,shadowColor:'#000',shadowOpacity:0.04,shadowRadius:10,shadowOffset:{width:0,height:2},elevation:2}}><View style={{width:44,height:44,borderRadius:14,backgroundColor:theme.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}><Feather name={I(icon)} size={20} color={theme.primary}/></View><Text style={{fontSize:14,fontWeight:'800',color:theme.ink,marginBottom:4}}>{title}</Text><Text style={{color:theme.muted,fontSize:11,fontWeight:'600'}}>{n}টি</Text></Pressable></Animated.View>}
-function LibBookCard({book,theme,onPress}:{book:Book;theme:Theme;onPress:()=>void}){return <Pressable onPress={onPress} style={{backgroundColor:theme.card,borderRadius:18,borderWidth:1,borderColor:theme.line,flexDirection:'row',alignItems:'center',padding:12,marginBottom:12,shadowColor:'#000',shadowOpacity:0.03,shadowRadius:8,shadowOffset:{width:0,height:2},elevation:2,gap:14}}><View style={{width:72,height:96,borderRadius:12,backgroundColor:book.color,overflow:'hidden',justifyContent:'flex-end',padding:8}}>{book.cover_url?<><Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12}} resizeMode="cover"/><View style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12,backgroundColor:'rgba(0,0,0,0.15)'}}/></>:null}<Text numberOfLines={2} style={{color:'#fff',fontWeight:'900',fontSize:10,lineHeight:13}}>{book.title}</Text></View><View style={{flex:1}}><Text numberOfLines={2} style={{fontSize:15,fontWeight:'800',color:theme.ink,lineHeight:20}}>{book.title}</Text><Text numberOfLines={1} style={{fontSize:12,fontWeight:'600',color:theme.primary,marginTop:5}}>{book.author}</Text><View style={{flexDirection:'row',alignItems:'center',gap:6,marginTop:8}}><View style={{flexDirection:'row',alignItems:'center',gap:3}}><Feather name="eye" size={11} color={theme.muted}/><Text style={{color:theme.muted,fontSize:11}}>{book.views_visible !== false ? book.views : ''}</Text></View><View style={{width:3,height:3,borderRadius:1.5,backgroundColor:theme.muted,opacity:0.4}}/><Text style={{color:theme.muted,fontSize:11}}>{book.category}</Text></View></View><Feather name="chevron-right" size={18} color={theme.muted} style={{opacity:0.5}}/></Pressable>}
-function Library(p:C){const[libTab,setLibTab]=React.useState<'downloads'|'favorites'|'history'|'bookmarks'>('downloads');const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const theme=p.theme;const tabs:{key:'downloads'|'favorites'|'history'|'bookmarks';icon:string;label:string}[]=[{key:'downloads',icon:'download-cloud',label:tr(p,'downloads')},{key:'favorites',icon:'heart',label:tr(p,'favorites')},{key:'history',icon:'clock',label:tr(p,'history')},{key:'bookmarks',icon:'bookmark',label:tr(p,'bookmarks')}];const tabIdx=tabs.findIndex(x=>x.key===libTab);const slideAnim=React.useRef(new Animated.Value(tabIdx)).current;React.useEffect(()=>{Animated.timing(slideAnim,{toValue:tabIdx,duration:170,easing:Easing.bezier(0.25,0.1,0.25,1),useNativeDriver:true}).start()},[tabIdx]);const{width:sw}=useWindowDimensions();const pad=18;const contW=sw-pad*2;const inner=contW-8;const tabW=inner/4;const ids=libTab==='downloads'?p.state.downloads:libTab==='favorites'?p.state.favorites:libTab==='history'?p.state.history:p.state.bookmarks;return <Page theme={theme}><Header title={tr(p,'library')} sub={tr(p,'librarySub')} theme={theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/><View style={{backgroundColor:theme.card,borderRadius:16,borderWidth:1,borderColor:theme.line,marginBottom:24,shadowColor:'#000',shadowOpacity:0.03,shadowRadius:6,shadowOffset:{width:0,height:2},elevation:2,overflow:'hidden',flexDirection:'row',padding:4}}><Animated.View style={{position:'absolute',top:4,bottom:4,left:4,width:tabW,backgroundColor:theme.tint,borderRadius:12,transform:[{translateX:slideAnim.interpolate({inputRange:[0,1,2,3],outputRange:[0,tabW+4,tabW*2+8,tabW*3+12]})}]}}/>{tabs.map((t,i)=><Pressable key={t.key} onPress={()=>setLibTab(t.key)} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:14,zIndex:1}}><Feather name={I(t.icon)} size={18} color={libTab===t.key?theme.primary:theme.muted}/>{libTab===t.key&&<Text style={{fontSize:10,fontWeight:'800',color:theme.primary,marginTop:3}} numberOfLines={1}>{t.label}</Text>}</Pressable>)}</View><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><Text style={{fontSize:17,fontWeight:'900',color:theme.ink}}>{tabs[tabIdx].label}</Text><View style={{backgroundColor:theme.tint,borderRadius:8,paddingHorizontal:10,paddingVertical:4}}><Text style={{color:theme.primary,fontSize:11,fontWeight:'700'}}>{ids.length}টি</Text></View></View>{ids.length?ids.map(id=>{const b=p.allBooks.find(x=>x.id===id);return b&&<LibBookCard key={id} book={b} theme={theme} onPress={()=>p.open(id)}/> }):<Empty theme={theme}/>}</Page>}
-function Categories(p:C){const theme=p.theme;const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;return <Page theme={theme}><Header title={tr(p,'categories')} sub={tr(p,'categoriesSub')} theme={theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/><View style={styles.catGrid}>{p.allCategories.map(c=>{const count=p.allBooks.filter(b=>b.category===c[0]).length;const hasImg=Boolean(c[3]);const bookWord=count===1?'book':tr(p,'books');return <Pressable key={c[0]} onPress={()=>p.setScreen({type:'list',title:c[0],ids:p.allBooks.filter(b=>b.category===c[0]).map(b=>b.id)})} style={styles.catCard}><View style={[styles.catImgWrap]}>{hasImg?<Image source={{uri:c[3]!}} style={styles.catImg}/>:<View style={[styles.catImgFallback,{backgroundColor:c[2]}]}><Text style={{color:'#fff',fontSize:28,fontWeight:'900',opacity:0.5}}>{c[0][0]}</Text></View>}<View style={styles.catImgOverlay}><Text numberOfLines={1} style={styles.catImgName}>{c[0]}</Text></View></View><View style={[styles.catBadge,{backgroundColor:theme.tint}]}><Text style={[styles.catBadgeText,{color:theme.primary}]}>{count} {bookWord}</Text></View></Pressable>})}</View></Page>}
+function Header({title,sub,theme,action,onNotif,unreadCount}:{title:string;sub?:string;theme:Theme;action?:React.ReactNode;onNotif?:()=>void;unreadCount?:number}){return <View style={styles.header}><View style={{flex:1,marginRight:12}}><T numberOfLines={1} style={[styles.title,{color:theme.ink}]}>{title}</T>{sub&&<T numberOfLines={1} style={{color:theme.muted,marginTop:4}}>{sub}</T>}</View><View style={{flexDirection:'row',alignItems:'center',gap:18}}>{action}<Pressable onPress={()=>onNotif?onNotif():null} style={{position:'relative'}}><Feather name="bell" size={20} color={theme.ink}/>{!!unreadCount&&<View style={[styles.badge,{backgroundColor:'#EF4444'}]}><T style={styles.badgeText}>{unreadCount}</T></View>}</Pressable></View></View>}
+function Home(p:C){const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const books=p.allBooks;const byViews=(a:Book,b:Book)=>+b.views-(+a.views);const G='#2AA876',AU='#D9A407',BL='#3B82F6',PU='#8B5CF6';const order=['featured','newEpisodes','mostPopular','weeklyPopular','monthlyPopular','popularAuthors'];const cfg=(p.homeSections.length?p.homeSections:order.map(k=>({key:k,enabled:true}))).filter(c=>c.enabled).map(c=>c.key);const toBook=(b:any):Book=>({id:b.id,title:b.title,author:b.author,views:`${b.views}`,rating:4.5,color:b.color,accent:b.accent,category:b.category||'',categoryIcon:'book-open',description:b.description||'',updated:'',chapters:[],isNew:Boolean(b.is_new),featured:Boolean(b.featured),views_visible: b.views_visible !== false,cover_url:b.cover_url||null});const hd=p.homeData;const hlist=(k:string):Book[]=>{if(hd){const s=hd.sections.find(x=>x.key===k);if(s&&s.books&&s.books.length)return s.books.slice(0,12).map((b:any)=>toBook(b) as Book).filter((b:any)=>b&&b.id);}return[];};const htitle=(k:string)=>hd?(hd.sections.find(x=>x.key===k)?.title||''):'';const section=(title:string,icon:string,accent:string,list:Book[],rank?:boolean)=><View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:accent+'22'}]}><Feather name={I(icon)} size={14} color={accent}/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{title}</T></View><Pressable onPress={()=>p.setScreen({type:'list',title,ids:list.map(x=>x.id)})} style={[styles.seeAllPill,{backgroundColor:accent+'1A'}]}><T style={{color:accent,fontWeight:'800',fontSize:12}}>{tr(p,'seeAllText')}</T></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b,i)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={accent} rank={rank?i:undefined} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>;const authors=()=>p.publicWriters.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{p.publicWriters.map(w=><AuthorCard key={w.id} writer={w} theme={p.theme} lang={p.state.settings.language} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} bookCount={p.allBooks.filter(b=>b.author===w.writer_name).length}/>)}</ScrollView>:<Empty theme={p.theme}/>;const content=(k:string)=>{if(k==='featured'){const fl=hlist('featured');return <Featured {...p} list={fl}/>;}if(k==='popularAuthors')return <View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:'#EC4899'+'22'}]}><Feather name="users" size={14} color="#EC4899"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{htitle('popularAuthors')||tr(p,'popularAuthors')}</T></View></View>{authors()}</View>;if(k==='newEpisodes'){const l=hlist('newEpisodes');return section(htitle('newEpisodes')||tr(p,'newEpisodes'),'zap',G,l.length?l:books);}if(k==='weeklyPopular'){const l=hlist('weeklyPopular');return section(htitle('weeklyPopular')||tr(p,'weeklyPopular'),'calendar',BL,l.length?l:[...books].sort(byViews),true);}if(k==='monthlyPopular'){const l=hlist('monthlyPopular');return section(htitle('monthlyPopular')||tr(p,'monthlyPopular'),'star',PU,l.length?l:[...books].sort(byViews),true);}if(k==='mostPopular'){const l=hlist('mostPopular');return section(htitle('mostPopular')||tr(p,'mostPopular'),'trending-up',AU,l.length?l:[...books].sort(byViews),true);}return null;};return <Page theme={p.theme}><Header title={`${greet(p)}, ${p.state.name}`} sub={tr(p,'choose')} theme={p.theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un} action={<Pressable onPress={()=>p.setScreen({type:'search'})}><Feather name="search" size={21} color={p.theme.ink}/></Pressable>}/>{cfg.map(k=><React.Fragment key={k}>{content(k)}</React.Fragment>)}</Page>}
+function LibraryLink({title,icon,n,theme,onPress}:{title:string;icon:string;n:number;theme:Theme;onPress:()=>void}){const scale=React.useRef(new Animated.Value(1)).current;const pressIn=()=>{Animated.spring(scale,{toValue:0.96,useNativeDriver:true}).start()};const pressOut=()=>{Animated.spring(scale,{toValue:1,friction:3,tension:40,useNativeDriver:true}).start()};return <Animated.View style={{transform:[{scale}],width:'48.5%'}}><Pressable onPress={onPress} onPressIn={pressIn} onPressOut={pressOut} style={{backgroundColor:theme.card,borderRadius:20,borderWidth:1,borderColor:theme.line,paddingVertical:20,paddingHorizontal:16,shadowColor:'#000',shadowOpacity:0.04,shadowRadius:10,shadowOffset:{width:0,height:2},elevation:2}}><View style={{width:44,height:44,borderRadius:14,backgroundColor:theme.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}><Feather name={I(icon)} size={20} color={theme.primary}/></View><T style={{fontSize:14,fontWeight:'800',color:theme.ink,marginBottom:4}}>{title}</T><T style={{color:theme.muted,fontSize:11,fontWeight:'600'}}>{n}টি</T></Pressable></Animated.View>}
+function LibBookCard({book,theme,onPress}:{book:Book;theme:Theme;onPress:()=>void}){return <Pressable onPress={onPress} style={{backgroundColor:theme.card,borderRadius:18,borderWidth:1,borderColor:theme.line,flexDirection:'row',alignItems:'center',padding:12,marginBottom:12,shadowColor:'#000',shadowOpacity:0.03,shadowRadius:8,shadowOffset:{width:0,height:2},elevation:2,gap:14}}><View style={{width:72,height:96,borderRadius:12,backgroundColor:book.color,overflow:'hidden',justifyContent:'flex-end',padding:8}}>{book.cover_url?<><Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12}} resizeMode="cover"/><View style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12,backgroundColor:'rgba(0,0,0,0.15)'}}/></>:null}<T numberOfLines={2} style={{color:'#fff',fontWeight:'900',fontSize:10,lineHeight:13}}>{book.title}</T></View><View style={{flex:1}}><T numberOfLines={2} style={{fontSize:15,fontWeight:'800',color:theme.ink,lineHeight:20}}>{book.title}</T><T numberOfLines={1} style={{fontSize:12,fontWeight:'600',color:theme.primary,marginTop:5}}>{book.author}</T><View style={{flexDirection:'row',alignItems:'center',gap:6,marginTop:8}}><View style={{flexDirection:'row',alignItems:'center',gap:3}}><Feather name="eye" size={11} color={theme.muted}/><T style={{color:theme.muted,fontSize:11}}>{book.views_visible !== false ? book.views : ''}</T></View><View style={{width:3,height:3,borderRadius:1.5,backgroundColor:theme.muted,opacity:0.4}}/><T style={{color:theme.muted,fontSize:11}}>{book.category}</T></View></View><Feather name="chevron-right" size={18} color={theme.muted} style={{opacity:0.5}}/></Pressable>}
+function Library(p:C){const[libTab,setLibTab]=React.useState<'downloads'|'favorites'|'history'|'bookmarks'>('downloads');const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const theme=p.theme;const tabs:{key:'downloads'|'favorites'|'history'|'bookmarks';icon:string;label:string}[]=[{key:'downloads',icon:'download-cloud',label:tr(p,'downloads')},{key:'favorites',icon:'heart',label:tr(p,'favorites')},{key:'history',icon:'clock',label:tr(p,'history')},{key:'bookmarks',icon:'bookmark',label:tr(p,'bookmarks')}];const tabIdx=tabs.findIndex(x=>x.key===libTab);const slideAnim=React.useRef(new Animated.Value(tabIdx)).current;React.useEffect(()=>{Animated.timing(slideAnim,{toValue:tabIdx,duration:170,easing:Easing.bezier(0.25,0.1,0.25,1),useNativeDriver:true}).start()},[tabIdx]);const{width:sw}=useWindowDimensions();const pad=18;const contW=sw-pad*2;const inner=contW-8;const tabW=inner/4;const ids=libTab==='downloads'?p.state.downloads:libTab==='favorites'?p.state.favorites:libTab==='history'?p.state.history:p.state.bookmarks;return <Page theme={theme}><Header title={tr(p,'library')} sub={tr(p,'librarySub')} theme={theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/><View style={{backgroundColor:theme.card,borderRadius:16,borderWidth:1,borderColor:theme.line,marginBottom:24,shadowColor:'#000',shadowOpacity:0.03,shadowRadius:6,shadowOffset:{width:0,height:2},elevation:2,overflow:'hidden',flexDirection:'row',padding:4}}><Animated.View style={{position:'absolute',top:4,bottom:4,left:4,width:tabW,backgroundColor:theme.tint,borderRadius:12,transform:[{translateX:slideAnim.interpolate({inputRange:[0,1,2,3],outputRange:[0,tabW+4,tabW*2+8,tabW*3+12]})}]}}/>{tabs.map((t,i)=><Pressable key={t.key} onPress={()=>setLibTab(t.key)} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:14,zIndex:1}}><Feather name={I(t.icon)} size={18} color={libTab===t.key?theme.primary:theme.muted}/>{libTab===t.key&&<T style={{fontSize:10,fontWeight:'800',color:theme.primary,marginTop:3}} numberOfLines={1}>{t.label}</T>}</Pressable>)}</View><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><T style={{fontSize:17,fontWeight:'900',color:theme.ink}}>{tabs[tabIdx].label}</T><View style={{backgroundColor:theme.tint,borderRadius:8,paddingHorizontal:10,paddingVertical:4}}><T style={{color:theme.primary,fontSize:11,fontWeight:'700'}}>{ids.length}টি</T></View></View>{ids.length?ids.map(id=>{const b=p.allBooks.find(x=>x.id===id);return b&&<LibBookCard key={id} book={b} theme={theme} onPress={()=>p.open(id)}/> }):<Empty theme={theme}/>}</Page>}
+function Categories(p:C){const theme=p.theme;const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;return <Page theme={theme}><Header title={tr(p,'categories')} sub={tr(p,'categoriesSub')} theme={theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/><View style={styles.catGrid}>{p.allCategories.map(c=>{const count=p.allBooks.filter(b=>b.category===c[0]).length;const hasImg=Boolean(c[3]);const bookWord=count===1?'book':tr(p,'books');return <Pressable key={c[0]} onPress={()=>p.setScreen({type:'list',title:c[0],ids:p.allBooks.filter(b=>b.category===c[0]).map(b=>b.id)})} style={styles.catCard}><View style={[styles.catImgWrap]}>{hasImg?<Image source={{uri:c[3]!}} style={styles.catImg}/>:<View style={[styles.catImgFallback,{backgroundColor:c[2]}]}><T style={{color:'#fff',fontSize:28,fontWeight:'900',opacity:0.5}}>{c[0][0]}</T></View>}<View style={styles.catImgOverlay}><T numberOfLines={1} style={styles.catImgName}>{c[0]}</T></View></View><View style={[styles.catBadge,{backgroundColor:theme.tint}]}><T style={[styles.catBadgeText,{color:theme.primary}]}>{count} {bookWord}</T></View></Pressable>})}</View></Page>}
 function Episodes(p:C){const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;return <Page theme={p.theme}><Header title={tr(p,'episodes')} sub={tr(p,'episodesSub')} theme={p.theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/>{p.allBooks.map((b,i)=><Episode key={b.id} book={b} theme={p.theme} onPress={()=>p.read(b.id,(i+2)%b.chapters.length)}/>)}</Page>}
 function Profile(p:C){
   const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;
@@ -122,11 +126,11 @@ function Profile(p:C){
     <ScrollView showsVerticalScrollIndicator={false}>
     <Pressable onPress={()=>p.setScreen({type:'profileDetails'})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:12,borderWidth:1,borderColor:t.line}}>
       <View style={{width:42,height:42,borderRadius:21,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
-        <Text style={{fontSize:18,fontWeight:'900',color:t.primary}}>{p.state.name[0]?.toUpperCase()||'?'}</Text>
+        <T style={{fontSize:18,fontWeight:'900',color:t.primary}}>{p.state.name[0]?.toUpperCase()||'?'}</T>
       </View>
       <View style={{flex:1,marginLeft:12}}>
-        <Text numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{p.state.name}</Text>
-        <Text style={{fontSize:11,color:t.muted,marginTop:1}}>{tr(p,'regularReader')}</Text>
+        <T numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{p.state.name}</T>
+        <T style={{fontSize:11,color:t.muted,marginTop:1}}>{tr(p,'regularReader')}</T>
       </View>
       <Feather name="chevron-right" size={18} color={t.muted}/>
     </Pressable>
@@ -138,12 +142,12 @@ function Profile(p:C){
           <Feather name="zap" size={16} color={t.primary}/>
         </View>
         <View style={{flex:1,marginLeft:10}}>
-          <Text style={{fontSize:13,fontWeight:'800',color:t.ink}}>{tr(p,'readingStreak')}</Text>
-          <Text style={{fontSize:10,color:t.muted,marginTop:1}}>{tr(p,'keepItUp')}</Text>
+          <T style={{fontSize:13,fontWeight:'800',color:t.ink}}>{tr(p,'readingStreak')}</T>
+          <T style={{fontSize:10,color:t.muted,marginTop:1}}>{tr(p,'keepItUp')}</T>
         </View>
         <View style={{alignItems:'center',backgroundColor:t.card,borderRadius:10,paddingHorizontal:10,paddingVertical:5,borderWidth:1,borderColor:t.line}}>
           <Animated.Text style={{fontSize:20,fontWeight:'900',color:t.primary}}>{counterDisplay}</Animated.Text>
-          <Text style={{fontSize:8,fontWeight:'800',color:t.muted,marginTop:-2}}>{tr(p,'days')}</Text>
+          <T style={{fontSize:8,fontWeight:'800',color:t.muted,marginTop:-2}}>{tr(p,'days')}</T>
         </View>
       </View>
       <View style={{flexDirection:'row',justifyContent:'space-between',marginTop:10,paddingHorizontal:2}}>
@@ -151,7 +155,7 @@ function Profile(p:C){
           <View style={{width:24,height:24,borderRadius:12,backgroundColor:active?t.primary:isToday?t.card:`${t.primary}11`,alignItems:'center',justifyContent:'center',borderWidth:isToday?2:0,borderColor:isToday?t.primary:'transparent'}}>
             {active?<Feather name="check" size={10} color="#fff"/>:isToday&&<View style={{width:5,height:5,borderRadius:3,backgroundColor:t.primary}}/>}
           </View>
-          <Text style={{fontSize:8,fontWeight:isToday?'800':'600',color:isToday?t.ink:t.muted}}>{dayLabels[i]}</Text>
+          <T style={{fontSize:8,fontWeight:isToday?'800':'600',color:isToday?t.ink:t.muted}}>{dayLabels[i]}</T>
         </Animated.View>})}
       </View>
     </Animated.View>
@@ -160,40 +164,40 @@ function Profile(p:C){
     <Animated.View style={{opacity:cardFade2,transform:[{translateY:cardFade2.interpolate({inputRange:[0,1],outputRange:[10,0]})}],backgroundColor:t.card,borderRadius:12,paddingHorizontal:12,paddingTop:10,paddingBottom:10,marginBottom:12,borderWidth:1,borderColor:t.line}}>
       <View style={{flexDirection:'row',alignItems:'center',marginBottom:8}}>
         <Feather name="bar-chart-2" size={12} color={t.primary}/>
-        <Text style={{fontSize:11,fontWeight:'800',color:t.ink,marginLeft:6}}>{tr(p,'yourReading')}</Text>
-        <Text style={{fontSize:9,color:t.muted,marginLeft:'auto'}}>{tr(p,'weekSummary')}</Text>
+        <T style={{fontSize:11,fontWeight:'800',color:t.ink,marginLeft:6}}>{tr(p,'yourReading')}</T>
+        <T style={{fontSize:9,color:t.muted,marginLeft:'auto'}}>{tr(p,'weekSummary')}</T>
       </View>
       <View style={{flexDirection:'row',gap:6,marginBottom:8}}>
         <View style={{flex:1,flexDirection:'row',alignItems:'center',gap:6,backgroundColor:`${t.primary}08`,borderRadius:8,paddingHorizontal:10,paddingVertical:6}}>
           <Feather name="clock" size={12} color={t.primary}/>
           <View>
-            <Text style={{fontSize:15,fontWeight:'900',color:t.primary,lineHeight:17}}>{weekMins}</Text>
-            <Text style={{fontSize:8,fontWeight:'600',color:t.muted}}>{tr(p,'minRead')}</Text>
+            <T style={{fontSize:15,fontWeight:'900',color:t.primary,lineHeight:17}}>{weekMins}</T>
+            <T style={{fontSize:8,fontWeight:'600',color:t.muted}}>{tr(p,'minRead')}</T>
           </View>
         </View>
         <View style={{flex:1,flexDirection:'row',alignItems:'center',gap:6,backgroundColor:`${t.primary}08`,borderRadius:8,paddingHorizontal:10,paddingVertical:6}}>
           <Feather name="book-open" size={12} color={t.primary}/>
           <View>
-            <Text style={{fontSize:15,fontWeight:'900',color:t.primary,lineHeight:17}}>{weekEps}</Text>
-            <Text style={{fontSize:8,fontWeight:'600',color:t.muted}}>{tr(p,'episodesDone')}</Text>
+            <T style={{fontSize:15,fontWeight:'900',color:t.primary,lineHeight:17}}>{weekEps}</T>
+            <T style={{fontSize:8,fontWeight:'600',color:t.muted}}>{tr(p,'episodesDone')}</T>
           </View>
         </View>
       </View>
       <View style={{flexDirection:'row',alignItems:'flex-end',justifyContent:'space-between',height:30,paddingHorizontal:1}}>
         {[0,1,2,3,4,5,6].map(i=>{const d=new Date();d.setDate(d.getDate()-6+i);const k=d.toISOString().slice(0,10);const m=p.state.readingActivity[k]?.minutes||0;const h=Math.max(2,Math.round(m/maxBar*24));const today=new Date().toISOString().slice(0,10);const isToday=k===today;return <Animated.View key={i} style={{alignItems:'center',flex:1,justifyContent:'flex-end',gap:2,transform:[{scaleY:weekBars[i]}]}}>
           <View style={{width:'55%',height:h,backgroundColor:m?t.primary:isToday?`${t.primary}15`:`${t.primary}08`,borderRadius:2,minHeight:2}}/>
-          <Text style={{fontSize:7,fontWeight:isToday?'800':'500',color:isToday?t.primary:t.muted}}>{dayLabels[i]}</Text>
+          <T style={{fontSize:7,fontWeight:isToday?'800':'500',color:isToday?t.primary:t.muted}}>{dayLabels[i]}</T>
         </Animated.View>})}
       </View>
     </Animated.View>
 
     <Pressable onPress={()=>p.setScreen({type:'writer'})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:8,borderWidth:1,borderColor:t.line}}>
       {p.state.writer?.avatar_url?<Image source={{uri:p.state.writer.avatar_url}} style={{width:42,height:42,borderRadius:21}}/>:<View style={{width:42,height:42,borderRadius:21,backgroundColor:p.state.writer?t.primary:t.tint,alignItems:'center',justifyContent:'center'}}>
-        {p.state.writer?<Text style={{fontSize:18,fontWeight:'900',color:'#fff'}}>{p.state.writer.writer_name[0]?.toUpperCase()||'?'}</Text>:<Feather name="edit-3" size={18} color={t.primary}/>}
+        {p.state.writer?<T style={{fontSize:18,fontWeight:'900',color:'#fff'}}>{p.state.writer.writer_name[0]?.toUpperCase()||'?'}</T>:<Feather name="edit-3" size={18} color={t.primary}/>}
       </View>}
       <View style={{flex:1,marginLeft:12}}>
-        <Text numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{p.state.writer?p.state.writer.writer_name:tr(p,'writer')}</Text>
-        <Text style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.writer?tr(p,'writerStudio'):tr(p,'writerStudioSub')}</Text>
+        <T numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{p.state.writer?p.state.writer.writer_name:tr(p,'writer')}</T>
+        <T style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.writer?tr(p,'writerStudio'):tr(p,'writerStudioSub')}</T>
       </View>
       <Feather name="chevron-right" size={18} color={t.muted}/>
     </Pressable>
@@ -203,8 +207,8 @@ function Profile(p:C){
         <Feather name="users" size={18} color={t.primary}/>
       </View>
       <View style={{flex:1,marginLeft:12}}>
-        <Text numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{tr(p,'followedWriters')}</Text>
-        <Text style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.followedWriters.length} {tr(p,'writers')}</Text>
+        <T numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{tr(p,'followedWriters')}</T>
+        <T style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.followedWriters.length} {tr(p,'writers')}</T>
       </View>
       <Feather name="chevron-right" size={18} color={t.muted}/>
     </Pressable>
@@ -214,13 +218,13 @@ function Profile(p:C){
         <Feather name="settings" size={18} color={t.primary}/>
       </View>
       <View style={{flex:1,marginLeft:12}}>
-        <Text numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{tr(p,'settings')}</Text>
-        <Text style={{fontSize:11,color:t.muted,marginTop:1}}>{tr(p,'theme')}, {tr(p,'language')}</Text>
+        <T numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{tr(p,'settings')}</T>
+        <T style={{fontSize:11,color:t.muted,marginTop:1}}>{tr(p,'theme')}, {tr(p,'language')}</T>
       </View>
       <Feather name="chevron-right" size={18} color={t.muted}/>
     </Pressable>
 
-    <Text style={[styles.menuGroupTitle,{color:t.muted}]}>{tr(p,'aboutApp')}</Text>
+    <T style={[styles.menuGroupTitle,{color:t.muted}]}>{tr(p,'aboutApp')}</T>
     <View style={[styles.menuGroup,{backgroundColor:t.card}]}>
       <Menu title={tr(p,'shareApp')} icon="share-2" theme={t} onPress={()=>Share.share({message:'Lekhoni Kahini - Bengali stories app'})}/>
       <Menu title={tr(p,'rateApp')} icon="star" theme={t} onPress={()=>Alert.alert(tr(p,'rateApp'),tr(p,'appDesc'))}/>
@@ -253,16 +257,16 @@ function ProfileDetails(p:C){
     <Back title={tr(p,'guestReader')} theme={t} onPress={()=>p.setScreen({type:'main'})}/>
     <ScrollView showsVerticalScrollIndicator={false}>
       <View style={[styles.profileCard,{backgroundColor:t.card}]}>
-        <View style={[styles.avatarBig,{backgroundColor:t.tint}]}><Text style={{fontSize:28,fontWeight:'900',color:t.primary}}>{p.state.name[0]?.toUpperCase()||'?'}</Text></View>
-        <Text style={[styles.profileNameBig,{color:t.ink}]}>{p.state.name}</Text>
-        <Text style={[styles.profileBadge,{color:t.muted}]}>{tr(p,'regularReader')}</Text>
+        <View style={[styles.avatarBig,{backgroundColor:t.tint}]}><T style={{fontSize:28,fontWeight:'900',color:t.primary}}>{p.state.name[0]?.toUpperCase()||'?'}</T></View>
+        <T style={[styles.profileNameBig,{color:t.ink}]}>{p.state.name}</T>
+        <T style={[styles.profileBadge,{color:t.muted}]}>{tr(p,'regularReader')}</T>
         <View style={[styles.profileStats,{backgroundColor:t.bg}]}>
-          <View style={styles.profileStat}><Text style={[styles.profileStatNum,{color:t.primary}]}>{favs}</Text><Text style={[styles.profileStatLabel,{color:t.muted}]}>{tr(p,'favorites')}</Text></View>
-          <View style={[styles.profileStat,{borderLeftWidth:1,borderLeftColor:t.line}]}><Text style={[styles.profileStatNum,{color:t.primary}]}>{downs}</Text><Text style={[styles.profileStatLabel,{color:t.muted}]}>{tr(p,'downloads')}</Text></View>
-          <View style={[styles.profileStat,{borderLeftWidth:1,borderLeftColor:t.line}]}><Text style={[styles.profileStatNum,{color:t.primary}]}>{hist}</Text><Text style={[styles.profileStatLabel,{color:t.muted}]}>{tr(p,'history')}</Text></View>
+          <View style={styles.profileStat}><T style={[styles.profileStatNum,{color:t.primary}]}>{favs}</T><T style={[styles.profileStatLabel,{color:t.muted}]}>{tr(p,'favorites')}</T></View>
+          <View style={[styles.profileStat,{borderLeftWidth:1,borderLeftColor:t.line}]}><T style={[styles.profileStatNum,{color:t.primary}]}>{downs}</T><T style={[styles.profileStatLabel,{color:t.muted}]}>{tr(p,'downloads')}</T></View>
+          <View style={[styles.profileStat,{borderLeftWidth:1,borderLeftColor:t.line}]}><T style={[styles.profileStatNum,{color:t.primary}]}>{hist}</T><T style={[styles.profileStatLabel,{color:t.muted}]}>{tr(p,'history')}</T></View>
         </View>
         <Pressable onPress={()=>{setNameInput(p.state.name);setEditing(true)}} style={{marginTop:10,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,backgroundColor:t.tint,borderRadius:12,paddingHorizontal:14,paddingVertical:8}}>
-          <Feather name="edit-2" size={14} color={t.primary}/><Text style={{color:t.primary,fontWeight:'800',fontSize:13}}>{tr(p,'editName')}</Text>
+          <Feather name="edit-2" size={14} color={t.primary}/><T style={{color:t.primary,fontWeight:'800',fontSize:13}}>{tr(p,'editName')}</T>
         </Pressable>
       </View>
 
@@ -272,15 +276,15 @@ function ProfileDetails(p:C){
             <Feather name={sec.icon as any} size={17} color={t.primary}/>
           </View>
           <View style={{flex:1,marginLeft:12}}>
-            <Text style={{fontSize:14,fontWeight:'800',color:t.ink}}>{sec.title}</Text>
-            <Text style={{fontSize:11,color:t.muted,marginTop:1}}>{sec.count} {tr(p,'books')}</Text>
+            <T style={{fontSize:14,fontWeight:'800',color:t.ink}}>{sec.title}</T>
+            <T style={{fontSize:11,color:t.muted,marginTop:1}}>{sec.count} {tr(p,'books')}</T>
           </View>
           <Feather name="chevron-right" size={18} color={t.muted}/>
         </View>
       </Pressable>)}
     </ScrollView>
 
-    {editing&&<Pressable onPress={()=>setEditing(false)} style={styles.nameModal}><Pressable onPress={()=>{}} style={[styles.nameModalBox,{backgroundColor:t.card}]}><Text style={[styles.nameModalTitle,{color:t.ink}]}>{tr(p,'editName')}</Text><Text style={[styles.nameModalHint,{color:t.muted}]}>{tr(p,'editNameHint')}</Text><TextInput autoFocus value={nameInput} onChangeText={v=>setNameInput(v.slice(0,20))} placeholder={tr(p,'regularReader')} placeholderTextColor={t.muted} style={[styles.nameInput,{color:t.ink,backgroundColor:t.bg,borderColor:t.line}]}/><View style={styles.nameModalBtns}><Pressable onPress={()=>setEditing(false)} style={[styles.nameBtn,{backgroundColor:t.bg}]}><Text style={{color:t.muted,fontWeight:'900'}}>{tr(p,'cancel')}</Text></Pressable><Pressable onPress={()=>{if(nameInput.trim()){p.update({name:nameInput.trim()});setEditing(false)}}} style={[styles.nameBtn,{backgroundColor:t.primary}]}><Text style={{color:'#fff',fontWeight:'900'}}>{tr(p,'save')}</Text></Pressable></View></Pressable></Pressable>}
+    {editing&&<Pressable onPress={()=>setEditing(false)} style={styles.nameModal}><Pressable onPress={()=>{}} style={[styles.nameModalBox,{backgroundColor:t.card}]}><T style={[styles.nameModalTitle,{color:t.ink}]}>{tr(p,'editName')}</T><T style={[styles.nameModalHint,{color:t.muted}]}>{tr(p,'editNameHint')}</T><TextInput autoFocus value={nameInput} onChangeText={v=>setNameInput(v.slice(0,20))} placeholder={tr(p,'regularReader')} placeholderTextColor={t.muted} style={[styles.nameInput,{color:t.ink,backgroundColor:t.bg,borderColor:t.line}]}/><View style={styles.nameModalBtns}><Pressable onPress={()=>setEditing(false)} style={[styles.nameBtn,{backgroundColor:t.bg}]}><T style={{color:t.muted,fontWeight:'900'}}>{tr(p,'cancel')}</T></Pressable><Pressable onPress={()=>{if(nameInput.trim()){p.update({name:nameInput.trim()});setEditing(false)}}} style={[styles.nameBtn,{backgroundColor:t.primary}]}><T style={{color:'#fff',fontWeight:'900'}}>{tr(p,'save')}</T></Pressable></View></Pressable></Pressable>}
   </Page>}
 
 function FollowedWritersList(p:C){
@@ -303,19 +307,19 @@ function FollowedWritersList(p:C){
         <View style={{width:60,height:60,borderRadius:30,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}>
           <Feather name="users" size={26} color={t.muted}/>
         </View>
-        <Text style={{fontSize:14,fontWeight:'700',color:t.muted,textAlign:'center'}}>{tr(p,'noFollowedWriters')}</Text>
+        <T style={{fontSize:14,fontWeight:'700',color:t.muted,textAlign:'center'}}>{tr(p,'noFollowedWriters')}</T>
       </View>
     :<ScrollView showsVerticalScrollIndicator={false}>
       {writers.map(w=><Pressable key={w.id} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:8,borderWidth:1,borderColor:t.line}}>
         <View style={{width:44,height:44,borderRadius:22,backgroundColor:t.primary,alignItems:'center',justifyContent:'center'}}>
-          <Text style={{fontSize:18,fontWeight:'900',color:'#fff'}}>{w.writer_name[0]?.toUpperCase()||'?'}</Text>
+          <T style={{fontSize:18,fontWeight:'900',color:'#fff'}}>{w.writer_name[0]?.toUpperCase()||'?'}</T>
         </View>
         <View style={{flex:1,marginLeft:12}}>
-          <Text numberOfLines={1} style={{fontSize:14,fontWeight:'800',color:t.ink}}>{w.writer_name} <BadgeIcon badge={w.badge} size={14}/></Text>
-          <Text style={{fontSize:11,color:t.muted,marginTop:1}}>@{w.username}{w.follower_count?` · ${w.follower_count} ${tr(p,'followers')}`:''}</Text>
+          <T numberOfLines={1} style={{fontSize:14,fontWeight:'800',color:t.ink}}>{w.writer_name} <BadgeIcon badge={w.badge} size={14}/></T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>@{w.username}{w.follower_count?` · ${w.follower_count} ${tr(p,'followers')}`:''}</T>
         </View>
         <Pressable onPress={()=>toggleFollow(w.id)} style={{paddingHorizontal:14,paddingVertical:7,borderRadius:10,backgroundColor:t.tint}}>
-          <Text style={{fontSize:12,fontWeight:'800',color:t.primary}}>{tr(p,'unfollow')}</Text>
+          <T style={{fontSize:12,fontWeight:'800',color:t.primary}}>{tr(p,'unfollow')}</T>
         </Pressable>
       </Pressable>)}
     </ScrollView>}
@@ -349,51 +353,51 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
     <Back title={tr(p,'writer')} theme={t} onPress={()=>p.setScreen({type:'main'})}/>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:30}}>
       <View style={{alignItems:'center',paddingTop:10,marginBottom:20}}>
-        {w.avatar_url?<Image source={{uri:w.avatar_url}} style={{width:100,height:100,borderRadius:24,backgroundColor:t.tint}}/>:<View style={{width:100,height:100,borderRadius:24,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}><Text style={{fontSize:40,fontWeight:'900',color:t.primary}}>{w.writer_name[0]?.toUpperCase()||'?'}</Text></View>}
+        {w.avatar_url?<Image source={{uri:w.avatar_url}} style={{width:100,height:100,borderRadius:24,backgroundColor:t.tint}}/>:<View style={{width:100,height:100,borderRadius:24,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}><T style={{fontSize:40,fontWeight:'900',color:t.primary}}>{w.writer_name[0]?.toUpperCase()||'?'}</T></View>}
         <View style={{flexDirection:'row',alignItems:'center',gap:6}}>
-          <Text style={{fontSize:22,fontWeight:'900',color:t.ink}}>{w.writer_name}</Text>
+          <T style={{fontSize:22,fontWeight:'900',color:t.ink}}>{w.writer_name}</T>
           <BadgeIcon badge={w.badge} size={22}/>
         </View>
-        <Text style={{fontSize:13,fontWeight:'500',color:t.muted,marginTop:3}}>@{w.username}</Text>
-        {w.bio&&<Text style={{fontSize:13,color:t.muted,marginTop:8,textAlign:'center',lineHeight:20,maxWidth:300}}>{w.bio}</Text>}
+        <T style={{fontSize:13,fontWeight:'500',color:t.muted,marginTop:3}}>@{w.username}</T>
+        {w.bio&&<T style={{fontSize:13,color:t.muted,marginTop:8,textAlign:'center',lineHeight:20,maxWidth:300}}>{w.bio}</T>}
       </View>
       <View style={{flexDirection:'row',marginHorizontal:16,marginBottom:16}}>
         <View style={{flex:1,alignItems:'center',paddingVertical:14,backgroundColor:t.card,borderRadius:14,borderWidth:1,borderColor:t.line}}>
-          <Text style={{fontSize:20,fontWeight:'900',color:t.primary}}>{published}</Text>
-          <Text style={{fontSize:11,fontWeight:'700',color:t.muted,marginTop:2}}>{tr(p,'publishedCount')}</Text>
+          <T style={{fontSize:20,fontWeight:'900',color:t.primary}}>{published}</T>
+          <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginTop:2}}>{tr(p,'publishedCount')}</T>
         </View>
         <View style={{width:8}}/>
         <View style={{flex:1,alignItems:'center',paddingVertical:14,backgroundColor:t.card,borderRadius:14,borderWidth:1,borderColor:t.line}}>
-          <Text style={{fontSize:20,fontWeight:'900',color:t.primary}}>{totalReads}</Text>
-          <Text style={{fontSize:11,fontWeight:'700',color:t.muted,marginTop:2}}>{tr(p,'totalReads')}</Text>
+          <T style={{fontSize:20,fontWeight:'900',color:t.primary}}>{totalReads}</T>
+          <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginTop:2}}>{tr(p,'totalReads')}</T>
         </View>
         <View style={{width:8}}/>
         <View style={{flex:1,alignItems:'center',paddingVertical:14,backgroundColor:t.card,borderRadius:14,borderWidth:1,borderColor:t.line}}>
-          <Text style={{fontSize:20,fontWeight:'900',color:t.primary}}>{followers}</Text>
-          <Text style={{fontSize:11,fontWeight:'700',color:t.muted,marginTop:2}}>{tr(p,'followers')}</Text>
+          <T style={{fontSize:20,fontWeight:'900',color:t.primary}}>{followers}</T>
+          <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginTop:2}}>{tr(p,'followers')}</T>
         </View>
       </View>
       {phase==='spinning'?<View style={{marginHorizontal:16,height:48,borderRadius:14,backgroundColor:t.tint,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,marginBottom:6}}>
         <Animated.View style={{transform:[{rotate:spinDeg}]}}><Feather name="loader" size={16} color={t.primary}/></Animated.View>
-        <Text style={{fontSize:14,fontWeight:'800',color:t.primary}}>{tr(p,'follow')}</Text>
+        <T style={{fontSize:14,fontWeight:'800',color:t.primary}}>{tr(p,'follow')}</T>
       </View>:<Pressable onPress={phase==='followed'?doUnfollow:doFollow} style={{marginHorizontal:16,height:48,borderRadius:14,backgroundColor:phase==='followed'?t.bg:t.primary,borderWidth:phase==='followed'?1.5:0,borderColor:t.line,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,marginBottom:6}}>
         <Feather name={phase==='followed'?'user-check':'user-plus'} size={16} color={phase==='followed'?t.ink:'#fff'}/>
-        <Text style={{fontSize:14,fontWeight:'800',color:phase==='followed'?t.ink:'#fff'}}>{phase==='followed'?'ফলো করছেন':tr(p,'follow')}</Text>
+        <T style={{fontSize:14,fontWeight:'800',color:phase==='followed'?t.ink:'#fff'}}>{phase==='followed'?'ফলো করছেন':tr(p,'follow')}</T>
       </Pressable>}
-      <Text style={{fontSize:11,color:t.muted,textAlign:'center',marginBottom:20,lineHeight:17,paddingHorizontal:28}}>{tr(p,'followHint')}</Text>
+      <T style={{fontSize:11,color:t.muted,textAlign:'center',marginBottom:20,lineHeight:17,paddingHorizontal:28}}>{tr(p,'followHint')}</T>
       {writerBooks.length>0&&<>
         <View style={{flexDirection:'row',alignItems:'center',marginHorizontal:16,marginBottom:12}}>
-          <Text style={{fontSize:16,fontWeight:'900',color:t.ink,flex:1}}>{tr(p,'storiesBy')} {w.writer_name}</Text>
-          <Text style={{fontSize:12,fontWeight:'700',color:t.muted}}>{published} {tr(p,'books')}</Text>
+          <T style={{fontSize:16,fontWeight:'900',color:t.ink,flex:1}}>{tr(p,'storiesBy')} {w.writer_name}</T>
+          <T style={{fontSize:12,fontWeight:'700',color:t.muted}}>{published} {tr(p,'books')}</T>
         </View>
         {writerBooks.map(b=><Row key={b.id} book={b} theme={t} onPress={()=>p.open(b.id)}/>)}
       </>}
     </ScrollView>
   </Page>}
 
-function Search(p:C){const [q,setQ]=useState('');const result=q?p.allBooks.filter(b=>`${b.title}${b.author}${b.category}`.includes(q)):p.allBooks.slice(0,3);return <Page theme={p.theme}><Back title="অনুসন্ধান" theme={p.theme} onPress={()=>p.setScreen({type:'main'})}/><View style={[styles.search,{backgroundColor:p.theme.card,borderColor:p.theme.line}]}><Feather name="search" size={18} color={p.theme.muted}/><TextInput autoFocus value={q} onChangeText={setQ} placeholder="বই, লেখক বা বিভাগ খুঁজুন" placeholderTextColor={p.theme.muted} style={{flex:1,color:p.theme.ink}}/></View><Text style={[styles.group,{color:p.theme.muted}]}>{q?`${result.length}টি ফলাফল`:'জনপ্রিয় এখন'}</Text>{result.map(b=><Row key={b.id} book={b} theme={p.theme} onPress={()=>{p.update({searchHistory:[q,...p.state.searchHistory.filter(x=>x!==q)].filter(Boolean)});p.open(b.id)}}/>)}{!result.length&&<Empty theme={p.theme}/>}</Page>}
-function Notifications(p:C){const [expanded,setExpanded]=useState<Record<string,boolean>>({});const toggle=(id:string)=>setExpanded(e=>({...e,[id]:!e[id]}));const allNotices=p.remoteNotices.map(n=>({id:n.id,title:n.title,body:n.body,icon:n.icon,url:n.url,time:n.time}));const iconBg=p.theme.primary+'22';const list=allNotices.map(n=>{const isRead=p.state.readNotifications.includes(n.id);const isExpanded=Boolean(expanded[n.id]);const hasLink=Boolean(n.url&&n.url.trim());const openLink=()=>{let u=n.url.trim();if(u&&!/^https?:\/\//i.test(u))u='https://'+u;Linking.openURL(u).catch(()=>{})};const needsExpand=n.body.length>80;return <Pressable key={n.id} onPress={()=>{p.update({readNotifications:[...new Set([...p.state.readNotifications,n.id])]});if(needsExpand)toggle(n.id);}} style={[styles.notifCard,{backgroundColor:isRead?p.theme.card:p.theme.tint,borderColor:p.theme.line,borderLeftColor:isRead?p.theme.line:p.theme.primary,borderLeftWidth:isRead?1:3}]}><View style={[styles.notifIconWrap,{backgroundColor:isRead?p.theme.line:iconBg}]}><Feather name={I(n.icon)} size={20} color={isRead?p.theme.muted:p.theme.primary}/></View><View style={{flex:1}}><View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><Text numberOfLines={1} style={[styles.notifTitle,{color:isRead?p.theme.muted:p.theme.ink}]}>{n.title}</Text><View style={{flexDirection:'row',alignItems:'center',gap:6}}>{hasLink&&<Pressable onPress={openLink} style={[styles.notifLink,{borderColor:p.theme.primary}]}><Feather name="external-link" size={10} color={p.theme.primary}/><Text style={{color:p.theme.primary,fontSize:10,fontWeight:'700'}}>{tr(p,'openLink')}</Text></Pressable>}{!isRead&&<View style={[styles.notifLiveDot,{backgroundColor:p.theme.primary}]}/>}</View></View><Text numberOfLines={isExpanded?undefined:2} style={[styles.notifBody,{color:p.theme.muted}]}>{n.body}</Text><Text style={[styles.notifTime,{color:isRead?p.theme.line:p.theme.primary,marginTop:6}]}>{n.time}</Text></View></Pressable>});return <Page theme={p.theme}><Back title={tr(p,'notificationsTitle')} theme={p.theme} onPress={()=>p.setScreen({type:'main'})}/>{list.length?list:<View style={{alignItems:'center',justifyContent:'center',minHeight:400}}><Feather name="bell-off" size={32} color={p.theme.line}/><Text style={{color:p.theme.muted,marginTop:10}}>{tr(p,'noNotifications')}</Text></View>}</Page>}
-function BookList(p:C&{title:string;ids:string[]}){return <Page theme={p.theme}><Back title={p.title} theme={p.theme} onPress={()=>p.setScreen({type:'main'})}/><Text style={{color:p.theme.muted,marginBottom:15}}>{p.ids.length}টি বই</Text>{p.ids.length?p.ids.map(id=>{const b=p.allBooks.find(x=>x.id===id);return b&&<Row key={id} book={b} theme={p.theme} onPress={()=>p.open(id)}/>}):<Empty theme={p.theme}/>}</Page>}
+function Search(p:C){const [q,setQ]=useState('');const result=q?p.allBooks.filter(b=>`${b.title}${b.author}${b.category}`.includes(q)):p.allBooks.slice(0,3);return <Page theme={p.theme}><Back title="অনুসন্ধান" theme={p.theme} onPress={()=>p.setScreen({type:'main'})}/><View style={[styles.search,{backgroundColor:p.theme.card,borderColor:p.theme.line}]}><Feather name="search" size={18} color={p.theme.muted}/><TextInput autoFocus value={q} onChangeText={setQ} placeholder="বই, লেখক বা বিভাগ খুঁজুন" placeholderTextColor={p.theme.muted} style={{flex:1,color:p.theme.ink,fontFamily:F}}/></View><T style={[styles.group,{color:p.theme.muted}]}>{q?`${result.length}টি ফলাফল`:'জনপ্রিয় এখন'}</T>{result.map(b=><Row key={b.id} book={b} theme={p.theme} onPress={()=>{p.update({searchHistory:[q,...p.state.searchHistory.filter(x=>x!==q)].filter(Boolean)});p.open(b.id)}}/>)}{!result.length&&<Empty theme={p.theme}/>}</Page>}
+function Notifications(p:C){const [expanded,setExpanded]=useState<Record<string,boolean>>({});const toggle=(id:string)=>setExpanded(e=>({...e,[id]:!e[id]}));const allNotices=p.remoteNotices.map(n=>({id:n.id,title:n.title,body:n.body,icon:n.icon,url:n.url,time:n.time}));const iconBg=p.theme.primary+'22';const list=allNotices.map(n=>{const isRead=p.state.readNotifications.includes(n.id);const isExpanded=Boolean(expanded[n.id]);const hasLink=Boolean(n.url&&n.url.trim());const openLink=()=>{let u=n.url.trim();if(u&&!/^https?:\/\//i.test(u))u='https://'+u;Linking.openURL(u).catch(()=>{})};const needsExpand=n.body.length>80;return <Pressable key={n.id} onPress={()=>{p.update({readNotifications:[...new Set([...p.state.readNotifications,n.id])]});if(needsExpand)toggle(n.id);}} style={[styles.notifCard,{backgroundColor:isRead?p.theme.card:p.theme.tint,borderColor:p.theme.line,borderLeftColor:isRead?p.theme.line:p.theme.primary,borderLeftWidth:isRead?1:3}]}><View style={[styles.notifIconWrap,{backgroundColor:isRead?p.theme.line:iconBg}]}><Feather name={I(n.icon)} size={20} color={isRead?p.theme.muted:p.theme.primary}/></View><View style={{flex:1}}><View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><T numberOfLines={1} style={[styles.notifTitle,{color:isRead?p.theme.muted:p.theme.ink}]}>{n.title}</T><View style={{flexDirection:'row',alignItems:'center',gap:6}}>{hasLink&&<Pressable onPress={openLink} style={[styles.notifLink,{borderColor:p.theme.primary}]}><Feather name="external-link" size={10} color={p.theme.primary}/><T style={{color:p.theme.primary,fontSize:10,fontWeight:'700'}}>{tr(p,'openLink')}</T></Pressable>}{!isRead&&<View style={[styles.notifLiveDot,{backgroundColor:p.theme.primary}]}/>}</View></View><T numberOfLines={isExpanded?undefined:2} style={[styles.notifBody,{color:p.theme.muted}]}>{n.body}</T><T style={[styles.notifTime,{color:isRead?p.theme.line:p.theme.primary,marginTop:6}]}>{n.time}</T></View></Pressable>});return <Page theme={p.theme}><Back title={tr(p,'notificationsTitle')} theme={p.theme} onPress={()=>p.setScreen({type:'main'})}/>{list.length?list:<View style={{alignItems:'center',justifyContent:'center',minHeight:400}}><Feather name="bell-off" size={32} color={p.theme.line}/><T style={{color:p.theme.muted,marginTop:10}}>{tr(p,'noNotifications')}</T></View>}</Page>}
+function BookList(p:C&{title:string;ids:string[]}){return <Page theme={p.theme}><Back title={p.title} theme={p.theme} onPress={()=>p.setScreen({type:'main'})}/><T style={{color:p.theme.muted,marginBottom:15}}>{p.ids.length}টি বই</T>{p.ids.length?p.ids.map(id=>{const b=p.allBooks.find(x=>x.id===id);return b&&<Row key={id} book={b} theme={p.theme} onPress={()=>p.open(id)}/>}):<Empty theme={p.theme}/>}</Page>}
 const dStyles=StyleSheet.create({
  hero:{borderRadius:26,overflow:'hidden',marginBottom:18,elevation:5,shadowColor:'#000',shadowOpacity:.28,shadowRadius:12,shadowOffset:{width:0,height:6}},
  heroHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,paddingTop:14,zIndex:3},
@@ -416,7 +420,7 @@ const dStyles=StyleSheet.create({
  sumCard:{borderRadius:18,padding:16,borderWidth:1},
  chapter:{minHeight:70,borderRadius:16,borderWidth:1,padding:12,marginBottom:10,flexDirection:'row',alignItems:'center',gap:12},
  numGrad:{width:44,height:44,borderRadius:13,alignItems:'center',justifyContent:'center'},
- cmtInput:{flex:1,minHeight:44,maxHeight:90,borderRadius:13,borderWidth:1,paddingHorizontal:12,paddingTop:11,fontSize:13},
+ cmtInput:{flex:1,minHeight:44,maxHeight:90,borderRadius:13,borderWidth:1,paddingHorizontal:12,paddingTop:11,fontSize:13,fontFamily:'HindSiliguriMedium'},
  postBtn:{borderRadius:13,paddingHorizontal:14,height:44,alignItems:'center',justifyContent:'center'},
  cmtItem:{flexDirection:'row',gap:11,marginTop:14,alignItems:'flex-start'},
  
@@ -484,7 +488,7 @@ function Details(p:C&{book:Book}){const b=p.book;if(!b)return <Page theme={p.the
     <Animated.View style={{opacity:fade}}>
       <View style={dStyles.nav}>
         <Pressable onPress={()=>p.setScreen({type:'main'})} hitSlop={10} style={[dStyles.navBtn,{backgroundColor:t.card,borderColor:t.line}]}><Feather name="arrow-left" size={19} color={t.ink}/></Pressable>
-        <Text numberOfLines={1} style={[dStyles.navTitle,{color:t.ink}]}>{b.title}</Text>
+        <T numberOfLines={1} style={[dStyles.navTitle,{color:t.ink}]}>{b.title}</T>
         <Pressable onPress={toggleFav} hitSlop={8} style={[dStyles.navBtn,{backgroundColor:fav?'#EF4444':t.card,borderColor:fav?'#EF4444':t.line}]}><Feather name="heart" size={17} color={fav?'#fff':t.ink}/></Pressable>
         <Pressable onPress={()=>Share.share({message:`${b.title} - ${b.author}`})} hitSlop={8} style={[dStyles.navBtn,{backgroundColor:t.card,borderColor:t.line}]}><Feather name="share-2" size={17} color={t.ink}/></Pressable>
       </View>
@@ -494,33 +498,33 @@ function Details(p:C&{book:Book}){const b=p.book;if(!b)return <Page theme={p.the
         <View style={dStyles.storyCard}>
           <View style={dStyles.coverBox}><Cover book={b}/></View>
           <View style={dStyles.storyInfo}>
-            <View style={[dStyles.statusBadge,{backgroundColor:accent+'2E'}]}><Feather name={I(b.categoryIcon)} size={11} color={accent}/><Text style={{color:accent,fontSize:10.5,fontWeight:'900'}}>{b.category||tr(p,'chapters')}</Text></View>
-            <Text numberOfLines={2} style={dStyles.storyTitle}>{b.title}</Text>
-            <Text numberOfLines={1} style={dStyles.storyAuthor}>{b.author}</Text>
+            <View style={[dStyles.statusBadge,{backgroundColor:accent+'2E'}]}><Feather name={I(b.categoryIcon)} size={11} color={accent}/><T style={{color:accent,fontSize:10.5,fontWeight:'900'}}>{b.category||tr(p,'chapters')}</T></View>
+            <T numberOfLines={2} style={dStyles.storyTitle}>{b.title}</T>
+            <T numberOfLines={1} style={dStyles.storyAuthor}>{b.author}</T>
             <View style={dStyles.tagRow}>
-              <View style={[dStyles.miniTag,{backgroundColor:'#ffffff1F'}]}><Feather name="star" size={10} color={accent}/><Text style={dStyles.miniTagT}>{b.rating}</Text></View>
-              <View style={[dStyles.miniTag,{backgroundColor:'#ffffff1F'}]}><Feather name="book-open" size={10} color="#EAF4F1"/><Text style={dStyles.miniTagT}>{b.chapters.length} {tr(p,'chapters')}</Text></View>
-              {b.isNew?<View style={[dStyles.miniTag,{backgroundColor:'#F59E0B'}]}><Text style={dStyles.miniTagT}>নতুন</Text></View>:null}
+              <View style={[dStyles.miniTag,{backgroundColor:'#ffffff1F'}]}><Feather name="star" size={10} color={accent}/><T style={dStyles.miniTagT}>{b.rating}</T></View>
+              <View style={[dStyles.miniTag,{backgroundColor:'#ffffff1F'}]}><Feather name="book-open" size={10} color="#EAF4F1"/><T style={dStyles.miniTagT}>{b.chapters.length} {tr(p,'chapters')}</T></View>
+              {b.isNew?<View style={[dStyles.miniTag,{backgroundColor:'#F59E0B'}]}><T style={dStyles.miniTagT}>নতুন</T></View>:null}
             </View>
           </View>
         </View>
       </View>
       <View style={[dStyles.interRow,{backgroundColor:t.card,borderColor:t.line}]}>
-        {b.views_visible!==false?<View style={dStyles.statItem}><Feather name="eye" size={15} color={t.muted}/><Text style={[dStyles.statVal,{color:t.ink}]}>{b.views}</Text></View>:null}
-        <View style={dStyles.statItem}><Animated.View style={{transform:[{scale:likeScale}]}}><Pressable onPress={doLike} hitSlop={8} style={[dStyles.ytBtn,{width:38,height:38,borderRadius:19,borderColor:liked?'#EF4444':t.line,backgroundColor:liked?'#EF4444':'transparent'}]}><Feather name="thumbs-up" size={15} color={liked?'#fff':t.ink}/></Pressable></Animated.View><Text style={[dStyles.statVal,{color:liked?'#EF4444':t.ink}]}>{likes}</Text></View>
+        {b.views_visible!==false?<View style={dStyles.statItem}><Feather name="eye" size={15} color={t.muted}/><T style={[dStyles.statVal,{color:t.ink}]}>{b.views}</T></View>:null}
+        <View style={dStyles.statItem}><Animated.View style={{transform:[{scale:likeScale}]}}><Pressable onPress={doLike} hitSlop={8} style={[dStyles.ytBtn,{width:38,height:38,borderRadius:19,borderColor:liked?'#EF4444':t.line,backgroundColor:liked?'#EF4444':'transparent'}]}><Feather name="thumbs-up" size={15} color={liked?'#fff':t.ink}/></Pressable></Animated.View><T style={[dStyles.statVal,{color:liked?'#EF4444':t.ink}]}>{likes}</T></View>
         <Pressable onPress={doDislike} hitSlop={8} style={dStyles.statItem}><View style={[dStyles.ytBtn,{width:38,height:38,borderRadius:19,borderColor:disliked?'#3B82F6':t.line,backgroundColor:disliked?'#3B82F6':'transparent'}]}><Feather name="thumbs-down" size={14} color={disliked?'#fff':t.ink}/></View></Pressable>
-        <Pressable onPress={goComments} hitSlop={8} style={dStyles.statItem}><Feather name="message-circle" size={16} color={cmtCount==null?'#90A4AE':t.primary}/><Text style={[dStyles.statVal,{color:cmtCount==null?t.muted:t.primary}]}>{cmtCount==null?'…':cmtCount}</Text></Pressable>
+        <Pressable onPress={goComments} hitSlop={8} style={dStyles.statItem}><Feather name="message-circle" size={16} color={cmtCount==null?'#90A4AE':t.primary}/><T style={[dStyles.statVal,{color:cmtCount==null?t.muted:t.primary}]}>{cmtCount==null?'…':cmtCount}</T></Pressable>
         <Pressable onPress={toggleFav} hitSlop={8} style={dStyles.statItem}><Feather name="bookmark" size={16} color={fav?'#EF4444':t.muted}/></Pressable>
       </View>
-      <Pressable onPress={readAll} style={[dStyles.readBtn,{backgroundColor:t.primary,marginTop:2,marginBottom:10}]}><Feather name="book-open" size={18} color="#fff"/><Text style={dStyles.readBtnTxt}>{tr(p,'startReading')}</Text></Pressable>
-      {isOffline?<Pressable onPress={doDownload} style={[dStyles.dlBtn,{backgroundColor:'#10B981',borderColor:'#10B981'}]}><Feather name="check-circle" size={18} color="#fff"/><Text style={{color:'#fff',fontWeight:'900',fontSize:15}}>{tr(p,'readOffline')}</Text></Pressable>:
-      dlPct!==null?<View style={[dStyles.dlBtn,{backgroundColor:t.card,borderColor:t.line}]}><Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Path d="M12 3v10m0 0l-4-4m4 4l4-4" stroke={t.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></Svg><Text style={{color:t.primary,fontWeight:'900',fontSize:14}}>{tr(p,'downloading')}… {dlPct}%</Text></View>:
-      <Pressable onPress={doDownload} style={[dStyles.dlBtn,{backgroundColor:t.card,borderColor:t.line}]}><Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Path d="M12 3v10m0 0l-4-4m4 4l4-4" stroke={t.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/><Path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke={t.primary} strokeWidth={2} strokeLinecap="round"/></Svg><Text style={{color:t.primary,fontWeight:'900',fontSize:15}}>{tr(p,'readOffline')}</Text></Pressable>}
+      <Pressable onPress={readAll} style={[dStyles.readBtn,{backgroundColor:t.primary,marginTop:2,marginBottom:10}]}><Feather name="book-open" size={18} color="#fff"/><T style={dStyles.readBtnTxt}>{tr(p,'startReading')}</T></Pressable>
+      {isOffline?<Pressable onPress={doDownload} style={[dStyles.dlBtn,{backgroundColor:'#10B981',borderColor:'#10B981'}]}><Feather name="check-circle" size={18} color="#fff"/><T style={{color:'#fff',fontWeight:'900',fontSize:15}}>{tr(p,'readOffline')}</T></Pressable>:
+      dlPct!==null?<View style={[dStyles.dlBtn,{backgroundColor:t.card,borderColor:t.line}]}><Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Path d="M12 3v10m0 0l-4-4m4 4l4-4" stroke={t.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></Svg><T style={{color:t.primary,fontWeight:'900',fontSize:14}}>{tr(p,'downloading')}… {dlPct}%</T></View>:
+      <Pressable onPress={doDownload} style={[dStyles.dlBtn,{backgroundColor:t.card,borderColor:t.line}]}><Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Path d="M12 3v10m0 0l-4-4m4 4l4-4" stroke={t.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/><Path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke={t.primary} strokeWidth={2} strokeLinecap="round"/></Svg><T style={{color:t.primary,fontWeight:'900',fontSize:15}}>{tr(p,'readOffline')}</T></Pressable>}
       <Section title={tr(p,'chapters')} theme={t}/>
-      {b.chapters.length?b.chapters.map((c,i)=><Pressable key={c.id} onPress={()=>p.read(b.id,i)} style={[dStyles.chapter,{backgroundColor:t.card,borderColor:t.line}]}><View style={[dStyles.numBadge,{backgroundColor:accent+'1F'}]}><Text style={{color:accent,fontWeight:'900',fontSize:13}}>{i+1}</Text></View><View style={{flex:1}}><Text style={[styles.rowTitle,{color:t.ink}]}>{c.title}</Text><Text style={{color:t.muted,fontSize:11,marginTop:2}}>অধ্যায় {i+1} • {c.minutes} মিনিট</Text></View><Feather name="chevron-right" size={18} color={t.muted}/></Pressable>):<Empty theme={t}/>}
+      {b.chapters.length?b.chapters.map((c,i)=><Pressable key={c.id} onPress={()=>p.read(b.id,i)} style={[dStyles.chapter,{backgroundColor:t.card,borderColor:t.line}]}><View style={[dStyles.numBadge,{backgroundColor:accent+'1F'}]}><T style={{color:accent,fontWeight:'900',fontSize:13}}>{i+1}</T></View><View style={{flex:1}}><T style={[styles.rowTitle,{color:t.ink}]}>{c.title}</T><T style={{color:t.muted,fontSize:11,marginTop:2}}>অধ্যায় {i+1} • {c.minutes} মিনিট</T></View><Feather name="chevron-right" size={18} color={t.muted}/></Pressable>):<Empty theme={t}/>}
       <Section title={tr(p,'summary')} theme={t}/>
-      <View style={[dStyles.sumCard,{backgroundColor:t.card,borderColor:t.line}]}><Text style={{color:t.ink,lineHeight:23}}>{b.description||'—'}</Text></View>
-      <Pressable onPress={()=>Share.share({message:`${b.title} - ${b.author}`})} style={[dStyles.shareBtn,{borderColor:t.line}]}><Feather name="share-2" size={18} color={t.primary}/><Text style={{color:t.ink,fontWeight:'800'}}>{tr(p,'shareBook')}</Text></Pressable>
+      <View style={[dStyles.sumCard,{backgroundColor:t.card,borderColor:t.line}]}><T style={{color:t.ink,lineHeight:23}}>{b.description||'—'}</T></View>
+      <Pressable onPress={()=>Share.share({message:`${b.title} - ${b.author}`})} style={[dStyles.shareBtn,{borderColor:t.line}]}><Feather name="share-2" size={18} color={t.primary}/><T style={{color:t.ink,fontWeight:'800'}}>{tr(p,'shareBook')}</T></Pressable>
     </Animated.View>
   </Page>}
 function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x=>x.id===p.bookId)||p.dlBooks[p.bookId];const [items,setItems]=useState<{id:string;display_name:string;body:string;created_at:string}[]>([]);const [draft,setDraft]=useState('');const [posting,setPosting]=useState(false);const [loading,setLoading]=useState(true);
@@ -532,23 +536,23 @@ function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x
     <ScrollView style={{flex:1,backgroundColor:t.bg}} contentContainerStyle={{paddingHorizontal:18,paddingTop:insets.top+12,paddingBottom:130}} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
       <Back title={b?.title||tr(p,'comments')} theme={t} onPress={()=>p.setScreen({type:'book',id:p.bookId})}/>
       <Section title={tr(p,'comments')} theme={t}/>
-      <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:12}}><Feather name="message-circle" size={16} color={t.primary}/><Text style={{color:t.muted,fontSize:13,fontWeight:'800'}}>{items.length} {tr(p,'comments')}</Text><Pressable onPress={load} hitSlop={8}><Feather name="refresh-cw" size={14} color={t.primary}/></Pressable></View>
+      <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:12}}><Feather name="message-circle" size={16} color={t.primary}/><T style={{color:t.muted,fontSize:13,fontWeight:'800'}}>{items.length} {tr(p,'comments')}</T><Pressable onPress={load} hitSlop={8}><Feather name="refresh-cw" size={14} color={t.primary}/></Pressable></View>
       <View style={[dStyles.composer,{borderColor:t.line,backgroundColor:t.card,elevation:2,shadowColor:'#000',shadowOpacity:.06,shadowRadius:8,shadowOffset:{width:0,height:3}}]}>
-        <View style={[dStyles.avatar2,{backgroundColor:t.tint}]}><Text style={{color:t.primary,fontWeight:'900',fontSize:14}}>{(p.state.name||'?')[0]}</Text></View>
+        <View style={[dStyles.avatar2,{backgroundColor:t.tint}]}><T style={{color:t.primary,fontWeight:'900',fontSize:14}}>{(p.state.name||'?')[0]}</T></View>
         <TextInput value={draft} onChangeText={setDraft} placeholder={tr(p,'writeComment')} placeholderTextColor={t.muted} multiline style={[dStyles.cmtInput,{flex:1,color:t.ink,backgroundColor:t.bg,borderColor:t.line}]}/>
-        <Pressable disabled={!draft.trim()||posting} onPress={post} style={[dStyles.postBtn,{backgroundColor:!draft.trim()?'#90A4AE':t.primary,opacity:posting?.6:1,paddingHorizontal:16}]}><Text style={{color:'#fff',fontWeight:'900',fontSize:12}}>{posting?'...':tr(p,'postComment')}</Text></Pressable>
+        <Pressable disabled={!draft.trim()||posting} onPress={post} style={[dStyles.postBtn,{backgroundColor:!draft.trim()?'#90A4AE':t.primary,opacity:posting?.6:1,paddingHorizontal:16}]}><T style={{color:'#fff',fontWeight:'900',fontSize:12}}>{posting?'...':tr(p,'postComment')}</T></Pressable>
       </View>
       <View style={{marginTop:4}}>
         {loading?<View style={{alignItems:'center',paddingVertical:34}}><ActivityIndicator color={t.primary}/></View>:
-        !items.length?<View style={{alignItems:'center',paddingVertical:40}}><Feather name="message-circle" size={30} color={t.muted}/><Text style={{color:t.muted,fontSize:13,marginTop:10,textAlign:'center'}}>{tr(p,'noComments')}</Text></View>:
-        items.map(c=><View key={c.id} style={[dStyles.cmtItem,{width:'100%',borderBottomWidth:1,borderBottomColor:t.line,paddingVertical:12}]}><View style={[dStyles.avatar,{backgroundColor:t.tint}]}><Text style={{color:t.primary,fontWeight:'900'}}>{(c.display_name||'?')[0]}</Text></View><View style={{flex:1}}><View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><Text style={[styles.rowTitle,{color:t.ink,fontSize:13}]}>{c.display_name}</Text><Text style={{color:t.line,fontSize:10}}>{new Date(c.created_at).toLocaleDateString()}</Text></View><Text style={{color:t.ink,fontSize:13,lineHeight:19,marginTop:2}}>{c.body}</Text></View></View>)}
+        !items.length?<View style={{alignItems:'center',paddingVertical:40}}><Feather name="message-circle" size={30} color={t.muted}/><T style={{color:t.muted,fontSize:13,marginTop:10,textAlign:'center'}}>{tr(p,'noComments')}</T></View>:
+        items.map(c=><View key={c.id} style={[dStyles.cmtItem,{width:'100%',borderBottomWidth:1,borderBottomColor:t.line,paddingVertical:12}]}><View style={[dStyles.avatar,{backgroundColor:t.tint}]}><T style={{color:t.primary,fontWeight:'900'}}>{(c.display_name||'?')[0]}</T></View><View style={{flex:1}}><View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><T style={[styles.rowTitle,{color:t.ink,fontSize:13}]}>{c.display_name}</T><T style={{color:t.line,fontSize:10}}>{new Date(c.created_at).toLocaleDateString()}</T></View><T style={{color:t.ink,fontSize:13,lineHeight:19,marginTop:2}}>{c.body}</T></View></View>)}
       </View>
     </ScrollView>
   </KeyboardAvoidingView>
 }
-function Reader(p:C&{book:Book;chapter:number}){const insets=useSafeAreaInsets();const {width}=useWindowDimensions();const c=p.book.chapters[p.chapter];if(!c)return <View style={{flex:1,backgroundColor:p.theme.reader,alignItems:'center',justifyContent:'center',padding:30}}><Feather name="book-open" size={40} color={p.theme.muted}/><Text style={{color:p.theme.ink,fontWeight:'800',fontSize:16,textAlign:'center',marginTop:14}}>এই বইয়ে এখনো কোনো অধ্যায় নেই।</Text><Button title="ফিরে যান" icon="arrow-left" onPress={()=>p.setScreen({type:'book',id:p.book.id})}/></View>;const key=c.id,progress=p.state.positions[key]||0;
+function Reader(p:C&{book:Book;chapter:number}){const insets=useSafeAreaInsets();const {width}=useWindowDimensions();const c=p.book.chapters[p.chapter];if(!c)return <View style={{flex:1,backgroundColor:p.theme.reader,alignItems:'center',justifyContent:'center',padding:30}}><Feather name="book-open" size={40} color={p.theme.muted}/><T style={{color:p.theme.ink,fontWeight:'800',fontSize:16,textAlign:'center',marginTop:14}}>এই বইয়ে এখনো কোনো অধ্যায় নেই।</T><Button title="ফিরে যান" icon="arrow-left" onPress={()=>p.setScreen({type:'book',id:p.book.id})}/></View>;const key=c.id,progress=p.state.positions[key]||0;
 useEffect(()=>{const today=new Date().toISOString().slice(0,10);const prev=p.state.readingActivity[today]||{minutes:0,episodes:0};if(!prev.episodes||!prev.minutes){p.update({readingActivity:{...p.state.readingActivity,[today]:{minutes:prev.minutes+(c.minutes||5),episodes:prev.episodes+1}}})}},[c.id]);
-const change=(patch:Partial<LocalState['settings']>)=>p.update({settings:{...p.state.settings,...patch}});const readerSize=Math.max(16,Math.min(25,p.state.settings.fontSize));const readerLine=Math.round(Math.max(readerSize+6,Math.min(48,p.state.settings.lineHeight))*p.state.settings.lineSpacing);const readerFont=p.state.settings.fontFamily==='serif'?'serif':(p.state.settings.fontFamily==='loose'?'sans-serif':undefined);const sidePadding=Math.max(18,Math.min(30,Math.round(width*.07)));return <View style={{flex:1,backgroundColor:p.theme.reader}}><View style={[styles.readerHead,{borderBottomColor:p.theme.line,paddingTop:insets.top+8,paddingBottom:10}]}><Pressable hitSlop={10} onPress={()=>p.setScreen({type:'book',id:p.book.id})}><Feather name="arrow-left" size={22} color={p.theme.ink}/></Pressable><View style={{flex:1,marginLeft:16}}><Text allowFontScaling={false} numberOfLines={1} style={{color:p.theme.ink,fontWeight:'900'}}>{c.title}</Text><Text allowFontScaling={false} numberOfLines={1} style={{color:p.theme.muted,fontSize:10}}>{p.book.title}</Text></View><Pressable hitSlop={10} onPress={()=>p.update({bookmarks:p.state.bookmarks.includes(key)?p.state.bookmarks.filter(x=>x!==key):[...p.state.bookmarks,key]})}><Feather name="bookmark" size={21} color={p.state.bookmarks.includes(key)?p.theme.primary:p.theme.ink}/></Pressable></View><ScrollView showsVerticalScrollIndicator={false} onScroll={e=>{const n=e.nativeEvent;const v=Math.round(n.contentOffset.y/Math.max(1,n.contentSize.height-n.layoutMeasurement.height)*100);if(Math.abs(v-progress)>15)p.update({positions:{...p.state.positions,[key]:v}})}} scrollEventThrottle={800} contentContainerStyle={[styles.readerBody,{paddingHorizontal:sidePadding,paddingBottom:insets.bottom+110}]}><Text allowFontScaling={false} style={{color:p.theme.primary,textAlign:'center',fontWeight:'900'}}>অধ্যায় {p.chapter+1}</Text><Text allowFontScaling={false} style={[styles.readerTitle,{color:p.theme.ink,fontSize:Math.min(30,Math.max(25,width*.075))}]}>{c.title}</Text><Text allowFontScaling={false} style={{color:p.theme.ink,fontSize:readerSize,lineHeight:readerLine,fontFamily:readerFont,maxWidth:680,alignSelf:'center'}}>{c.body}</Text><Text allowFontScaling={false} style={{textAlign:'center',color:p.theme.primary,fontSize:25,marginTop:30}}>❦</Text></ScrollView><View style={[styles.readerTools,{backgroundColor:p.theme.card,borderTopColor:p.theme.line,paddingBottom:Math.max(8,insets.bottom),paddingTop:10}]}><Pressable hitSlop={8} disabled={p.chapter===0} onPress={()=>p.read(p.book.id,p.chapter-1)}><Text allowFontScaling={false} style={{color:p.theme.ink,fontSize:12,fontWeight:'700',opacity:p.chapter===0?.3:1}}>← আগের</Text></Pressable><Pressable hitSlop={8} onPress={()=>change({fontSize:Math.max(15,p.state.settings.fontSize-1)})}><Text allowFontScaling={false} style={{color:p.theme.primary,fontWeight:'900'}}>A−</Text></Pressable><Pressable hitSlop={8} onPress={()=>change({fontSize:Math.min(28,p.state.settings.fontSize+1)})}><Text allowFontScaling={false} style={{color:p.theme.primary,fontWeight:'900'}}>A+</Text></Pressable><Pressable hitSlop={8} onPress={()=>change({dark:!p.state.settings.dark})}><Feather name="moon" size={19} color={p.theme.primary}/></Pressable><Pressable hitSlop={8} disabled={p.chapter===p.book.chapters.length-1} onPress={()=>p.read(p.book.id,p.chapter+1)}><Text allowFontScaling={false} style={{color:p.theme.ink,fontSize:12,fontWeight:'700',opacity:p.chapter===p.book.chapters.length-1?.3:1}}>পরের →</Text></Pressable></View></View>}
+const change=(patch:Partial<LocalState['settings']>)=>p.update({settings:{...p.state.settings,...patch}});const readerSize=Math.max(16,Math.min(25,p.state.settings.fontSize));const readerLine=Math.round(Math.max(readerSize+6,Math.min(48,p.state.settings.lineHeight))*p.state.settings.lineSpacing);const readerFont=p.state.settings.fontFamily==='serif'?'serif':(p.state.settings.fontFamily==='loose'?'sans-serif':'HindSiliguriMedium');const sidePadding=Math.max(18,Math.min(30,Math.round(width*.07)));return <View style={{flex:1,backgroundColor:p.theme.reader}}><View style={[styles.readerHead,{borderBottomColor:p.theme.line,paddingTop:insets.top+8,paddingBottom:10}]}><Pressable hitSlop={10} onPress={()=>p.setScreen({type:'book',id:p.book.id})}><Feather name="arrow-left" size={22} color={p.theme.ink}/></Pressable><View style={{flex:1,marginLeft:16}}><T allowFontScaling={false} numberOfLines={1} style={{color:p.theme.ink,fontWeight:'900'}}>{c.title}</T><T allowFontScaling={false} numberOfLines={1} style={{color:p.theme.muted,fontSize:10}}>{p.book.title}</T></View><Pressable hitSlop={10} onPress={()=>p.update({bookmarks:p.state.bookmarks.includes(key)?p.state.bookmarks.filter(x=>x!==key):[...p.state.bookmarks,key]})}><Feather name="bookmark" size={21} color={p.state.bookmarks.includes(key)?p.theme.primary:p.theme.ink}/></Pressable></View><ScrollView showsVerticalScrollIndicator={false} onScroll={e=>{const n=e.nativeEvent;const v=Math.round(n.contentOffset.y/Math.max(1,n.contentSize.height-n.layoutMeasurement.height)*100);if(Math.abs(v-progress)>15)p.update({positions:{...p.state.positions,[key]:v}})}} scrollEventThrottle={800} contentContainerStyle={[styles.readerBody,{paddingHorizontal:sidePadding,paddingBottom:insets.bottom+110}]}><T allowFontScaling={false} style={{color:p.theme.primary,textAlign:'center',fontWeight:'900'}}>অধ্যায় {p.chapter+1}</T><T allowFontScaling={false} style={[styles.readerTitle,{color:p.theme.ink,fontSize:Math.min(30,Math.max(25,width*.075))}]}>{c.title}</T><T allowFontScaling={false} style={{color:p.theme.ink,fontSize:readerSize,lineHeight:readerLine,fontFamily:readerFont,maxWidth:680,alignSelf:'center'}}>{c.body}</T><T allowFontScaling={false} style={{textAlign:'center',color:p.theme.primary,fontSize:25,marginTop:30}}>❦</T></ScrollView><View style={[styles.readerTools,{backgroundColor:p.theme.card,borderTopColor:p.theme.line,paddingBottom:Math.max(8,insets.bottom),paddingTop:10}]}><Pressable hitSlop={8} disabled={p.chapter===0} onPress={()=>p.read(p.book.id,p.chapter-1)}><T allowFontScaling={false} style={{color:p.theme.ink,fontSize:12,fontWeight:'700',opacity:p.chapter===0?.3:1}}>← আগের</T></Pressable><Pressable hitSlop={8} onPress={()=>change({fontSize:Math.max(15,p.state.settings.fontSize-1)})}><T allowFontScaling={false} style={{color:p.theme.primary,fontWeight:'900'}}>A−</T></Pressable><Pressable hitSlop={8} onPress={()=>change({fontSize:Math.min(28,p.state.settings.fontSize+1)})}><T allowFontScaling={false} style={{color:p.theme.primary,fontWeight:'900'}}>A+</T></Pressable><Pressable hitSlop={8} onPress={()=>change({dark:!p.state.settings.dark})}><Feather name="moon" size={19} color={p.theme.primary}/></Pressable><Pressable hitSlop={8} disabled={p.chapter===p.book.chapters.length-1} onPress={()=>p.read(p.book.id,p.chapter+1)}><T allowFontScaling={false} style={{color:p.theme.ink,fontSize:12,fontWeight:'700',opacity:p.chapter===p.book.chapters.length-1?.3:1}}>পরের →</T></Pressable></View></View>}
 function AnimatedToggle({value,onChange,color,track}:{value:boolean;onChange:(v:boolean)=>void;color:string;track:string}){
   const anim=useRef(new Animated.Value(value?1:0)).current;
   useEffect(()=>{Animated.timing(anim,{toValue:value?1:0,duration:230,useNativeDriver:true}).start();},[value,anim]);
@@ -584,7 +588,7 @@ function Settings(p:C){
   return <Page theme={t}>
     <Back title={tr(p,'settings')} theme={t} onPress={()=>p.setScreen({type:'main'})}/>
 
-    <Text style={[styles.group,{color:t.muted,marginTop:4}]}>Themes</Text>
+    <T style={[styles.group,{color:t.muted,marginTop:4}]}>Themes</T>
     <View style={{borderRadius:18,borderWidth:1,borderColor:t.line,backgroundColor:t.card,padding:9}}>
       <View style={{flexDirection:'row',flexWrap:'wrap',gap:5}}>
         {themes.map(th=>{
@@ -598,184 +602,184 @@ function Settings(p:C){
               <FlowerArt kind={isFlower?th.id:'dot'} s={36} primary={selTheme.primary} tint={selTheme.tint} bg={selTheme.bg}/>
             </View>
             <View style={{alignItems:'center',paddingVertical:3}}>
-              <Text style={{fontSize:8,fontWeight:'800',color:selTheme.ink}} numberOfLines={1}>{th.nameEn}</Text>
+              <T style={{fontSize:8,fontWeight:'800',color:selTheme.ink}} numberOfLines={1}>{th.nameEn}</T>
             </View>
             {selected&&<View style={{position:'absolute',top:3,right:3,width:13,height:13,borderRadius:7,backgroundColor:t.primary,alignItems:'center',justifyContent:'center'}}><Feather name="check" size={8} color="#fff"/></View>}
           </Pressable>})}
       </View>
     </View>
 
-    <Text style={[styles.group,{color:t.muted}]}>{tr(p,'appearance')}</Text>
+    <T style={[styles.group,{color:t.muted}]}>{tr(p,'appearance')}</T>
     <View style={styles.menuGroup}>
       <View style={[styles.menuItem,{backgroundColor:t.card}]}>
         <View style={[styles.menuIconBig,{backgroundColor:darkMode?'#1E293B':t.tint}]}><Feather name={darkMode?'moon':'sun'} size={18} color={darkMode?'#FCD34D':t.primary}/></View>
         <View style={{flex:1}}>
-          <Text style={[styles.rowTitle,{color:t.ink}]}>{darkMode?tr(p,'darkMode'):tr(p,'lightMode')}</Text>
-          <Text style={{fontSize:11,color:t.muted,marginTop:1}}>{darkMode?tr(p,'darkModeSub'):tr(p,'lightModeSub')}</Text>
+          <T style={[styles.rowTitle,{color:t.ink}]}>{darkMode?tr(p,'darkMode'):tr(p,'lightMode')}</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>{darkMode?tr(p,'darkModeSub'):tr(p,'lightModeSub')}</T>
         </View>
         <AnimatedToggle value={darkMode} onChange={(v)=>set({dark:v})} color={t.primary} track={t.line}/>
       </View>
       <View style={[styles.menuSep,{backgroundColor:t.line,marginLeft:62}]}/>
       <View style={[styles.menuItem,{backgroundColor:t.card}]}>
         <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="type" size={18} color={t.primary}/></View>
-        <Text style={[styles.rowTitle,{color:t.ink,flex:1}]}>{tr(p,'readerSize')}</Text>
+        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{tr(p,'readerSize')}</T>
         <View style={{alignItems:'center'}}>
           <View style={{flexDirection:'row',alignItems:'center',gap:10}}>
             <Pressable onPress={()=>{const f=Math.max(16,p.state.settings.fontSize-2);set({fontSize:f,lineHeight:f+13});}} style={{width:34,height:34,borderRadius:11,backgroundColor:p.state.settings.fontSize<=16?t.bg:t.tint,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:t.line}}>
               <Feather name="minus" size={17} color={p.state.settings.fontSize<=16?t.muted:t.primary}/>
             </Pressable>
             <View style={{width:58,height:58,borderRadius:18,borderWidth:2,borderColor:t.line,backgroundColor:t.bg,alignItems:'center',justifyContent:'center'}}>
-              <Text style={{fontSize:Math.max(12,p.state.settings.fontSize-2),fontWeight:'900',color:t.ink,lineHeight:Math.max(12,p.state.settings.fontSize-2)+6}}>Aa</Text>
+              <T style={{fontSize:Math.max(12,p.state.settings.fontSize-2),fontWeight:'900',color:t.ink,lineHeight:Math.max(12,p.state.settings.fontSize-2)+6}}>Aa</T>
             </View>
             <Pressable onPress={()=>{const f=Math.min(28,p.state.settings.fontSize+2);set({fontSize:f,lineHeight:f+13});}} style={{width:34,height:34,borderRadius:11,backgroundColor:p.state.settings.fontSize>=28?t.bg:t.tint,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:t.line}}>
               <Feather name="plus" size={17} color={p.state.settings.fontSize>=28?t.muted:t.primary}/>
             </Pressable>
           </View>
-          <Text style={{color:t.muted,fontSize:10,marginTop:4}}>{p.state.settings.fontSize}px</Text>
+          <T style={{color:t.muted,fontSize:10,marginTop:4}}>{p.state.settings.fontSize}px</T>
         </View>
       </View>
     </View>
 
-    <Text style={[styles.group,{color:t.muted}]}>Reading</Text>
+    <T style={[styles.group,{color:t.muted}]}>Reading</T>
     <View style={styles.menuGroup}>
       <View style={[styles.menuItem,{backgroundColor:t.card}]}>
         <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="align-justify" size={18} color={t.primary}/></View>
         <View style={{flex:1}}>
-          <Text style={[styles.rowTitle,{color:t.ink}]}>Line spacing</Text>
-          <Text style={{fontSize:11,color:t.muted,marginTop:1}}>লাইনের ফাঁক সামঞ্জস্য করুন</Text>
+          <T style={[styles.rowTitle,{color:t.ink}]}>Line spacing</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>লাইনের ফাঁক সামঞ্জস্য করুন</T>
         </View>
         <View style={{flexDirection:'row',alignItems:'center',gap:8}}>
           <Pressable onPress={()=>set({lineSpacing:Math.round((Math.max(0.8,p.state.settings.lineSpacing-0.1))*10)/10})} style={{width:30,height:30,borderRadius:9,backgroundColor:p.state.settings.lineSpacing<=0.8?t.bg:t.tint,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:t.line}}><Feather name="minus" size={15} color={p.state.settings.lineSpacing<=0.8?t.muted:t.primary}/></Pressable>
-          <Text style={{color:t.ink,fontWeight:'800',fontSize:13,width:30,textAlign:'center'}}>{p.state.settings.lineSpacing.toFixed(1)}</Text>
+          <T style={{color:t.ink,fontWeight:'800',fontSize:13,width:30,textAlign:'center'}}>{p.state.settings.lineSpacing.toFixed(1)}</T>
           <Pressable onPress={()=>set({lineSpacing:Math.round((Math.min(1.8,p.state.settings.lineSpacing+0.1))*10)/10})} style={{width:30,height:30,borderRadius:9,backgroundColor:p.state.settings.lineSpacing>=1.8?t.bg:t.tint,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:t.line}}><Feather name="plus" size={15} color={p.state.settings.lineSpacing>=1.8?t.muted:t.primary}/></Pressable>
         </View>
       </View>
       <View style={[styles.menuSep,{backgroundColor:t.line,marginLeft:62}]}/>
       <View style={[styles.menuItem,{backgroundColor:t.card}]}>
         <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="align-left" size={18} color={t.primary}/></View>
-        <Text style={[styles.rowTitle,{color:t.ink,flex:1}]}>Font</Text>
+        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>Font</T>
         <View style={{flexDirection:'row',gap:6}}>
           {([['default','Default'],['serif','Serif'],['loose','Loose']] as const).map(([k,l])=>{
             const act=p.state.settings.fontFamily===k;
-            return <Pressable key={k} onPress={()=>set({fontFamily:k})} style={{paddingVertical:6,paddingHorizontal:10,borderRadius:9,backgroundColor:act?t.primary:t.bg,borderWidth:1,borderColor:act?t.primary:t.line}}><Text style={{fontWeight:'800',fontSize:11,color:act?'#fff':t.muted}}>{l}</Text></Pressable>;
+            return <Pressable key={k} onPress={()=>set({fontFamily:k})} style={{paddingVertical:6,paddingHorizontal:10,borderRadius:9,backgroundColor:act?t.primary:t.bg,borderWidth:1,borderColor:act?t.primary:t.line}}><T style={{fontWeight:'800',fontSize:11,color:act?'#fff':t.muted}}>{l}</T></Pressable>;
           })}
         </View>
       </View>
     </View>
 
-    <Text style={[styles.group,{color:t.muted}]}>{tr(p,'language')}</Text>
+    <T style={[styles.group,{color:t.muted}]}>{tr(p,'language')}</T>
     <View style={[styles.languageBox,{backgroundColor:t.card,borderColor:t.line}]}>
       {([['en','english'],['bn','bangla'],['hi','hindi']] as const).map(([code,key],i)=>(
         <Pressable key={code} onPress={()=>{set({language:code})}} style={[styles.languageRow,{borderBottomWidth:i===2?0:1,borderBottomColor:t.line}]}>
           <View style={[styles.radio,{borderColor:language===code?t.primary:t.muted}]}>{language===code&&<View style={[styles.radioDot,{backgroundColor:t.primary}]}/>}</View>
           <View style={{flex:1}}>
-            <Text style={{color:t.ink,fontWeight:language===code?'900':'600'}}>{copy(code,key)}</Text>
-            <Text style={{color:t.muted,fontSize:10}}>{code==='en'?'English':code==='bn'?'বাংলা':'हिन्दी'}</Text>
+            <T style={{color:t.ink,fontWeight:language===code?'900':'600'}}>{copy(code,key)}</T>
+            <T style={{color:t.muted,fontSize:10}}>{code==='en'?'English':code==='bn'?'বাংলা':'हिन्दी'}</T>
           </View>
           {language===code&&<Feather name="check" size={16} color={t.primary}/>}
         </Pressable>))}
     </View>
 
-    <Text style={[styles.group,{color:t.muted}]}>{tr(p,'data')}</Text>
+    <T style={[styles.group,{color:t.muted}]}>{tr(p,'data')}</T>
     <View style={styles.menuGroup}>
       <View style={[styles.menuItem,{backgroundColor:t.card}]}>
         <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="bell" size={18} color={t.primary}/></View>
-        <Text style={[styles.rowTitle,{color:t.ink,flex:1}]}>{tr(p,'newAlerts')}</Text>
+        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{tr(p,'newAlerts')}</T>
         <Switch value={p.state.settings.notifications} onValueChange={v=>set({notifications:v})} trackColor={{true:t.primary}}/>
       </View>
       <View style={[styles.menuSep,{backgroundColor:t.line,marginLeft:62}]}/>
       <View style={[styles.menuItem,{backgroundColor:t.card}]}>
         <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="wifi" size={18} color={t.primary}/></View>
-        <Text style={[styles.rowTitle,{color:t.ink,flex:1}]}>{tr(p,'wifi')}</Text>
+        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{tr(p,'wifi')}</T>
         <Switch value={p.state.settings.wifiOnly} onValueChange={v=>set({wifiOnly:v})} trackColor={{true:t.primary}}/>
       </View>
     </View>
 
-    <Text style={[styles.group,{color:t.muted}]}>Sync</Text>
+    <T style={[styles.group,{color:t.muted}]}>Sync</T>
     <View style={styles.menuGroup}>
       <View style={[styles.menuItem,{backgroundColor:t.card}]}>
         <View style={[styles.menuIconBig,{backgroundColor:p.state.online?t.tint:'#FEEBC8'}]}><Feather name={p.state.online?'refresh-cw':'cloud-off'} size={18} color={p.state.online?t.primary:'#B45309'}/></View>
         <View style={{flex:1}}>
-          <Text style={[styles.rowTitle,{color:t.ink}]}>Sync now</Text>
-          <Text style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.online?'সর্বশেষ sync: সব ঠিক আছে':'অফলাইন — ক্যাশ থেকে পড়া চলবে'}</Text>
+          <T style={[styles.rowTitle,{color:t.ink}]}>Sync now</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.online?'সর্বশেষ sync: সব ঠিক আছে':'অফলাইন — ক্যাশ থেকে পড়া চলবে'}</T>
         </View>
-        <Pressable onPress={()=>{trackEvent(p.state.deviceId,'all','view');Alert.alert(tr(p,'sync'),p.state.online?'Content synced successfully.':'Offline — using cached content.')}} style={{backgroundColor:t.tint,borderRadius:10,paddingVertical:8,paddingHorizontal:12}}><Text style={{color:t.primary,fontWeight:'900',fontSize:12}}>{p.state.online?'Synced':'Offline'}</Text></Pressable>
+        <Pressable onPress={()=>{trackEvent(p.state.deviceId,'all','view');Alert.alert(tr(p,'sync'),p.state.online?'Content synced successfully.':'Offline — using cached content.')}} style={{backgroundColor:t.tint,borderRadius:10,paddingVertical:8,paddingHorizontal:12}}><T style={{color:t.primary,fontWeight:'900',fontSize:12}}>{p.state.online?'Synced':'Offline'}</T></Pressable>
       </View>
       <View style={[styles.menuSep,{backgroundColor:t.line,marginLeft:62}]}/>
       <View style={[styles.menuItem,{backgroundColor:t.card}]}>
         <View style={[styles.menuIconBig,{backgroundColor:'#FEEBC8'}]}><Feather name="trash-2" size={18} color="#B45309"/></View>
-        <Text style={[styles.rowTitle,{color:t.ink,flex:1}]}>{tr(p,'clearSearch')}</Text>
+        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{tr(p,'clearSearch')}</T>
         <Feather name="chevron-right" size={18} color={t.muted}/>
-        <Pressable onPress={()=>p.update({searchHistory:[]})} style={{borderWidth:1,borderColor:t.line,borderRadius:10,paddingVertical:7,paddingHorizontal:12}}><Text style={{color:t.primary,fontWeight:'800',fontSize:12}}>Clear</Text></Pressable>
+        <Pressable onPress={()=>p.update({searchHistory:[]})} style={{borderWidth:1,borderColor:t.line,borderRadius:10,paddingVertical:7,paddingHorizontal:12}}><T style={{color:t.primary,fontWeight:'800',fontSize:12}}>Clear</T></Pressable>
       </View>
     </View>
 
-    <Text style={[styles.group,{color:t.muted}]}>Downloads</Text>
+    <T style={[styles.group,{color:t.muted}]}>Downloads</T>
     <View style={styles.menuGroup}>
       <View style={[styles.menuItem,{backgroundColor:t.card}]}>
         <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="download-cloud" size={18} color={t.primary}/></View>
         <View style={{flex:1}}>
-          <Text style={[styles.rowTitle,{color:t.ink}]}>{p.state.downloads.length} downloaded</Text>
-          <Text style={{fontSize:11,color:t.muted,marginTop:1}}>অফলাইনে পড়ার জন্য বই সংরক্ষিত</Text>
+          <T style={[styles.rowTitle,{color:t.ink}]}>{p.state.downloads.length} downloaded</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>অফলাইনে পড়ার জন্য বই সংরক্ষিত</T>
         </View>
-        <View style={{backgroundColor:t.bg,borderWidth:1,borderColor:t.line,borderRadius:9,paddingVertical:6,paddingHorizontal:10}}><Text style={{color:t.muted,fontSize:11,fontWeight:'700'}}>{(p.state.downloads.length*0.6).toFixed(1)} MB</Text></View>
+        <View style={{backgroundColor:t.bg,borderWidth:1,borderColor:t.line,borderRadius:9,paddingVertical:6,paddingHorizontal:10}}><T style={{color:t.muted,fontSize:11,fontWeight:'700'}}>{(p.state.downloads.length*0.6).toFixed(1)} MB</T></View>
       </View>
       <View style={[styles.menuSep,{backgroundColor:t.line,marginLeft:62}]}/>
       <View style={[styles.menuItem,{backgroundColor:t.card}]}>
         <View style={[styles.menuIconBig,{backgroundColor:'#FEEBC8'}]}><Feather name="trash-2" size={18} color="#B45309"/></View>
         <View style={{flex:1}}>
-          <Text style={[styles.rowTitle,{color:t.ink}]}>Clear all downloads</Text>
-          <Text style={{fontSize:11,color:t.muted,marginTop:1}}>সব ডাউনলোড মুছে ফেলুন</Text>
+          <T style={[styles.rowTitle,{color:t.ink}]}>Clear all downloads</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>সব ডাউনলোড মুছে ফেলুন</T>
         </View>
-        <Pressable onPress={()=>Alert.alert('Clear downloads','সব ডাউনলোড মুছে ফেলা হবে। নিশ্চিত?',[{text:'Cancel',style:'cancel'},{text:'Clear',style:'destructive',onPress:()=>p.update({downloads:[]})}])} style={{backgroundColor:'#FEEBC8',borderRadius:10,paddingVertical:8,paddingHorizontal:12}}><Text style={{color:'#B45309',fontWeight:'900',fontSize:12}}>Clear</Text></Pressable>
+        <Pressable onPress={()=>Alert.alert('Clear downloads','সব ডাউনলোড মুছে ফেলা হবে। নিশ্চিত?',[{text:'Cancel',style:'cancel'},{text:'Clear',style:'destructive',onPress:()=>p.update({downloads:[]})}])} style={{backgroundColor:'#FEEBC8',borderRadius:10,paddingVertical:8,paddingHorizontal:12}}><T style={{color:'#B45309',fontWeight:'900',fontSize:12}}>Clear</T></Pressable>
       </View>
     </View>
 
-    <Text style={[styles.group,{color:t.muted}]}>Storage</Text>
+    <T style={[styles.group,{color:t.muted}]}>Storage</T>
     <View style={styles.menuGroup}>
       <View style={[styles.menuItem,{backgroundColor:t.card}]}>
         <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="hard-drive" size={18} color={t.primary}/></View>
         <View style={{flex:1}}>
-          <Text style={[styles.rowTitle,{color:t.ink}]}>Reset app</Text>
-          <Text style={{fontSize:11,color:t.muted,marginTop:1}}>সব ডেটা মুছে নতুন করে শুরু করুন</Text>
+          <T style={[styles.rowTitle,{color:t.ink}]}>Reset app</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>সব ডেটা মুছে নতুন করে শুরু করুন</T>
         </View>
-        <Pressable onPress={()=>Alert.alert('Reset app','থিম, বুকমার্ক, ইতিহাস — সব ডেটা মুছে যাবে। নিশ্চিত?',[{text:'Cancel',style:'cancel'},{text:'Reset',style:'destructive',onPress:async()=>{p.update(initialState);await clearState();}}])} style={{backgroundColor:'#FEE2E2',borderRadius:10,paddingVertical:8,paddingHorizontal:12}}><Text style={{color:'#B91C1C',fontWeight:'900',fontSize:12}}>Reset</Text></Pressable>
+        <Pressable onPress={()=>Alert.alert('Reset app','থিম, বুকমার্ক, ইতিহাস — সব ডেটা মুছে যাবে। নিশ্চিত?',[{text:'Cancel',style:'cancel'},{text:'Reset',style:'destructive',onPress:async()=>{p.update(initialState);await clearState();}}])} style={{backgroundColor:'#FEE2E2',borderRadius:10,paddingVertical:8,paddingHorizontal:12}}><T style={{color:'#B91C1C',fontWeight:'900',fontSize:12}}>Reset</T></Pressable>
       </View>
     </View>
 
-    <Text style={[styles.group,{color:t.muted}]}>About</Text>
+    <T style={[styles.group,{color:t.muted}]}>About</T>
     <View style={styles.menuGroup}>
       <View style={[styles.menuItem,{backgroundColor:t.card}]}>
         <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="book-open" size={18} color={t.primary}/></View>
         <View style={{flex:1}}>
-          <Text style={[styles.rowTitle,{color:t.ink}]}>Lekhoni Kahini</Text>
-          <Text style={{fontSize:11,color:t.muted,marginTop:1}}>বাংলা গল্পের রিডার</Text>
+          <T style={[styles.rowTitle,{color:t.ink}]}>Lekhoni Kahini</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>বাংলা গল্পের রিডার</T>
         </View>
-        <Text style={{color:t.muted,fontSize:12,fontWeight:'700'}}>v1.0.0</Text>
+        <T style={{color:t.muted,fontSize:12,fontWeight:'700'}}>v1.0.0</T>
       </View>
       <View style={[styles.menuSep,{backgroundColor:t.line,marginLeft:62}]}/>
       <View style={[styles.menuItem,{backgroundColor:t.card}]}>
         <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="star" size={18} color={t.primary}/></View>
-        <Text style={[styles.rowTitle,{color:t.ink,flex:1}]}>Rate this app</Text>
-        <Pressable onPress={()=>{try{Linking.openURL('https://admin.xyteee.com')}catch{}} } style={{backgroundColor:t.tint,borderRadius:10,paddingVertical:8,paddingHorizontal:12}}><Text style={{color:t.primary,fontWeight:'900',fontSize:12}}>Rate</Text></Pressable>
+        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>Rate this app</T>
+        <Pressable onPress={()=>{try{Linking.openURL('https://admin.xyteee.com')}catch{}} } style={{backgroundColor:t.tint,borderRadius:10,paddingVertical:8,paddingHorizontal:12}}><T style={{color:t.primary,fontWeight:'900',fontSize:12}}>Rate</T></Pressable>
       </View>
     </View>
 
-    <Text style={[styles.group,{color:t.muted}]}>Online backup</Text>
+    <T style={[styles.group,{color:t.muted}]}>Online backup</T>
     <View style={[styles.menuItem,{flexDirection:'column',alignItems:'flex-start',backgroundColor:t.card,borderRadius:18,borderWidth:1,borderColor:t.line,padding:16}]}>
       <View style={{flexDirection:'row',alignItems:'center',gap:12,width:'100%',marginBottom:10}}>
         <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name={p.state.online?'cloud':'cloud-off'} size={18} color={p.state.online?t.primary:t.muted}/></View>
         <View style={{flex:1}}>
-          <Text style={[styles.rowTitle,{color:t.ink}]}>Settings backup</Text>
-          <Text style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.online?'Theme, bookmarks & progress restored on this device.':'Offline — will sync when connected.'}</Text>
+          <T style={[styles.rowTitle,{color:t.ink}]}>Settings backup</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.online?'Theme, bookmarks & progress restored on this device.':'Offline — will sync when connected.'}</T>
         </View>
         <View style={{width:10,height:10,borderRadius:5,backgroundColor:p.state.online?'#2AA876':'#D9A407'}}/>
       </View>
       <View style={{flexDirection:'row',alignItems:'center',gap:8,backgroundColor:t.bg,borderRadius:10,paddingHorizontal:12,paddingVertical:9,borderWidth:1,borderColor:t.line,width:'100%'}}>
-        <Text style={{fontSize:10,color:t.muted}}>Restore code</Text>
-        <Text style={{fontSize:12,fontWeight:'700',color:t.ink,flex:1}} selectable>{('LK-'+p.state.deviceId.split('-')[0]+'-'+p.state.deviceId.split('-')[3]).toUpperCase()}</Text>
+        <T style={{fontSize:10,color:t.muted}}>Restore code</T>
+        <T style={{fontSize:12,fontWeight:'700',color:t.ink,flex:1}} selectable>{('LK-'+p.state.deviceId.split('-')[0]+'-'+p.state.deviceId.split('-')[3]).toUpperCase()}</T>
       </View>
-      <Text style={{fontSize:10,color:t.muted,marginTop:8,lineHeight:15}}>Keep this code to restore your settings if you reinstall the app on this device.</Text>
+      <T style={{fontSize:10,color:t.muted,marginTop:8,lineHeight:15}}>Keep this code to restore your settings if you reinstall the app on this device.</T>
     </View>
   </Page>}
 function Writer(p:C){
@@ -822,53 +826,53 @@ function Writer(p:C){
     <ScrollView contentContainerStyle={{flexGrow:1,padding:22,paddingTop:50}} keyboardShouldPersistTaps="handled">
     <View style={{alignItems:'center',marginBottom:24}}>
       <Image source={require('./assets/adaptive-icon.png')} style={{width:72,height:72,borderRadius:18}} resizeMode="contain"/>
-      <Text style={{color:t.ink,fontSize:20,fontWeight:'600',marginTop:14,textAlign:'center'}}>{tr(p,'welcomeWriter')}</Text>
-      <Text style={{color:t.muted,fontSize:13,marginTop:4,textAlign:'center'}}>{tr(p,'storiesWaiting')}</Text>
+      <T style={{color:t.ink,fontSize:20,fontWeight:'600',marginTop:14,textAlign:'center'}}>{tr(p,'welcomeWriter')}</T>
+      <T style={{color:t.muted,fontSize:13,marginTop:4,textAlign:'center'}}>{tr(p,'storiesWaiting')}</T>
     </View>
     <View style={{backgroundColor:t.card,borderRadius:18,padding:20,marginBottom:16,borderWidth:1,borderColor:t.line}}>
       <View style={{flexDirection:'row',backgroundColor:t.bg,borderRadius:12,padding:3,marginBottom:18}}>
-        <Pressable onPress={()=>{setAuthTab('login');setAuthErr('')}} style={{flex:1,borderRadius:10,paddingVertical:10,alignItems:'center',backgroundColor:authTab==='login'?t.primary:'transparent'}}><Text style={{color:authTab==='login'?'#fff':t.muted,fontWeight:'600',fontSize:13}}>{tr(p,'login')}</Text></Pressable>
-        <Pressable onPress={()=>{setAuthTab('register');setAuthErr('')}} style={{flex:1,borderRadius:10,paddingVertical:10,alignItems:'center',backgroundColor:authTab==='register'?t.primary:'transparent'}}><Text style={{color:authTab==='register'?'#fff':t.muted,fontWeight:'600',fontSize:13}}>{tr(p,'register')}</Text></Pressable>
+        <Pressable onPress={()=>{setAuthTab('login');setAuthErr('')}} style={{flex:1,borderRadius:10,paddingVertical:10,alignItems:'center',backgroundColor:authTab==='login'?t.primary:'transparent'}}><T style={{color:authTab==='login'?'#fff':t.muted,fontWeight:'600',fontSize:13}}>{tr(p,'login')}</T></Pressable>
+        <Pressable onPress={()=>{setAuthTab('register');setAuthErr('')}} style={{flex:1,borderRadius:10,paddingVertical:10,alignItems:'center',backgroundColor:authTab==='register'?t.primary:'transparent'}}><T style={{color:authTab==='register'?'#fff':t.muted,fontWeight:'600',fontSize:13}}>{tr(p,'register')}</T></Pressable>
       </View>
       {authTab==='register'&&<>
       <View style={{marginBottom:12}}>
-        <Text style={{color:t.muted,fontSize:11,fontWeight:'500',marginBottom:5,marginLeft:4}}>{tr(p,'username')}</Text>
+        <T style={{color:t.muted,fontSize:11,fontWeight:'500',marginBottom:5,marginLeft:4}}>{tr(p,'username')}</T>
         <View style={{flexDirection:'row',alignItems:'center',backgroundColor:t.bg,borderRadius:12,borderWidth:1,borderColor:t.line,paddingHorizontal:12,height:46}}>
           <Feather name="at-sign" size={16} color={t.muted} style={{marginRight:8}}/>
-          <TextInput value={form.username} onChangeText={v=>setForm({...form,username:v})} placeholder={tr(p,'username')} placeholderTextColor={t.muted+'88'} autoCapitalize="none" style={{flex:1,color:t.ink,fontSize:14,fontWeight:'400'}}/>
+          <TextInput value={form.username} onChangeText={v=>setForm({...form,username:v})} placeholder={tr(p,'username')} placeholderTextColor={t.muted+'88'} autoCapitalize="none" style={{flex:1,color:t.ink,fontSize:14,fontWeight:'400',fontFamily:F}}/>
         </View>
       </View>
       <View style={{marginBottom:12}}>
-        <Text style={{color:t.muted,fontSize:11,fontWeight:'500',marginBottom:5,marginLeft:4}}>{tr(p,'writerName')}</Text>
+        <T style={{color:t.muted,fontSize:11,fontWeight:'500',marginBottom:5,marginLeft:4}}>{tr(p,'writerName')}</T>
         <View style={{flexDirection:'row',alignItems:'center',backgroundColor:t.bg,borderRadius:12,borderWidth:1,borderColor:t.line,paddingHorizontal:12,height:46}}>
           <Feather name="feather" size={16} color={t.muted} style={{marginRight:8}}/>
-          <TextInput value={form.writerName} onChangeText={v=>setForm({...form,writerName:v})} placeholder={tr(p,'writerName')} placeholderTextColor={t.muted+'88'} style={{flex:1,color:t.ink,fontSize:14,fontWeight:'400'}}/>
+          <TextInput value={form.writerName} onChangeText={v=>setForm({...form,writerName:v})} placeholder={tr(p,'writerName')} placeholderTextColor={t.muted+'88'} style={{flex:1,color:t.ink,fontSize:14,fontWeight:'400',fontFamily:F}}/>
         </View>
       </View>
       </>}
       <View style={{marginBottom:12}}>
-        <Text style={{color:t.muted,fontSize:11,fontWeight:'500',marginBottom:5,marginLeft:4}}>{authTab==='login'?tr(p,'emailOrUsername'):tr(p,'email')}</Text>
+        <T style={{color:t.muted,fontSize:11,fontWeight:'500',marginBottom:5,marginLeft:4}}>{authTab==='login'?tr(p,'emailOrUsername'):tr(p,'email')}</T>
         <View style={{flexDirection:'row',alignItems:'center',backgroundColor:t.bg,borderRadius:12,borderWidth:1,borderColor:t.line,paddingHorizontal:12,height:46}}>
           <Feather name="user" size={16} color={t.muted} style={{marginRight:8}}/>
-          <TextInput value={form.email} onChangeText={v=>setForm({...form,email:v})} placeholder={authTab==='login'?tr(p,'emailOrUsername'):tr(p,'email')} placeholderTextColor={t.muted+'88'} autoCapitalize="none" style={{flex:1,color:t.ink,fontSize:14,fontWeight:'400'}}/>
+          <TextInput value={form.email} onChangeText={v=>setForm({...form,email:v})} placeholder={authTab==='login'?tr(p,'emailOrUsername'):tr(p,'email')} placeholderTextColor={t.muted+'88'} autoCapitalize="none" style={{flex:1,color:t.ink,fontSize:14,fontWeight:'400',fontFamily:F}}/>
         </View>
       </View>
       <View style={{marginBottom:authErr?8:16}}>
-        <Text style={{color:t.muted,fontSize:11,fontWeight:'500',marginBottom:5,marginLeft:4}}>{tr(p,'password')}</Text>
+        <T style={{color:t.muted,fontSize:11,fontWeight:'500',marginBottom:5,marginLeft:4}}>{tr(p,'password')}</T>
         <View style={{flexDirection:'row',alignItems:'center',backgroundColor:t.bg,borderRadius:12,borderWidth:1,borderColor:t.line,paddingHorizontal:12,height:46}}>
           <Feather name="lock" size={16} color={t.muted} style={{marginRight:8}}/>
-          <TextInput value={form.password} onChangeText={v=>setForm({...form,password:v})} placeholder={tr(p,'password')} placeholderTextColor={t.muted+'88'} secureTextEntry style={{flex:1,color:t.ink,fontSize:14,fontWeight:'400'}}/>
+          <TextInput value={form.password} onChangeText={v=>setForm({...form,password:v})} placeholder={tr(p,'password')} placeholderTextColor={t.muted+'88'} secureTextEntry style={{flex:1,color:t.ink,fontSize:14,fontWeight:'400',fontFamily:F}}/>
         </View>
       </View>
-      {authErr?<View style={{backgroundColor:'#FEF2F2',borderRadius:10,padding:10,marginBottom:12,flexDirection:'row',alignItems:'center',gap:6}}><Feather name="alert-circle" size={14} color="#EF4444"/><Text style={{color:'#EF4444',fontSize:12,fontWeight:'500',flex:1}}>{authErr}</Text></View>:null}
+      {authErr?<View style={{backgroundColor:'#FEF2F2',borderRadius:10,padding:10,marginBottom:12,flexDirection:'row',alignItems:'center',gap:6}}><Feather name="alert-circle" size={14} color="#EF4444"/><T style={{color:'#EF4444',fontSize:12,fontWeight:'500',flex:1}}>{authErr}</T></View>:null}
       <Pressable disabled={loading} onPress={handleAuth} style={{backgroundColor:t.primary,borderRadius:12,height:46,alignItems:'center',justifyContent:'center',opacity:loading?0.6:1}}>
-        {loading?<ActivityIndicator color="#fff" size="small"/>:<Text style={{color:'#fff',fontWeight:'600',fontSize:14}}>{authTab==='register'?tr(p,'createAccount'):tr(p,'login')}</Text>}
+        {loading?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'600',fontSize:14}}>{authTab==='register'?tr(p,'createAccount'):tr(p,'login')}</T>}
       </Pressable>
-      <Text style={{color:t.muted,fontSize:12,textAlign:'center',marginTop:14}}>
+      <T style={{color:t.muted,fontSize:12,textAlign:'center',marginTop:14}}>
         {authTab==='login'?tr(p,'noAccount'):tr(p,'alreadyAccount')}{' '}
-        <Text onPress={()=>{setAuthTab(authTab==='login'?'register':'login');setAuthErr('')}} style={{color:t.primary,fontWeight:'600'}}>
-          {authTab==='login'?tr(p,'registerHere'):tr(p,'loginHere')}</Text>
-      </Text>
+        <T onPress={()=>{setAuthTab(authTab==='login'?'register':'login');setAuthErr('')}} style={{color:t.primary,fontWeight:'600'}}>
+          {authTab==='login'?tr(p,'registerHere'):tr(p,'loginHere')}</T>
+      </T>
     </View>
     </ScrollView>
   </KeyboardAvoidingView>;
@@ -878,16 +882,16 @@ function Writer(p:C){
   return <Page theme={t}>
     <View style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:16,padding:14,marginBottom:16,borderWidth:1,borderColor:t.line}}>
       {p.state.writer?.avatar_url?<Image source={{uri:p.state.writer.avatar_url}} style={{width:48,height:48,borderRadius:24}}/>:<View style={{width:48,height:48,borderRadius:24,backgroundColor:t.primary,alignItems:'center',justifyContent:'center',elevation:3,shadowColor:t.primary,shadowOffset:{width:0,height:3},shadowOpacity:0.25,shadowRadius:6}}>
-        <Text style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{p.state.writer?.writer_name?.[0]?.toUpperCase()||'?'}</Text>
+        <T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{p.state.writer?.writer_name?.[0]?.toUpperCase()||'?'}</T>
       </View>}
       <View style={{flex:1,marginLeft:12}}>
-        <Text numberOfLines={1} style={{fontSize:17,fontWeight:'900',color:t.ink}}>{p.state.writer?.writer_name}</Text>
-        <Text style={{fontSize:12,color:t.muted,marginTop:1}}>{tr(p,'writerStudio')}</Text>
+        <T numberOfLines={1} style={{fontSize:17,fontWeight:'900',color:t.ink}}>{p.state.writer?.writer_name}</T>
+        <T style={{fontSize:12,color:t.muted,marginTop:1}}>{tr(p,'writerStudio')}</T>
       </View>
       <Pressable onPress={()=>{setStudioTab('notifications');setUnreadCount(0)}} style={{width:40,height:40,borderRadius:12,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',marginRight:8}}>
         <Feather name="bell" size={18} color={t.primary}/>
         {unreadCount>0&&<View style={{position:'absolute',top:-3,right:-3,backgroundColor:'#EF4444',borderRadius:8,minWidth:16,height:16,alignItems:'center',justifyContent:'center',paddingHorizontal:4}}>
-          <Text style={{color:'#fff',fontSize:9,fontWeight:'900'}}>{unreadCount>9?'9+':unreadCount}</Text>
+          <T style={{color:'#fff',fontSize:9,fontWeight:'900'}}>{unreadCount>9?'9+':unreadCount}</T>
         </View>}
       </Pressable>
       <Pressable onPress={()=>p.update({writer:null,writerToken:null})} style={{width:36,height:36,borderRadius:10,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
@@ -897,9 +901,9 @@ function Writer(p:C){
     <View style={{flexDirection:'row',gap:5,marginBottom:18}}>
       {tabs.map(([key,label,icon])=><Pressable key={key} onPress={()=>{setStudioTab(key as any);if(key==='notifications')setUnreadCount(0)}} style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4,backgroundColor:studioTab===key?t.primary:t.card,borderRadius:10,paddingVertical:9,borderWidth:1,borderColor:studioTab===key?t.primary:t.line}}>
         <Feather name={icon as any} size={13} color={studioTab===key?'#fff':t.muted}/>
-        <Text style={{color:studioTab===key?'#fff':t.muted,fontWeight:'800',fontSize:11}}>{label}</Text>
+        <T style={{color:studioTab===key?'#fff':t.muted,fontWeight:'800',fontSize:11}}>{label}</T>
         {key==='notifications'&&unreadCount>0&&<View style={{backgroundColor:studioTab===key?'rgba(255,255,255,0.3)':'#EF4444',borderRadius:6,minWidth:14,height:14,alignItems:'center',justifyContent:'center',paddingHorizontal:3}}>
-          <Text style={{color:'#fff',fontSize:8,fontWeight:'900'}}>{unreadCount>9?'9+':unreadCount}</Text>
+          <T style={{color:'#fff',fontSize:8,fontWeight:'900'}}>{unreadCount>9?'9+':unreadCount}</T>
         </View>}
       </Pressable>)}
     </View>
@@ -926,21 +930,21 @@ function WriterDashboard({token,theme:t,lang}:{token:string;theme:Theme;lang:Lan
         <View style={{width:34,height:34,borderRadius:10,backgroundColor:c.bg+'18',alignItems:'center',justifyContent:'center',marginBottom:8}}>
           <Feather name={c.icon as any} size={16} color={c.bg}/>
         </View>
-        <Text style={{fontSize:22,fontWeight:'900',color:t.ink}}>{c.value}</Text>
-        <Text style={{fontSize:10,fontWeight:'700',color:t.muted,marginTop:2}}>{c.label}</Text>
+        <T style={{fontSize:22,fontWeight:'900',color:t.ink}}>{c.value}</T>
+        <T style={{fontSize:10,fontWeight:'700',color:t.muted,marginTop:2}}>{c.label}</T>
       </View>)}
     </View>
     {d.pending>0&&<View style={{backgroundColor:'#FEF3C7',borderRadius:12,padding:12,marginBottom:14,flexDirection:'row',alignItems:'center',gap:8}}>
       <Feather name="clock" size={16} color="#D97706"/>
-      <Text style={{fontSize:13,fontWeight:'700',color:'#92400E',flex:1}}>{d.pending} {copy(lang,'pendingReview')}</Text>
+      <T style={{fontSize:13,fontWeight:'700',color:'#92400E',flex:1}}>{d.pending} {copy(lang,'pendingReview')}</T>
     </View>}
-    <Text style={{fontSize:14,fontWeight:'800',color:t.ink,marginBottom:10}}>{copy(lang,'recentActivity')}</Text>
+    <T style={{fontSize:14,fontWeight:'800',color:t.ink,marginBottom:10}}>{copy(lang,'recentActivity')}</T>
     {d.recent.length===0?<View style={{backgroundColor:t.card,borderRadius:14,padding:20,alignItems:'center',borderWidth:1,borderColor:t.line}}>
-      <Feather name="inbox" size={28} color={t.muted}/><Text style={{fontSize:13,color:t.muted,marginTop:8}}>{copy(lang,'noActivity')}</Text>
+      <Feather name="inbox" size={28} color={t.muted}/><T style={{fontSize:13,color:t.muted,marginTop:8}}>{copy(lang,'noActivity')}</T>
     </View>:d.recent.map(s=><View key={s.id} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:12,padding:12,marginBottom:6,borderWidth:1,borderColor:t.line}}>
       <View style={{width:8,height:8,borderRadius:4,backgroundColor:s.status==='published'?'#10B981':s.status==='pending'?'#F59E0B':'#9CA3AF',marginRight:10}}/>
-      <View style={{flex:1}}><Text numberOfLines={1} style={{fontSize:13,fontWeight:'700',color:t.ink}}>{s.title}</Text><Text style={{fontSize:10,color:t.muted,marginTop:1}}>{s.views} {copy(lang,'views')}</Text></View>
-      <Text style={{fontSize:10,fontWeight:'700',color:s.status==='published'?'#10B981':s.status==='pending'?'#D97706':t.muted}}>{copy(lang,s.status)}</Text>
+      <View style={{flex:1}}><T numberOfLines={1} style={{fontSize:13,fontWeight:'700',color:t.ink}}>{s.title}</T><T style={{fontSize:10,color:t.muted,marginTop:1}}>{s.views} {copy(lang,'views')}</T></View>
+      <T style={{fontSize:10,fontWeight:'700',color:s.status==='published'?'#10B981':s.status==='pending'?'#D97706':t.muted}}>{copy(lang,s.status)}</T>
     </View>)}
   </ScrollView>}
 
@@ -992,62 +996,62 @@ function WriterStories({token,theme:t,lang,categories}:{token:string;theme:Theme
   const handleDelete=async(id:string)=>{Alert.alert('',copy(lang,'cancel')+'?',[{text:copy(lang,'cancel'),style:'cancel'},{text:copy(lang,'delete'),style:'destructive',onPress:async()=>{await deleteWriterStory(token,id);load()}}])};
   return <View style={{flex:1}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-      <Text style={{fontSize:16,fontWeight:'900',color:t.ink}}>{copy(lang,'myStories')} ({stories.length})</Text>
+      <T style={{fontSize:16,fontWeight:'900',color:t.ink}}>{copy(lang,'myStories')} ({stories.length})</T>
       <Pressable onPress={()=>setShowNew(!showNew)} style={{backgroundColor:t.primary,borderRadius:10,paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:5}}>
         <Feather name={showNew?'x':'plus'} size={14} color="#fff"/>
-        <Text style={{color:'#fff',fontWeight:'800',fontSize:12}}>{showNew?copy(lang,'cancel'):copy(lang,'newStory')}</Text>
+        <T style={{color:'#fff',fontWeight:'800',fontSize:12}}>{showNew?copy(lang,'cancel'):copy(lang,'newStory')}</T>
       </Pressable>
     </View>
     <View style={{flexDirection:'row',gap:5,marginBottom:14}}>
       {(['all','published','draft','pending','rejected'] as const).map(f=><Pressable key={f} onPress={()=>setFilter(f)} style={{paddingHorizontal:10,paddingVertical:5,borderRadius:8,backgroundColor:filter===f?t.primary:t.card,borderWidth:1,borderColor:filter===f?t.primary:t.line}}>
-        <Text style={{fontSize:11,fontWeight:'700',color:filter===f?'#fff':t.muted}}>{copy(lang,f)}</Text>
+        <T style={{fontSize:11,fontWeight:'700',color:filter===f?'#fff':t.muted}}>{copy(lang,f)}</T>
       </Pressable>)}
     </View>
     {showNew&&<View style={{backgroundColor:t.card,borderRadius:14,padding:16,marginBottom:14,borderWidth:1,borderColor:t.line}}>
-      <TextInput value={newTitle} onChangeText={setNewTitle} placeholder={copy(lang,'storyTitle')} placeholderTextColor={t.muted} style={{color:t.ink,fontSize:15,fontWeight:'700',marginBottom:10,borderBottomWidth:1,borderBottomColor:t.line,paddingBottom:8}}/>
-      <TextInput value={newDesc} onChangeText={setNewDesc} multiline placeholder={copy(lang,'description')} placeholderTextColor={t.muted} style={{color:t.ink,fontSize:13,marginBottom:10,minHeight:50,textAlignVertical:'top'}}/>
+      <TextInput value={newTitle} onChangeText={setNewTitle} placeholder={copy(lang,'storyTitle')} placeholderTextColor={t.muted} style={{color:t.ink,fontSize:15,fontWeight:'700',marginBottom:10,borderBottomWidth:1,borderBottomColor:t.line,paddingBottom:8,fontFamily:F}}/>
+      <TextInput value={newDesc} onChangeText={setNewDesc} multiline placeholder={copy(lang,'description')} placeholderTextColor={t.muted} style={{color:t.ink,fontSize:13,marginBottom:10,minHeight:50,textAlignVertical:'top',fontFamily:F}}/>
       <Pressable onPress={pickCover} disabled={uploadingImg} style={{backgroundColor:t.bg,borderRadius:12,borderWidth:1.5,borderColor:t.line,borderStyle:'dashed',padding:uploadingImg?16:12,marginBottom:10,alignItems:'center'}}>
         {uploadingImg?<ActivityIndicator size="small" color={t.primary}/>:
-        newCoverPreview?<View style={{flexDirection:'row',alignItems:'center',gap:10}}><Image source={{uri:newCoverPreview}} style={{width:60,height:45,borderRadius:8}}/><View style={{flex:1}}><Text style={{fontSize:12,fontWeight:'700',color:t.ink}}>{copy(lang,'changePhoto')}</Text><Text style={{fontSize:10,color:t.muted,marginTop:2}}>{copy(lang,'tapToUpload')}</Text></View><Feather name="refresh-cw" size={14} color={t.muted}/></View>:
-        <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Feather name="image" size={18} color={t.muted}/><Text style={{fontSize:12,color:t.muted,fontWeight:'600'}}>{copy(lang,'tapToUpload')}</Text></View>}
+        newCoverPreview?<View style={{flexDirection:'row',alignItems:'center',gap:10}}><Image source={{uri:newCoverPreview}} style={{width:60,height:45,borderRadius:8}}/><View style={{flex:1}}><T style={{fontSize:12,fontWeight:'700',color:t.ink}}>{copy(lang,'changePhoto')}</T><T style={{fontSize:10,color:t.muted,marginTop:2}}>{copy(lang,'tapToUpload')}</T></View><Feather name="refresh-cw" size={14} color={t.muted}/></View>:
+        <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Feather name="image" size={18} color={t.muted}/><T style={{fontSize:12,color:t.muted,fontWeight:'600'}}>{copy(lang,'tapToUpload')}</T></View>}
       </Pressable>
       <View style={{marginBottom:12}}>
         <Pressable onPress={()=>setCatOpen(!catOpen)} style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderWidth:1,borderColor:catOpen?t.primary:t.line,borderRadius:8,padding:10,backgroundColor:t.bg}}>
-          <Text style={{fontSize:12,fontWeight:'600',color:newCategory?t.ink:t.muted}}>{newCategory||copy(lang,'selectCategory')}</Text>
+          <T style={{fontSize:12,fontWeight:'600',color:newCategory?t.ink:t.muted}}>{newCategory||copy(lang,'selectCategory')}</T>
           <Feather name={catOpen?'chevron-up':'chevron-down'} size={16} color={t.muted}/>
         </Pressable>
         {catOpen&&<View style={{marginTop:6,borderWidth:1,borderColor:t.line,borderRadius:8,backgroundColor:t.card,maxHeight:160,overflow:'hidden'}}>
           <ScrollView nestedScrollEnabled style={{maxHeight:160}}>
             {categories.map(c=><Pressable key={c} onPress={()=>{setNewCategory(c);setCatOpen(false)}} style={{paddingHorizontal:12,paddingVertical:9,borderBottomWidth:1,borderBottomColor:t.line,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
-              <Text style={{fontSize:12,fontWeight:newCategory===c?'800':'500',color:newCategory===c?t.primary:t.ink}}>{c}</Text>
+              <T style={{fontSize:12,fontWeight:newCategory===c?'800':'500',color:newCategory===c?t.primary:t.ink}}>{c}</T>
               {newCategory===c&&<Feather name="check" size={14} color={t.primary}/>}
             </Pressable>)}
           </ScrollView>
         </View>}
       </View>
       <Pressable disabled={saving||!newTitle.trim()} onPress={handleCreate} style={{backgroundColor:t.primary,borderRadius:10,paddingVertical:10,alignItems:'center',opacity:saving||!newTitle.trim()?0.5:1}}>
-        {saving?<ActivityIndicator color="#fff" size="small"/>:<Text style={{color:'#fff',fontWeight:'800',fontSize:13}}>{copy(lang,'create')}</Text>}
+        {saving?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:13}}>{copy(lang,'create')}</T>}
       </Pressable>
     </View>}
     {loading?<View style={{alignItems:'center',paddingVertical:40}}><ActivityIndicator color={t.primary}/></View>:
-    filtered.length===0?<View style={{alignItems:'center',paddingVertical:40}}><Feather name="book" size={28} color={t.muted}/><Text style={{fontSize:13,color:t.muted,marginTop:8}}>{copy(lang,'noStories')}</Text></View>:
+    filtered.length===0?<View style={{alignItems:'center',paddingVertical:40}}><Feather name="book" size={28} color={t.muted}/><T style={{fontSize:13,color:t.muted,marginTop:8}}>{copy(lang,'noStories')}</T></View>:
     filtered.map(s=><View key={s.id} style={{backgroundColor:t.card,borderRadius:14,padding:14,marginBottom:8,borderWidth:1,borderColor:t.line}}>
       <View style={{flexDirection:'row',alignItems:'center',marginBottom:8}}>
         {s.cover_url?<Image source={{uri:s.cover_url}} style={{width:44,height:34,borderRadius:6,marginRight:10}}/>:
         <View style={{width:44,height:34,borderRadius:6,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',marginRight:10}}><Feather name="book-open" size={14} color={t.muted}/></View>}
         <View style={{width:8,height:8,borderRadius:4,backgroundColor:statusColor(s.status),marginRight:8}}/>
-        <Text numberOfLines={1} style={{flex:1,fontSize:14,fontWeight:'800',color:t.ink}}>{s.title}</Text>
+        <T numberOfLines={1} style={{flex:1,fontSize:14,fontWeight:'800',color:t.ink}}>{s.title}</T>
         <View style={{paddingHorizontal:8,paddingVertical:3,borderRadius:6,backgroundColor:statusColor(s.status)+'18'}}>
-          <Text style={{fontSize:10,fontWeight:'700',color:statusColor(s.status)}}>{copy(lang,s.status)}</Text>
+          <T style={{fontSize:10,fontWeight:'700',color:statusColor(s.status)}}>{copy(lang,s.status)}</T>
         </View>
       </View>
-      {s.description?<Text numberOfLines={2} style={{fontSize:12,color:t.muted,marginBottom:8}}>{s.description}</Text>:null}
+      {s.description?<T numberOfLines={2} style={{fontSize:12,color:t.muted,marginBottom:8}}>{s.description}</T>:null}
       <View style={{flexDirection:'row',gap:6}}>
         {s.status==='draft'&&<Pressable onPress={()=>handleSubmit(s.id)} style={{flex:1,backgroundColor:'#FEF3C7',borderRadius:8,paddingVertical:7,alignItems:'center'}}>
-          <Text style={{fontSize:11,fontWeight:'700',color:'#D97706'}}>{copy(lang,'submitReview')}</Text>
+          <T style={{fontSize:11,fontWeight:'700',color:'#D97706'}}>{copy(lang,'submitReview')}</T>
         </Pressable>}
         {s.status==='rejected'&&<Pressable onPress={()=>handleSubmit(s.id)} style={{flex:1,backgroundColor:'#FEE2E2',borderRadius:8,paddingVertical:7,alignItems:'center'}}>
-          <Text style={{fontSize:11,fontWeight:'700',color:'#EF4444'}}>{copy(lang,'submitReview')}</Text>
+          <T style={{fontSize:11,fontWeight:'700',color:'#EF4444'}}>{copy(lang,'submitReview')}</T>
         </Pressable>}
         <Pressable onPress={()=>toggleExpand(s.id)} style={{width:32,height:32,borderRadius:8,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',marginRight:6}}>
           <Feather name="book-open" size={14} color={expanded===s.id?t.primary:t.muted}/>
@@ -1057,21 +1061,21 @@ function WriterStories({token,theme:t,lang,categories}:{token:string;theme:Theme
         </Pressable>
       </View>
       {s.review_note&&<View style={{marginTop:8,backgroundColor:'#FEF2F2',borderRadius:8,padding:8}}>
-        <Text style={{fontSize:11,color:'#991B1B',fontWeight:'600'}}>{copy(lang,'reviewNote')}: {s.review_note}</Text>
+        <T style={{fontSize:11,color:'#991B1B',fontWeight:'600'}}>{copy(lang,'reviewNote')}: {s.review_note}</T>
       </View>}
       {expanded===s.id&&<View style={{marginTop:10,borderTopWidth:1,borderTopColor:t.line,paddingTop:10}}>
-        <Text style={{fontSize:12,fontWeight:'800',color:t.ink,marginBottom:6}}>{copy(lang,'chapters')} ({chapters.length})</Text>
+        <T style={{fontSize:12,fontWeight:'800',color:t.ink,marginBottom:6}}>{copy(lang,'chapters')} ({chapters.length})</T>
         {chapters.map((ch,i)=><View key={ch.id} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.bg,borderRadius:8,padding:8,marginBottom:4}}>
           <View style={{width:22,height:22,borderRadius:11,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',marginRight:8}}>
-            <Text style={{fontSize:10,fontWeight:'800',color:t.primary}}>{i+1}</Text>
+            <T style={{fontSize:10,fontWeight:'800',color:t.primary}}>{i+1}</T>
           </View>
-          <Text numberOfLines={1} style={{flex:1,fontSize:12,fontWeight:'600',color:t.ink}}>{ch.title}</Text>
+          <T numberOfLines={1} style={{flex:1,fontSize:12,fontWeight:'600',color:t.ink}}>{ch.title}</T>
           <Pressable onPress={()=>removeChapter(s.id,ch.id)}><Feather name="x" size={15} color={t.muted}/></Pressable>
         </View>)}
-        <TextInput value={chTitle} onChangeText={setChTitle} placeholder={copy(lang,'chapterTitle')} placeholderTextColor={t.muted} style={{color:t.ink,fontSize:13,fontWeight:'700',marginTop:8,borderBottomWidth:1,borderBottomColor:t.line,paddingBottom:6}}/>
-        <TextInput value={chBody} onChangeText={setChBody} multiline placeholder={copy(lang,'chapterBody')} placeholderTextColor={t.muted} style={{color:t.ink,fontSize:12,marginTop:8,minHeight:60,textAlignVertical:'top'}}/>
+        <TextInput value={chTitle} onChangeText={setChTitle} placeholder={copy(lang,'chapterTitle')} placeholderTextColor={t.muted} style={{color:t.ink,fontSize:13,fontWeight:'700',marginTop:8,borderBottomWidth:1,borderBottomColor:t.line,paddingBottom:6,fontFamily:F}}/>
+        <TextInput value={chBody} onChangeText={setChBody} multiline placeholder={copy(lang,'chapterBody')} placeholderTextColor={t.muted} style={{color:t.ink,fontSize:12,marginTop:8,minHeight:60,textAlignVertical:'top',fontFamily:F}}/>
         <Pressable disabled={chSaving||!chTitle.trim()} onPress={()=>addChapter(s.id)} style={{backgroundColor:t.primary,borderRadius:8,paddingVertical:8,alignItems:'center',marginTop:8,opacity:chSaving||!chTitle.trim()?0.5:1}}>
-          {chSaving?<ActivityIndicator color="#fff" size="small"/>:<Text style={{color:'#fff',fontWeight:'800',fontSize:12}}>{copy(lang,'addChapter')}</Text>}
+          {chSaving?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:12}}>{copy(lang,'addChapter')}</T>}
         </Pressable>
       </View>}
     </View>)}
@@ -1105,38 +1109,38 @@ function WriterProfileStudio({token,theme:t,writer,lang,onUpdate}:{token:string;
         {uploadingImg?<View style={{width:80,height:80,borderRadius:40,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}><ActivityIndicator size="small" color={t.primary}/></View>:
         avatar?<View><Image source={{uri:avatar}} style={{width:80,height:80,borderRadius:40}}/><View style={{position:'absolute',bottom:0,right:0,backgroundColor:t.primary,borderRadius:12,width:26,height:26,alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:t.card}}><Feather name="camera" size={12} color="#fff"/></View></View>:
         <View style={{width:80,height:80,borderRadius:40,backgroundColor:t.primary,alignItems:'center',justifyContent:'center',elevation:4,shadowColor:t.primary,shadowOffset:{width:0,height:4},shadowOpacity:0.3,shadowRadius:8}}>
-          <Text style={{fontSize:28,fontWeight:'900',color:'#fff'}}>{writer?.writer_name?.[0]?.toUpperCase()||'?'}</Text>
+          <T style={{fontSize:28,fontWeight:'900',color:'#fff'}}>{writer?.writer_name?.[0]?.toUpperCase()||'?'}</T>
           <View style={{position:'absolute',bottom:0,backgroundColor:'rgba(0,0,0,0.4)',borderRadius:12,width:26,height:26,alignItems:'center',justifyContent:'center'}}><Feather name="camera" size={12} color="#fff"/></View>
         </View>}
       </Pressable>
-      <Text style={{fontSize:18,fontWeight:'900',color:t.ink}}>{name||writer?.writer_name}</Text>
-      <Text style={{fontSize:12,color:t.muted,marginTop:2}}>@{username||writer?.username}</Text>
+      <T style={{fontSize:18,fontWeight:'900',color:t.ink}}>{name||writer?.writer_name}</T>
+      <T style={{fontSize:12,color:t.muted,marginTop:2}}>@{username||writer?.username}</T>
     </View>
     <View style={{backgroundColor:t.card,borderRadius:14,padding:16,marginBottom:14,borderWidth:1,borderColor:t.line}}>
-      <Text style={{fontSize:11,fontWeight:'800',color:t.muted,marginBottom:12,letterSpacing:0.5}}>{copy(lang,'editProfile')}</Text>
+      <T style={{fontSize:11,fontWeight:'800',color:t.muted,marginBottom:12,letterSpacing:0.5}}>{copy(lang,'editProfile')}</T>
       <View style={{marginBottom:12}}>
-        <Text style={{color:t.muted,fontSize:11,fontWeight:'700',marginBottom:5,marginLeft:4}}>{copy(lang,'username')}</Text>
+        <T style={{color:t.muted,fontSize:11,fontWeight:'700',marginBottom:5,marginLeft:4}}>{copy(lang,'username')}</T>
         <View style={{flexDirection:'row',alignItems:'center',backgroundColor:t.bg,borderRadius:12,borderWidth:1.5,borderColor:t.line,paddingHorizontal:12,height:44}}>
           <Feather name="at-sign" size={16} color={t.muted} style={{marginRight:8}}/>
-          <TextInput value={username} onChangeText={setUsername} autoCapitalize="none" style={{flex:1,color:t.ink,fontSize:14,fontWeight:'600'}}/>
+          <TextInput value={username} onChangeText={setUsername} autoCapitalize="none" style={{flex:1,color:t.ink,fontSize:14,fontWeight:'600',fontFamily:F}}/>
         </View>
       </View>
       <View style={{marginBottom:12}}>
-        <Text style={{color:t.muted,fontSize:11,fontWeight:'700',marginBottom:5,marginLeft:4}}>{copy(lang,'writerName')}</Text>
+        <T style={{color:t.muted,fontSize:11,fontWeight:'700',marginBottom:5,marginLeft:4}}>{copy(lang,'writerName')}</T>
         <View style={{flexDirection:'row',alignItems:'center',backgroundColor:t.bg,borderRadius:12,borderWidth:1.5,borderColor:t.line,paddingHorizontal:12,height:44}}>
           <Feather name="user" size={16} color={t.muted} style={{marginRight:8}}/>
-          <TextInput value={name} onChangeText={setName} style={{flex:1,color:t.ink,fontSize:14,fontWeight:'600'}}/>
+          <TextInput value={name} onChangeText={setName} style={{flex:1,color:t.ink,fontSize:14,fontWeight:'600',fontFamily:F}}/>
         </View>
       </View>
       <View style={{marginBottom:16}}>
-        <Text style={{color:t.muted,fontSize:11,fontWeight:'700',marginBottom:5,marginLeft:4}}>{copy(lang,'bio')}</Text>
+        <T style={{color:t.muted,fontSize:11,fontWeight:'700',marginBottom:5,marginLeft:4}}>{copy(lang,'bio')}</T>
         <View style={{backgroundColor:t.bg,borderRadius:12,borderWidth:1.5,borderColor:t.line,padding:12,minHeight:80}}>
-          <TextInput value={bio} onChangeText={setBio} multiline placeholder={copy(lang,'bioPlaceholder')} placeholderTextColor={t.muted+'88'} style={{color:t.ink,fontSize:14,fontWeight:'500',lineHeight:20}}/>
+          <TextInput value={bio} onChangeText={setBio} multiline placeholder={copy(lang,'bioPlaceholder')} placeholderTextColor={t.muted+'88'} style={{color:t.ink,fontSize:14,fontWeight:'500',lineHeight:20,fontFamily:F}}/>
         </View>
       </View>
-      {err?<View style={{backgroundColor:'#FEF2F2',borderRadius:10,padding:10,marginBottom:12,flexDirection:'row',alignItems:'center',gap:6}}><Feather name="alert-circle" size={14} color="#EF4444"/><Text style={{fontSize:12,fontWeight:'600',color:'#EF4444',flex:1}}>{err}</Text></View>:null}
+      {err?<View style={{backgroundColor:'#FEF2F2',borderRadius:10,padding:10,marginBottom:12,flexDirection:'row',alignItems:'center',gap:6}}><Feather name="alert-circle" size={14} color="#EF4444"/><T style={{fontSize:12,fontWeight:'600',color:'#EF4444',flex:1}}>{err}</T></View>:null}
       <Pressable disabled={saving} onPress={handleSave} style={{backgroundColor:saved?'#10B981':t.primary,borderRadius:12,paddingVertical:12,alignItems:'center'}}>
-        {saving?<ActivityIndicator color="#fff" size="small"/>:<Text style={{color:'#fff',fontWeight:'800',fontSize:14}}>{saved?'✓ '+copy(lang,'saved'):copy(lang,'save')}</Text>}
+        {saving?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{saved?'✓ '+copy(lang,'saved'):copy(lang,'save')}</T>}
       </Pressable>
     </View>
   </ScrollView>}
@@ -1151,10 +1155,10 @@ function WriterNotifs({token,theme:t,lang}:{token:string;theme:Theme;lang:Langua
   const typeColor=(type:string)=>type==='approved'?'#10B981':type==='rejected'?'#EF4444':'#6366F1';
   return <View style={{flex:1}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
-      <Text style={{fontSize:16,fontWeight:'900',color:t.ink}}>{copy(lang,'notifications')}</Text>
+      <T style={{fontSize:16,fontWeight:'900',color:t.ink}}>{copy(lang,'notifications')}</T>
       <View style={{flexDirection:'row',gap:8}}>
         {notifs.some(n=>!n.is_read)&&<Pressable onPress={markAll} style={{paddingHorizontal:10,paddingVertical:5,borderRadius:8,backgroundColor:t.tint}}>
-          <Text style={{fontSize:11,fontWeight:'700',color:t.primary}}>{copy(lang,'markAllRead')}</Text>
+          <T style={{fontSize:11,fontWeight:'700',color:t.primary}}>{copy(lang,'markAllRead')}</T>
         </Pressable>}
         {notifs.length>0&&<Pressable onPress={async()=>{const ids=notifs.map(n=>n.id);setNotifs([]);await Promise.all(ids.map(id=>deleteWriterNotification(token,id)))}} style={{paddingHorizontal:5,paddingVertical:5,borderRadius:8,backgroundColor:t.tint}}>
           <Feather name="trash-2" size={13} color="#EF4444"/>
@@ -1162,20 +1166,20 @@ function WriterNotifs({token,theme:t,lang}:{token:string;theme:Theme;lang:Langua
       </View>
     </View>
     {loading?<View style={{alignItems:'center',paddingVertical:40}}><ActivityIndicator color={t.primary}/></View>:
-    notifs.length===0?<View style={{alignItems:'center',paddingVertical:40}}><Feather name="bell" size={28} color={t.muted}/><Text style={{fontSize:13,color:t.muted,marginTop:8}}>{copy(lang,'noNotifications')}</Text></View>:
+    notifs.length===0?<View style={{alignItems:'center',paddingVertical:40}}><Feather name="bell" size={28} color={t.muted}/><T style={{fontSize:13,color:t.muted,marginTop:8}}>{copy(lang,'noNotifications')}</T></View>:
     notifs.map(n=><View key={n.id} style={{flexDirection:'row',alignItems:'flex-start',backgroundColor:n.is_read?t.card:t.tint,borderRadius:12,padding:12,marginBottom:6,borderWidth:1,borderColor:n.is_read?t.line:t.primary+'30',borderLeftWidth:3,borderLeftColor:typeColor(n.type)}}>
       <View style={{width:30,height:30,borderRadius:8,backgroundColor:typeColor(n.type)+'18',alignItems:'center',justifyContent:'center',marginRight:10}}>
         <Feather name={typeIcon(n.type) as any} size={14} color={typeColor(n.type)}/>
       </View>
       <View style={{flex:1}}>
-        <Text numberOfLines={1} style={{fontSize:13,fontWeight:'700',color:t.ink}}>{n.title}</Text>
-        <Text numberOfLines={3} style={{fontSize:12,color:t.muted,marginTop:2,lineHeight:17}}>{n.body}</Text>
+        <T numberOfLines={1} style={{fontSize:13,fontWeight:'700',color:t.ink}}>{n.title}</T>
+        <T numberOfLines={3} style={{fontSize:12,color:t.muted,marginTop:2,lineHeight:17}}>{n.body}</T>
         <View style={{flexDirection:'row',alignItems:'center',marginTop:4}}>
           {n.url?<Pressable onPress={()=>Linking.openURL(n.url!)} style={{flexDirection:'row',alignItems:'center',marginRight:10,backgroundColor:t.primary+'15',paddingHorizontal:10,paddingVertical:5,borderRadius:8}}>
             <Feather name="external-link" size={12} color={t.primary}/>
-            <Text style={{fontSize:11,fontWeight:'700',color:t.primary,marginLeft:5}}>{copy(lang,'openLink')}</Text>
+            <T style={{fontSize:11,fontWeight:'700',color:t.primary,marginLeft:5}}>{copy(lang,'openLink')}</T>
           </Pressable>:null}
-          <Text style={{fontSize:10,color:t.muted}}>{new Date(n.created_at).toLocaleDateString()}</Text>
+          <T style={{fontSize:10,color:t.muted}}>{new Date(n.created_at).toLocaleDateString()}</T>
         </View>
       </View>
       {!n.is_read&&<View style={{width:8,height:8,borderRadius:4,backgroundColor:t.primary,marginLeft:8,marginTop:4}}/>}
@@ -1185,14 +1189,14 @@ function WriterNotifs({token,theme:t,lang}:{token:string;theme:Theme;lang:Langua
     </View>)}
   </View>}
 
-function Back({title,theme,onPress}:{title:string;theme:Theme;onPress:()=>void}){return <View style={styles.back}><Pressable onPress={onPress}><Feather name="arrow-left" size={22} color={theme.ink}/></Pressable><Text style={[styles.backTitle,{color:theme.ink}]}>{title}</Text><View style={{width:22}}/></View>}
-function Section({title,theme,action,seeAllText}:{title:string;theme:Theme;action?:()=>void;seeAllText?:string}){return <View style={styles.section}><Text style={[styles.sectionTitle,{color:theme.ink}]}>{title}</Text>{action&&<Pressable onPress={action}><Text style={{color:theme.primary,fontWeight:'800',fontSize:12}}>{seeAllText||'See all →'}</Text></Pressable>}</View>}
-function Cover({book,large}:{book:Book;large?:boolean}){return <View style={[styles.cover,large&&styles.coverLarge,{backgroundColor:book.color}]}>{book.cover_url?<><Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:large?16:9}} resizeMode="cover"/><View style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:large?16:9,backgroundColor:'rgba(0,0,0,0.15)'}}/></>:null}<Feather name={I(book.categoryIcon)} size={large?27:20} color={book.accent}/><Text numberOfLines={3} style={[styles.coverTitle,large&&{fontSize:17}]}>{book.title}</Text><View style={{height:2,width:24,backgroundColor:book.accent,marginVertical:7}}/><Text style={styles.coverAuthor}>{book.author}</Text></View>}
-function Episode({book,theme,onPress}:{book:Book;theme:Theme;onPress:()=>void}){const c=book.chapters[book.chapters.length-1];return <Pressable onPress={onPress} style={[styles.episode,{backgroundColor:theme.card,borderColor:theme.line}]}><Cover book={book}/><View style={{flex:1}}><Text style={{color:theme.primary,fontSize:10,fontWeight:'900'}}>নতুন পর্ব</Text><Text style={[styles.rowTitle,{color:theme.ink}]}>{book.title}</Text><Text style={{color:theme.muted,fontSize:11,marginTop:4}}>পর্ব {book.chapters.length}: {c?.title||'—'}</Text></View><Feather name="play-circle" size={23} color={theme.primary}/></Pressable>}
+function Back({title,theme,onPress}:{title:string;theme:Theme;onPress:()=>void}){return <View style={styles.back}><Pressable onPress={onPress}><Feather name="arrow-left" size={22} color={theme.ink}/></Pressable><T style={[styles.backTitle,{color:theme.ink}]}>{title}</T><View style={{width:22}}/></View>}
+function Section({title,theme,action,seeAllText}:{title:string;theme:Theme;action?:()=>void;seeAllText?:string}){return <View style={styles.section}><T style={[styles.sectionTitle,{color:theme.ink}]}>{title}</T>{action&&<Pressable onPress={action}><T style={{color:theme.primary,fontWeight:'800',fontSize:12}}>{seeAllText||'See all →'}</T></Pressable>}</View>}
+function Cover({book,large}:{book:Book;large?:boolean}){return <View style={[styles.cover,large&&styles.coverLarge,{backgroundColor:book.color}]}>{book.cover_url?<><Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:large?16:9}} resizeMode="cover"/><View style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:large?16:9,backgroundColor:'rgba(0,0,0,0.15)'}}/></>:null}<Feather name={I(book.categoryIcon)} size={large?27:20} color={book.accent}/><T numberOfLines={3} style={[styles.coverTitle,large&&{fontSize:17}]}>{book.title}</T><View style={{height:2,width:24,backgroundColor:book.accent,marginVertical:7}}/><T style={styles.coverAuthor}>{book.author}</T></View>}
+function Episode({book,theme,onPress}:{book:Book;theme:Theme;onPress:()=>void}){const c=book.chapters[book.chapters.length-1];return <Pressable onPress={onPress} style={[styles.episode,{backgroundColor:theme.card,borderColor:theme.line}]}><Cover book={book}/><View style={{flex:1}}><T style={{color:theme.primary,fontSize:10,fontWeight:'900'}}>নতুন পর্ব</T><T style={[styles.rowTitle,{color:theme.ink}]}>{book.title}</T><T style={{color:theme.muted,fontSize:11,marginTop:4}}>পর্ব {book.chapters.length}: {c?.title||'—'}</T></View><Feather name="play-circle" size={23} color={theme.primary}/></Pressable>}
 function Featured(props: C & { list?: Book[] }){const p=props as C;const {width}=useWindowDimensions();const W=width-36;const items=(props.list&&props.list.length?props.list:p.allBooks.slice(0,6));const N=items.length;const anim=useRef(new Animated.Value(0)).current;const idxRef=useRef(0);const[idx,setIdx]=useState(0);const setter=(i:number)=>{idxRef.current=((i%N)+N)%N;setIdx(idxRef.current)};useEffect(()=>{Animated.timing(anim,{toValue:-idx*W,duration:450,useNativeDriver:true}).start()},[idx,anim,W]);useEffect(()=>{if(N<2)return;const id=setInterval(()=>setter(idxRef.current+1),4000);return()=>clearInterval(id)},[N,setter]);const pan=useRef(PanResponder.create({onStartShouldSetPanResponder:()=>true,onMoveShouldSetPanResponder:()=>N>1,onPanResponderRelease:(_,g)=>{if(N<2)return;if(g.dx<-50)setter(idxRef.current+1);else if(g.dx>50)setter(idxRef.current-1)}})).current;if(!N)return null;return <View><View style={{overflow:'hidden',borderRadius:24}}><Animated.View style={{flexDirection:'row',width:W*N,transform:[{translateX:anim}]}} {...pan.panHandlers}>{items.map((b,i)=><View key={b.id} style={{width:W}}><FeaturedCard book={b} p={p} rank={i}/></View>)}</Animated.View></View><View style={{flexDirection:'row',justifyContent:'center',gap:6,marginTop:12}}>{items.map((_,i)=>{const on=i===idx;return <View key={i} style={[styles.dot,{width:on?18:6,backgroundColor:on?p.theme.primary:p.theme.line}]}/>})}</View></View>}
 function shade(hex:string,amt:number):string{const h=hex.replace('#','');if(h.length!==6)return hex;const n=parseInt(h,16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;const t=amt<0?0:255;const q=Math.abs(amt)/100;r=Math.round((t-r)*q+r);g=Math.round((t-g)*q+g);b=Math.round((t-b)*q+b);const z=(x:number)=>('0'+x.toString(16)).slice(-2);return '#'+z(r)+z(g)+z(b)}
-function FeaturedCard({book,p,rank}:{book:Book;p:C;rank:number}){const base=book.color||'#123E39';const accent=book.accent||'#F5C660';const dark=shade(base,-32);const isBm=p.state.bookmarks.includes(book.id);const open=()=>p.open(book.id);const toggleBm=()=>p.update({bookmarks:isBm?p.state.bookmarks.filter(x=>x!==book.id):[...p.state.bookmarks,book.id]});const metaW=book.views_visible!==false;const readLabel=p.state.settings.language==='hi'?'पढ़ें':p.state.settings.language==='en'?'Read':'পড়ুন';return <View style={[featStyles.card,{backgroundColor:base}]}><LinearGradient colors={[base,dark]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/><Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="92%" cy={18} r={92} fill={accent+'26'}/><Circle cx="-14" cy={205} r={118} fill="#ffffff10"/><Ellipse cx="34%" cy={262} rx={165} ry={80} fill={accent+'16'}/><Circle cx="70%" cy={248} r={70} fill="#ffffff0c"/></Svg><View style={featStyles.top}><View style={[featStyles.rank,{backgroundColor:accent}]}><Text style={[featStyles.rankText,{color:base}]}>#{rank+1}</Text></View><Pressable onPress={toggleBm} hitSlop={10} style={[featStyles.bm,{borderColor:'#ffffff44'}]}><Feather name="bookmark" size={15} color={isBm?accent:'#fff'}/></Pressable></View><View style={featStyles.row}><View style={featStyles.left}><View style={[featStyles.tag,{backgroundColor:accent+'33'}]}><Text style={[featStyles.tagText,{color:accent}]}>✦ {tr(p,'popular')}</Text></View><Text numberOfLines={2} style={featStyles.title}>{book.title}</Text><Text numberOfLines={1} style={featStyles.author}>{book.author}</Text><View style={featStyles.meta}>{metaW&&<View style={featStyles.metaC}><Feather name="eye" size={10} color="#E7F2EE"/><Text style={featStyles.metaT}>{book.views}</Text></View>}<View style={featStyles.metaC}><Feather name="star" size={10} color={accent}/><Text style={featStyles.metaT}>{book.rating}</Text></View><View style={featStyles.metaC}><Feather name={I(book.categoryIcon)} size={10} color="#E7F2EE"/><Text style={featStyles.metaT} numberOfLines={1}>{book.category}</Text></View></View><Pressable onPress={open} style={[featStyles.btn,{backgroundColor:accent}]}><Feather name="book-open" size={12} color={base}/><Text style={[featStyles.btnText,{color:base}]}>{readLabel}</Text></Pressable></View><Pressable onPress={open} style={featStyles.coverWrap}>{book.cover_url?<Image source={{uri:book.cover_url}} style={featStyles.coverImg}/>:<View style={[featStyles.coverImg,{backgroundColor:book.color}]}><Feather name={I(book.categoryIcon)} size={30} color={book.accent}/></View>}</Pressable></View></View>}
-function BookCard({book,theme,lang,rank,accent,onPress}:{book:Book;theme:Theme;lang:Language;rank?:number;accent?:string;onPress:()=>void}){const newBadge=Boolean(book.isNew);return <Pressable onPress={onPress} style={{width:130}}><View style={{position:'relative'}}><Cover book={book}/>{typeof rank==='number'?<View style={[styles.rankBadge,{backgroundColor:rank===0?accent:rank===1?accent:rank<3?(accent||'#888')+'DD':'#555555DD'}]}><Text style={[styles.rankBadgeText,{color:rank<2?'#fff':'#fff'}]}>{rank+1}</Text></View>:<View style={[styles.statusBadge,{backgroundColor:newBadge?theme.primary:theme.tint}]}><Text style={[styles.statusBadgeText,{color:newBadge?'#fff':theme.primary}]}>{newBadge?copy(lang,'statusNew'):copy(lang,'statusOngoing')}</Text></View>}{book.views_visible !== false && <View style={styles.viewBadge}><Feather name="eye" size={10} color="#fff"/><Text style={styles.viewBadgeText}>{book.views}</Text></View>}</View><Text numberOfLines={2} style={[styles.bookName,{color:theme.ink}]}>{book.title}</Text><Text numberOfLines={1} style={{color:theme.muted,fontSize:11}}>{book.author}</Text></Pressable>}
+function FeaturedCard({book,p,rank}:{book:Book;p:C;rank:number}){const base=book.color||'#123E39';const accent=book.accent||'#F5C660';const dark=shade(base,-32);const isBm=p.state.bookmarks.includes(book.id);const open=()=>p.open(book.id);const toggleBm=()=>p.update({bookmarks:isBm?p.state.bookmarks.filter(x=>x!==book.id):[...p.state.bookmarks,book.id]});const metaW=book.views_visible!==false;const readLabel=p.state.settings.language==='hi'?'पढ़ें':p.state.settings.language==='en'?'Read':'পড়ুন';return <View style={[featStyles.card,{backgroundColor:base}]}><LinearGradient colors={[base,dark]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/><Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="92%" cy={18} r={92} fill={accent+'26'}/><Circle cx="-14" cy={205} r={118} fill="#ffffff10"/><Ellipse cx="34%" cy={262} rx={165} ry={80} fill={accent+'16'}/><Circle cx="70%" cy={248} r={70} fill="#ffffff0c"/></Svg><View style={featStyles.top}><View style={[featStyles.rank,{backgroundColor:accent}]}><T style={[featStyles.rankText,{color:base}]}>#{rank+1}</T></View><Pressable onPress={toggleBm} hitSlop={10} style={[featStyles.bm,{borderColor:'#ffffff44'}]}><Feather name="bookmark" size={15} color={isBm?accent:'#fff'}/></Pressable></View><View style={featStyles.row}><View style={featStyles.left}><View style={[featStyles.tag,{backgroundColor:accent+'33'}]}><T style={[featStyles.tagText,{color:accent}]}>✦ {tr(p,'popular')}</T></View><T numberOfLines={2} style={featStyles.title}>{book.title}</T><T numberOfLines={1} style={featStyles.author}>{book.author}</T><View style={featStyles.meta}>{metaW&&<View style={featStyles.metaC}><Feather name="eye" size={10} color="#E7F2EE"/><T style={featStyles.metaT}>{book.views}</T></View>}<View style={featStyles.metaC}><Feather name="star" size={10} color={accent}/><T style={featStyles.metaT}>{book.rating}</T></View><View style={featStyles.metaC}><Feather name={I(book.categoryIcon)} size={10} color="#E7F2EE"/><T style={featStyles.metaT} numberOfLines={1}>{book.category}</T></View></View><Pressable onPress={open} style={[featStyles.btn,{backgroundColor:accent}]}><Feather name="book-open" size={12} color={base}/><T style={[featStyles.btnText,{color:base}]}>{readLabel}</T></Pressable></View><Pressable onPress={open} style={featStyles.coverWrap}>{book.cover_url?<Image source={{uri:book.cover_url}} style={featStyles.coverImg}/>:<View style={[featStyles.coverImg,{backgroundColor:book.color}]}><Feather name={I(book.categoryIcon)} size={30} color={book.accent}/></View>}</Pressable></View></View>}
+function BookCard({book,theme,lang,rank,accent,onPress}:{book:Book;theme:Theme;lang:Language;rank?:number;accent?:string;onPress:()=>void}){const newBadge=Boolean(book.isNew);return <Pressable onPress={onPress} style={{width:130}}><View style={{position:'relative'}}><Cover book={book}/>{typeof rank==='number'?<View style={[styles.rankBadge,{backgroundColor:rank===0?accent:rank===1?accent:rank<3?(accent||'#888')+'DD':'#555555DD'}]}><T style={[styles.rankBadgeText,{color:rank<2?'#fff':'#fff'}]}>{rank+1}</T></View>:<View style={[styles.statusBadge,{backgroundColor:newBadge?theme.primary:theme.tint}]}><T style={[styles.statusBadgeText,{color:newBadge?'#fff':theme.primary}]}>{newBadge?copy(lang,'statusNew'):copy(lang,'statusOngoing')}</T></View>}{book.views_visible !== false && <View style={styles.viewBadge}><Feather name="eye" size={10} color="#fff"/><T style={styles.viewBadgeText}>{book.views}</T></View>}</View><T numberOfLines={2} style={[styles.bookName,{color:theme.ink}]}>{book.title}</T><T numberOfLines={1} style={{color:theme.muted,fontSize:11}}>{book.author}</T></Pressable>}
 function BadgeIcon({badge,size}:{badge?:string;size?:number}){
   if(!badge||badge==='none')return null;
   const s=size||18;
@@ -1207,28 +1211,28 @@ function AuthorCard({writer,theme,lang,onPress,bookCount}:{writer:import('./src/
     <View style={[dStyles.writerCardBg,{backgroundColor:bg}]}/>
     <View style={dStyles.writerAvatarWrap}>
       <View style={[dStyles.writerAvatar,{borderColor:theme.card,backgroundColor:bg}]}>
-        {writer.avatar_url?<Image source={{uri:writer.avatar_url}} style={StyleSheet.absoluteFill}/>:<Text style={{fontSize:28,fontWeight:'900',color:ring}}>{writer.writer_name[0]?.toUpperCase()||'?'}</Text>}
+        {writer.avatar_url?<Image source={{uri:writer.avatar_url}} style={StyleSheet.absoluteFill}/>:<T style={{fontSize:28,fontWeight:'900',color:ring}}>{writer.writer_name[0]?.toUpperCase()||'?'}</T>}
       </View>
     </View>
     <View style={dStyles.writerCardBody}>
       <View style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:4}}>
-        <Text numberOfLines={1} style={[dStyles.writerName,{color:theme.ink}]}>{writer.writer_name}</Text>
+        <T numberOfLines={1} style={[dStyles.writerName,{color:theme.ink}]}>{writer.writer_name}</T>
         <BadgeIcon badge={writer.badge} size={15}/>
       </View>
-      <Text numberOfLines={1} style={[dStyles.writerUsername,{color:theme.muted}]}>@{writer.username}</Text>
+      <T numberOfLines={1} style={[dStyles.writerUsername,{color:theme.muted}]}>@{writer.username}</T>
       <View style={[dStyles.writerStatsRow,{borderColor:theme.line}]}>
-        <View style={dStyles.writerStat}><Feather name="book-open" size={12} color={theme.primary}/><Text style={[dStyles.writerStatNum,{color:theme.ink}]}>{bookCount}</Text><Text style={[dStyles.writerStatLabel,{color:theme.muted}]}>{copy(lang,'books')}</Text></View>
-        <View style={dStyles.writerStat}><Feather name="users" size={12} color={theme.primary}/><Text style={[dStyles.writerStatNum,{color:theme.ink}]}>{writer.follower_count||0}</Text><Text style={[dStyles.writerStatLabel,{color:theme.muted}]}>{copy(lang,'followers')}</Text></View>
+        <View style={dStyles.writerStat}><Feather name="book-open" size={12} color={theme.primary}/><T style={[dStyles.writerStatNum,{color:theme.ink}]}>{bookCount}</T><T style={[dStyles.writerStatLabel,{color:theme.muted}]}>{copy(lang,'books')}</T></View>
+        <View style={dStyles.writerStat}><Feather name="users" size={12} color={theme.primary}/><T style={[dStyles.writerStatNum,{color:theme.ink}]}>{writer.follower_count||0}</T><T style={[dStyles.writerStatLabel,{color:theme.muted}]}>{copy(lang,'followers')}</T></View>
       </View>
     </View>
   </Pressable>}
-function Row({book,theme,onPress}:{book:Book;theme:Theme;onPress:()=>void}){return <Pressable onPress={onPress} style={[styles.row,{backgroundColor:theme.card,borderColor:theme.line}]}><Cover book={book}/><View style={{flex:1}}><Text style={[styles.rowTitle,{color:theme.ink}]}>{book.title}</Text><Text style={{color:theme.primary,fontSize:12,marginTop:4}}>{book.author}</Text><View style={{flexDirection:'row',alignItems:'center',gap:3}}><Feather name="eye" size={12} color={theme.muted}/><Text style={{color:theme.muted,fontSize:11}}>{book.views_visible !== false ? `${book.views} • ${book.category}` : book.category}</Text></View></View><Feather name="chevron-right" size={18} color={theme.muted}/></Pressable>}
-function Link({title,icon,n,theme,onPress}:{title:string;icon:string;n:number;theme:Theme;onPress:()=>void}){return <Pressable onPress={onPress} style={[styles.link,{backgroundColor:theme.card,borderColor:theme.line}]}><View style={[styles.linkIcon,{backgroundColor:theme.tint}]}><Feather name={I(icon)} size={20} color={theme.primary}/></View><Text style={[styles.rowTitle,{color:theme.ink}]}>{title}</Text><Text style={{color:theme.muted,fontSize:10}}>{n}টি</Text></Pressable>}
-function Menu({title,icon,theme,onPress}:{title:string;icon:string;theme:Theme;onPress:()=>void}){return <Pressable onPress={onPress} style={[styles.menu,{backgroundColor:theme.card,borderBottomColor:theme.line}]}><View style={[styles.menuIcon,{backgroundColor:theme.tint}]}><Feather name={I(icon)} size={17} color={theme.primary}/></View><Text style={[styles.rowTitle,{color:theme.ink,flex:1}]}>{title}</Text><Feather name="chevron-right" size={18} color={theme.muted}/></Pressable>}
-function Toggle({title,icon,value,theme,onChange}:{title:string;icon:string;value:boolean;theme:Theme;onChange:(v:boolean)=>void}){return <View style={[styles.menu,{backgroundColor:theme.card,borderBottomColor:theme.line}]}><View style={[styles.menuIcon,{backgroundColor:theme.tint}]}><Feather name={I(icon)} size={17} color={theme.primary}/></View><Text style={[styles.rowTitle,{color:theme.ink,flex:1}]}>{title}</Text><Switch value={value} onValueChange={onChange} trackColor={{true:theme.primary}}/></View>}
-function Action({icon,label,active,theme,onPress}:{icon:string;label:string;active:boolean;theme:Theme;onPress:()=>void}){return <Pressable onPress={onPress} style={{alignItems:'center',gap:5}}><View style={[styles.action,{backgroundColor:active?theme.primary:theme.card,borderColor:theme.line}]}><Feather name={I(icon)} size={17} color={active?'#fff':theme.ink}/></View><Text style={{color:active?theme.primary:theme.muted,fontSize:10,fontWeight:'800'}}>{label}</Text></Pressable>}
-function Button({title,icon,disabled,onPress}:{title:string;icon:string;disabled?:boolean;onPress:()=>void}){return <Pressable disabled={disabled} onPress={onPress} style={[styles.button,disabled&&{opacity:.4}]}><Text style={styles.buttonText}>{title}</Text><Feather name={I(icon)} size={18} color="#fff"/></Pressable>}
-function Empty({theme}:{theme:Theme}){return <View style={styles.empty}><Feather name="book" size={28} color={theme.primary}/><Text style={[styles.rowTitle,{color:theme.ink,marginTop:10}]}>এখানে এখনো কিছু নেই</Text><Text style={{color:theme.muted,marginTop:5}}>গল্প পড়তে শুরু করুন</Text></View>}
+function Row({book,theme,onPress}:{book:Book;theme:Theme;onPress:()=>void}){return <Pressable onPress={onPress} style={[styles.row,{backgroundColor:theme.card,borderColor:theme.line}]}><Cover book={book}/><View style={{flex:1}}><T style={[styles.rowTitle,{color:theme.ink}]}>{book.title}</T><T style={{color:theme.primary,fontSize:12,marginTop:4}}>{book.author}</T><View style={{flexDirection:'row',alignItems:'center',gap:3}}><Feather name="eye" size={12} color={theme.muted}/><T style={{color:theme.muted,fontSize:11}}>{book.views_visible !== false ? `${book.views} • ${book.category}` : book.category}</T></View></View><Feather name="chevron-right" size={18} color={theme.muted}/></Pressable>}
+function Link({title,icon,n,theme,onPress}:{title:string;icon:string;n:number;theme:Theme;onPress:()=>void}){return <Pressable onPress={onPress} style={[styles.link,{backgroundColor:theme.card,borderColor:theme.line}]}><View style={[styles.linkIcon,{backgroundColor:theme.tint}]}><Feather name={I(icon)} size={20} color={theme.primary}/></View><T style={[styles.rowTitle,{color:theme.ink}]}>{title}</T><T style={{color:theme.muted,fontSize:10}}>{n}টি</T></Pressable>}
+function Menu({title,icon,theme,onPress}:{title:string;icon:string;theme:Theme;onPress:()=>void}){return <Pressable onPress={onPress} style={[styles.menu,{backgroundColor:theme.card,borderBottomColor:theme.line}]}><View style={[styles.menuIcon,{backgroundColor:theme.tint}]}><Feather name={I(icon)} size={17} color={theme.primary}/></View><T style={[styles.rowTitle,{color:theme.ink,flex:1}]}>{title}</T><Feather name="chevron-right" size={18} color={theme.muted}/></Pressable>}
+function Toggle({title,icon,value,theme,onChange}:{title:string;icon:string;value:boolean;theme:Theme;onChange:(v:boolean)=>void}){return <View style={[styles.menu,{backgroundColor:theme.card,borderBottomColor:theme.line}]}><View style={[styles.menuIcon,{backgroundColor:theme.tint}]}><Feather name={I(icon)} size={17} color={theme.primary}/></View><T style={[styles.rowTitle,{color:theme.ink,flex:1}]}>{title}</T><Switch value={value} onValueChange={onChange} trackColor={{true:theme.primary}}/></View>}
+function Action({icon,label,active,theme,onPress}:{icon:string;label:string;active:boolean;theme:Theme;onPress:()=>void}){return <Pressable onPress={onPress} style={{alignItems:'center',gap:5}}><View style={[styles.action,{backgroundColor:active?theme.primary:theme.card,borderColor:theme.line}]}><Feather name={I(icon)} size={17} color={active?'#fff':theme.ink}/></View><T style={{color:active?theme.primary:theme.muted,fontSize:10,fontWeight:'800'}}>{label}</T></Pressable>}
+function Button({title,icon,disabled,onPress}:{title:string;icon:string;disabled?:boolean;onPress:()=>void}){return <Pressable disabled={disabled} onPress={onPress} style={[styles.button,disabled&&{opacity:.4}]}><T style={styles.buttonText}>{title}</T><Feather name={I(icon)} size={18} color="#fff"/></Pressable>}
+function Empty({theme}:{theme:Theme}){return <View style={styles.empty}><Feather name="book" size={28} color={theme.primary}/><T style={[styles.rowTitle,{color:theme.ink,marginTop:10}]}>এখানে এখনো কিছু নেই</T><T style={{color:theme.muted,marginTop:5}}>গল্প পড়তে শুরু করুন</T></View>}
 function FlowerArt({kind,primary,tint,bg,s=40}:{kind:string;primary:string;tint:string;bg:string;s?:number}){
   const petal=(ang:number,rx:number,ry:number,col:string,op=0.92,pad=0)=><Ellipse cx={50} cy={50-ry-pad} rx={rx} ry={ry} fill={col} opacity={op} transform={`rotate(${ang} 50 50)`}/>;
   const R=(n:number)=>(()=>{const a:number[]=[];for(let i=0;i<n;i++)a.push((360/n)*i);return a})();
@@ -1253,7 +1257,7 @@ golapi:{light:{dark:false,primary:'#D94A7A',bg:'#FFF5F8',card:'#FFFFFF',ink:'#2E
   shapla:{light:{dark:false,primary:'#0E9AA7',bg:'#F0FBFD',card:'#FFFFFF',ink:'#0E2A2E',muted:'#5C848C',line:'#C8E8EC',tint:'#D9F2F5',reader:'#F6FCFD'},dark:{dark:true,primary:'#2EC4C9',bg:'#071A1D',card:'#0F282C',ink:'#DCF5F7',muted:'#5C848C',line:'#1E3E42',tint:'#133235',reader:'#091B1E'}},
   golap:{light:{dark:false,primary:'#E63946',bg:'#FFF6F7',card:'#FFFFFF',ink:'#3A1520',muted:'#99505C',line:'#F0CCD2',tint:'#F9E3E7',reader:'#FFFBFC'},dark:{dark:true,primary:'#FF6B7A',bg:'#20090F',card:'#33121C',ink:'#FFE7EC',muted:'#99505C',line:'#4A1E28',tint:'#3A1620',reader:'#220B11'}}};
 function themeFor(themeId:ThemeId,dark:boolean){return themePalettes[themeId]?.[dark?'dark':'light']||themePalettes.katagolap[dark?'dark':'light']}
-const styles=StyleSheet.create({center:{flex:1,alignItems:'center',justifyContent:'center'},logo:{width:76,height:76,borderRadius:25,backgroundColor:'#087A63',alignItems:'center',justifyContent:'center',elevation:8},brand:{fontSize:25,fontWeight:'900',marginTop:16},gate:{flex:1},art:{height:'38%',backgroundColor:'#DDF8EF',alignItems:'center',justifyContent:'center'},gateBody:{flex:1,padding:25,justifyContent:'center'},eyebrow:{fontSize:12,fontWeight:'900',letterSpacing:1},gateTitle:{fontSize:30,lineHeight:39,fontWeight:'900',marginTop:8},copy:{fontSize:14,lineHeight:22,marginVertical:14},input:{height:55,borderWidth:1,borderRadius:17,paddingHorizontal:16,fontSize:16},note:{textAlign:'center',fontSize:11,marginTop:14},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:23},title:{fontSize:25,fontWeight:'900'},feature:{height:214,borderRadius:24,padding:18,flexDirection:'row',alignItems:'center',overflow:'hidden'},tag:{color:'#F7D87D',fontSize:11,fontWeight:'900',marginBottom:10},featureTitle:{color:'#fff',fontSize:23,lineHeight:30,fontWeight:'900'},featureAuthor:{color:'#D1E6DF',fontSize:12,marginTop:5},readPill:{backgroundColor:'#F5D578',borderRadius:11,padding:11,alignSelf:'flex-start',marginTop:15},cover:{width:124,height:169,borderRadius:9,padding:11,justifyContent:'flex-end',overflow:'hidden'},coverLarge:{width:137,height:188,transform:[{rotate:'2deg'}]},coverTitle:{color:'#fff',fontWeight:'900',fontSize:14,lineHeight:18},coverAuthor:{fontSize:8,color:'#FFFFFFAA'},featureCard:{height:214,borderRadius:24,padding:18,flexDirection:'row',alignItems:'center',overflow:'hidden'},featTag:{color:'#F7D87D',fontSize:11,fontWeight:'900',marginBottom:8},featTitle:{color:'#fff',fontSize:21,lineHeight:28,fontWeight:'900'},featAuthor:{color:'#D1E6DF',fontSize:12,marginTop:4},featDesc:{color:'#D1E6DF',fontSize:11,lineHeight:16,marginTop:8},featBtn:{backgroundColor:'#F5D578',borderRadius:11,paddingVertical:9,paddingHorizontal:13,alignSelf:'flex-start',marginTop:12},featBtnText:{fontWeight:'900',color:'#173D34',fontSize:12},dot:{height:6,borderRadius:3},statusBadge:{position:'absolute',top:8,left:8,alignSelf:'flex-start',borderRadius:7,paddingVertical:3,paddingHorizontal:7},statusBadgeText:{fontSize:9,fontWeight:'900',letterSpacing:0.5},rankBadge:{position:'absolute',top:-6,left:-6,minWidth:30,height:30,borderRadius:10,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:2.5,borderColor:'#fff'},rankBadgeText:{fontSize:15,fontWeight:'900'},viewBadge:{position:'absolute',bottom:8,right:8,flexDirection:'row',alignItems:'center',gap:3,borderRadius:8,paddingVertical:2.5,paddingHorizontal:6,backgroundColor:'rgba(0,0,0,0.55)'},viewBadgeText:{color:'#fff',fontSize:9,fontWeight:'800'},secHead:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:27,marginBottom:13},secIcon:{width:28,height:28,borderRadius:9,alignItems:'center',justifyContent:'center'},seeAllPill:{borderRadius:20,paddingVertical:6,paddingHorizontal:12},section:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:27,marginBottom:13},sectionTitle:{fontSize:19,fontWeight:'900'},bookName:{fontSize:14,fontWeight:'800',lineHeight:19,marginTop:9},episode:{minHeight:98,borderRadius:18,borderWidth:1,padding:10,flexDirection:'row',alignItems:'center',gap:12,marginBottom:10},row:{minHeight:100,borderRadius:18,borderWidth:1,padding:10,flexDirection:'row',alignItems:'center',gap:12,marginBottom:10},rowTitle:{fontSize:14,fontWeight:'800'},tabs:{height:76,borderTopWidth:1,flexDirection:'row',paddingTop:9},tab:{flex:1,alignItems:'center',gap:4},grid2:{flexDirection:'row',flexWrap:'wrap',gap:10},link:{width:'48.4%',borderRadius:18,borderWidth:1,padding:13},linkIcon:{width:40,height:40,borderRadius:13,alignItems:'center',justifyContent:'center',marginBottom:12},catGrid:{flexDirection:'row',flexWrap:'wrap',gap:12},catCard:{width:'47%'},catImgWrap:{borderRadius:16,overflow:'hidden',height:140},catImg:{width:'100%',height:140},catImgFallback:{width:'100%',height:140,alignItems:'center',justifyContent:'center'},catImgOverlay:{position:'absolute',bottom:0,left:0,right:0,backgroundColor:'rgba(0,0,0,0.35)',paddingVertical:8,paddingHorizontal:10},catImgName:{color:'#fff',fontSize:14,fontWeight:'900'},catBadge:{alignSelf:'flex-start',marginTop:8,borderRadius:8,paddingVertical:4,paddingHorizontal:10},catBadgeText:{fontSize:11,fontWeight:'700'},profile:{padding:15,borderRadius:20,borderWidth:1,flexDirection:'row',alignItems:'center',gap:12},profileName:{fontSize:18,fontWeight:'900'},group:{fontSize:11,fontWeight:'900',letterSpacing:1,marginTop:15,marginBottom:8},menu:{minHeight:61,borderBottomWidth:1,paddingHorizontal:11,flexDirection:'row',alignItems:'center',gap:11},menuIcon:{width:37,height:37,borderRadius:12,alignItems:'center',justifyContent:'center'},languageBox:{borderWidth:1,borderRadius:18,padding:15},languageRow:{height:52,borderBottomWidth:1,flexDirection:'row',alignItems:'center',gap:12},radio:{width:20,height:20,borderRadius:10,borderWidth:2,alignItems:'center',justifyContent:'center'},radioDot:{width:10,height:10,borderRadius:5},back:{height:48,flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:18},backTitle:{fontSize:19,fontWeight:'900'},search:{height:53,borderWidth:1,borderRadius:17,paddingHorizontal:14,flexDirection:'row',alignItems:'center',gap:10},notifCard:{flexDirection:'row',gap:12,borderRadius:16,borderWidth:1,padding:14,marginBottom:10},notifIconWrap:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center'},notifTitle:{fontSize:14,fontWeight:'800',flex:1,marginRight:8},notifBody:{fontSize:12,marginTop:4,lineHeight:18},notifTime:{fontSize:10,fontWeight:'700',marginTop:6},notifLiveDot:{width:8,height:8,borderRadius:4},notifLink:{flexDirection:'row',alignItems:'center',gap:3,borderWidth:1,borderRadius:6,paddingHorizontal:6,paddingVertical:2},badge:{position:'absolute',top:-5,right:-7,minWidth:18,height:18,borderRadius:9,alignItems:'center',justifyContent:'center',paddingHorizontal:4},badgeText:{color:'#fff',fontSize:10,fontWeight:'900'},detailTop:{height:245,borderRadius:21,alignItems:'center',justifyContent:'center',marginBottom:20},detailTitle:{fontSize:27,fontWeight:'900',lineHeight:35},meta:{flexDirection:'row',gap:17,marginTop:10},actions:{flexDirection:'row',justifyContent:'space-around',marginVertical:20},action:{width:43,height:43,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center'},button:{height:54,borderRadius:16,backgroundColor:'#087A63',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:10,marginTop:14},buttonText:{color:'#fff',fontWeight:'900',fontSize:15},chapter:{minHeight:66,borderBottomWidth:1,flexDirection:'row',alignItems:'center',gap:12},number:{width:38,height:38,borderRadius:12,alignItems:'center',justifyContent:'center'},comment:{height:56,borderWidth:1,borderRadius:16,marginTop:20,flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:15},readerHead:{minHeight:68,paddingHorizontal:18,borderBottomWidth:1,flexDirection:'row',alignItems:'center'},readerBody:{padding:28,paddingTop:45,paddingBottom:110},readerTitle:{fontSize:28,fontWeight:'900',textAlign:'center',marginVertical:16},readerTools:{minHeight:68,borderTopWidth:1,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},writer:{backgroundColor:'#124D43',borderRadius:20,padding:20},writerTitle:{color:'#fff',fontSize:22,fontWeight:'900',marginTop:12},story:{height:180,borderWidth:1,borderRadius:17,padding:15,textAlignVertical:'top',marginVertical:12},empty:{alignItems:'center',justifyContent:'center',paddingVertical:55},profileCard:{borderRadius:22,padding:20,alignItems:'center'},avatarBig:{width:68,height:68,borderRadius:22,alignItems:'center',justifyContent:'center'},profileNameBig:{fontSize:22,fontWeight:'900',marginTop:12},profileBadge:{fontSize:12,color:'#91A39E',marginTop:2},profileStats:{flexDirection:'row',marginTop:18,backgroundColor:'rgba(0,0,0,0.04)',borderRadius:14,paddingVertical:12},profileStat:{flex:1,alignItems:'center',gap:4},profileStatNum:{fontSize:20,fontWeight:'900'},profileStatLabel:{fontSize:10,fontWeight:'700',letterSpacing:0.5},menuGroup:{borderRadius:18,overflow:'hidden',marginBottom:10},menuGroupTitle:{fontSize:11,fontWeight:'900',letterSpacing:0.8,marginBottom:8,marginLeft:4},menuItem:{minHeight:54,paddingHorizontal:14,flexDirection:'row',alignItems:'center',gap:12},menuIconBig:{width:38,height:38,borderRadius:12,alignItems:'center',justifyContent:'center'},menuSep:{height:StyleSheet.hairlineWidth,marginLeft:62},nameModal:{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24},nameModalBox:{width:'100%',borderRadius:22,padding:24},nameModalTitle:{fontSize:18,fontWeight:'900',marginBottom:4},nameModalHint:{fontSize:12,marginBottom:14},nameInput:{height:52,borderWidth:1.5,borderRadius:14,paddingHorizontal:16,fontSize:16,fontWeight:'700'},nameModalBtns:{flexDirection:'row',gap:10,marginTop:16},nameBtn:{flex:1,height:48,borderRadius:14,alignItems:'center',justifyContent:'center'},nameBtnText:{fontWeight:'900',fontSize:15},gateIcon:{width:120,height:120,borderRadius:30},gateTop:{},langRow2:{flexDirection:'row',gap:8,marginTop:18,justifyContent:'center'},langBtn2:{paddingHorizontal:18,paddingVertical:10,borderRadius:12,borderWidth:1.5}});
+const styles=StyleSheet.create({center:{flex:1,alignItems:'center',justifyContent:'center'},logo:{width:76,height:76,borderRadius:25,backgroundColor:'#087A63',alignItems:'center',justifyContent:'center',elevation:8},brand:{fontSize:25,fontWeight:'900',marginTop:16},gate:{flex:1},art:{height:'38%',backgroundColor:'#DDF8EF',alignItems:'center',justifyContent:'center'},gateBody:{flex:1,padding:25,justifyContent:'center'},eyebrow:{fontSize:12,fontWeight:'900',letterSpacing:1},gateTitle:{fontSize:30,lineHeight:39,fontWeight:'900',marginTop:8},copy:{fontSize:14,lineHeight:22,marginVertical:14},input:{height:55,borderWidth:1,borderRadius:17,paddingHorizontal:16,fontSize:16,fontFamily:'HindSiliguriMedium'},note:{textAlign:'center',fontSize:11,marginTop:14},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:23},title:{fontSize:25,fontWeight:'900'},feature:{height:214,borderRadius:24,padding:18,flexDirection:'row',alignItems:'center',overflow:'hidden'},tag:{color:'#F7D87D',fontSize:11,fontWeight:'900',marginBottom:10},featureTitle:{color:'#fff',fontSize:23,lineHeight:30,fontWeight:'900'},featureAuthor:{color:'#D1E6DF',fontSize:12,marginTop:5},readPill:{backgroundColor:'#F5D578',borderRadius:11,padding:11,alignSelf:'flex-start',marginTop:15},cover:{width:124,height:169,borderRadius:9,padding:11,justifyContent:'flex-end',overflow:'hidden'},coverLarge:{width:137,height:188,transform:[{rotate:'2deg'}]},coverTitle:{color:'#fff',fontWeight:'900',fontSize:14,lineHeight:18},coverAuthor:{fontSize:8,color:'#FFFFFFAA'},featureCard:{height:214,borderRadius:24,padding:18,flexDirection:'row',alignItems:'center',overflow:'hidden'},featTag:{color:'#F7D87D',fontSize:11,fontWeight:'900',marginBottom:8},featTitle:{color:'#fff',fontSize:21,lineHeight:28,fontWeight:'900'},featAuthor:{color:'#D1E6DF',fontSize:12,marginTop:4},featDesc:{color:'#D1E6DF',fontSize:11,lineHeight:16,marginTop:8},featBtn:{backgroundColor:'#F5D578',borderRadius:11,paddingVertical:9,paddingHorizontal:13,alignSelf:'flex-start',marginTop:12},featBtnText:{fontWeight:'900',color:'#173D34',fontSize:12},dot:{height:6,borderRadius:3},statusBadge:{position:'absolute',top:8,left:8,alignSelf:'flex-start',borderRadius:7,paddingVertical:3,paddingHorizontal:7},statusBadgeText:{fontSize:9,fontWeight:'900',letterSpacing:0.5},rankBadge:{position:'absolute',top:-6,left:-6,minWidth:30,height:30,borderRadius:10,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:2.5,borderColor:'#fff'},rankBadgeText:{fontSize:15,fontWeight:'900'},viewBadge:{position:'absolute',bottom:8,right:8,flexDirection:'row',alignItems:'center',gap:3,borderRadius:8,paddingVertical:2.5,paddingHorizontal:6,backgroundColor:'rgba(0,0,0,0.55)'},viewBadgeText:{color:'#fff',fontSize:9,fontWeight:'800'},secHead:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:27,marginBottom:13},secIcon:{width:28,height:28,borderRadius:9,alignItems:'center',justifyContent:'center'},seeAllPill:{borderRadius:20,paddingVertical:6,paddingHorizontal:12},section:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:27,marginBottom:13},sectionTitle:{fontSize:19,fontWeight:'900'},bookName:{fontSize:14,fontWeight:'800',lineHeight:19,marginTop:9},episode:{minHeight:98,borderRadius:18,borderWidth:1,padding:10,flexDirection:'row',alignItems:'center',gap:12,marginBottom:10},row:{minHeight:100,borderRadius:18,borderWidth:1,padding:10,flexDirection:'row',alignItems:'center',gap:12,marginBottom:10},rowTitle:{fontSize:14,fontWeight:'800'},tabs:{height:76,borderTopWidth:1,flexDirection:'row',paddingTop:9},tab:{flex:1,alignItems:'center',gap:4},grid2:{flexDirection:'row',flexWrap:'wrap',gap:10},link:{width:'48.4%',borderRadius:18,borderWidth:1,padding:13},linkIcon:{width:40,height:40,borderRadius:13,alignItems:'center',justifyContent:'center',marginBottom:12},catGrid:{flexDirection:'row',flexWrap:'wrap',gap:12},catCard:{width:'47%'},catImgWrap:{borderRadius:16,overflow:'hidden',height:140},catImg:{width:'100%',height:140},catImgFallback:{width:'100%',height:140,alignItems:'center',justifyContent:'center'},catImgOverlay:{position:'absolute',bottom:0,left:0,right:0,backgroundColor:'rgba(0,0,0,0.35)',paddingVertical:8,paddingHorizontal:10},catImgName:{color:'#fff',fontSize:14,fontWeight:'700',fontFamily:'HindSiliguriMedium'},catBadge:{alignSelf:'flex-start',marginTop:8,borderRadius:8,paddingVertical:4,paddingHorizontal:10},catBadgeText:{fontSize:11,fontWeight:'700'},profile:{padding:15,borderRadius:20,borderWidth:1,flexDirection:'row',alignItems:'center',gap:12},profileName:{fontSize:18,fontWeight:'900'},group:{fontSize:11,fontWeight:'900',letterSpacing:1,marginTop:15,marginBottom:8},menu:{minHeight:61,borderBottomWidth:1,paddingHorizontal:11,flexDirection:'row',alignItems:'center',gap:11},menuIcon:{width:37,height:37,borderRadius:12,alignItems:'center',justifyContent:'center'},languageBox:{borderWidth:1,borderRadius:18,padding:15},languageRow:{height:52,borderBottomWidth:1,flexDirection:'row',alignItems:'center',gap:12},radio:{width:20,height:20,borderRadius:10,borderWidth:2,alignItems:'center',justifyContent:'center'},radioDot:{width:10,height:10,borderRadius:5},back:{height:48,flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:18},backTitle:{fontSize:19,fontWeight:'900'},search:{height:53,borderWidth:1,borderRadius:17,paddingHorizontal:14,flexDirection:'row',alignItems:'center',gap:10},notifCard:{flexDirection:'row',gap:12,borderRadius:16,borderWidth:1,padding:14,marginBottom:10},notifIconWrap:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center'},notifTitle:{fontSize:14,fontWeight:'800',flex:1,marginRight:8},notifBody:{fontSize:12,marginTop:4,lineHeight:18},notifTime:{fontSize:10,fontWeight:'700',marginTop:6},notifLiveDot:{width:8,height:8,borderRadius:4},notifLink:{flexDirection:'row',alignItems:'center',gap:3,borderWidth:1,borderRadius:6,paddingHorizontal:6,paddingVertical:2},badge:{position:'absolute',top:-5,right:-7,minWidth:18,height:18,borderRadius:9,alignItems:'center',justifyContent:'center',paddingHorizontal:4},badgeText:{color:'#fff',fontSize:10,fontWeight:'900'},detailTop:{height:245,borderRadius:21,alignItems:'center',justifyContent:'center',marginBottom:20},detailTitle:{fontSize:27,fontWeight:'900',lineHeight:35},meta:{flexDirection:'row',gap:17,marginTop:10},actions:{flexDirection:'row',justifyContent:'space-around',marginVertical:20},action:{width:43,height:43,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center'},button:{height:54,borderRadius:16,backgroundColor:'#087A63',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:10,marginTop:14},buttonText:{color:'#fff',fontWeight:'900',fontSize:15},chapter:{minHeight:66,borderBottomWidth:1,flexDirection:'row',alignItems:'center',gap:12},number:{width:38,height:38,borderRadius:12,alignItems:'center',justifyContent:'center'},comment:{height:56,borderWidth:1,borderRadius:16,marginTop:20,flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:15},readerHead:{minHeight:68,paddingHorizontal:18,borderBottomWidth:1,flexDirection:'row',alignItems:'center'},readerBody:{padding:28,paddingTop:45,paddingBottom:110},readerTitle:{fontSize:28,fontWeight:'900',textAlign:'center',marginVertical:16},readerTools:{minHeight:68,borderTopWidth:1,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},writer:{backgroundColor:'#124D43',borderRadius:20,padding:20},writerTitle:{color:'#fff',fontSize:22,fontWeight:'900',marginTop:12},story:{height:180,borderWidth:1,borderRadius:17,padding:15,textAlignVertical:'top',marginVertical:12},empty:{alignItems:'center',justifyContent:'center',paddingVertical:55},profileCard:{borderRadius:22,padding:20,alignItems:'center'},avatarBig:{width:68,height:68,borderRadius:22,alignItems:'center',justifyContent:'center'},profileNameBig:{fontSize:22,fontWeight:'900',marginTop:12},profileBadge:{fontSize:12,color:'#91A39E',marginTop:2},profileStats:{flexDirection:'row',marginTop:18,backgroundColor:'rgba(0,0,0,0.04)',borderRadius:14,paddingVertical:12},profileStat:{flex:1,alignItems:'center',gap:4},profileStatNum:{fontSize:20,fontWeight:'900'},profileStatLabel:{fontSize:10,fontWeight:'700',letterSpacing:0.5},menuGroup:{borderRadius:18,overflow:'hidden',marginBottom:10},menuGroupTitle:{fontSize:11,fontWeight:'900',letterSpacing:0.8,marginBottom:8,marginLeft:4},menuItem:{minHeight:54,paddingHorizontal:14,flexDirection:'row',alignItems:'center',gap:12},menuIconBig:{width:38,height:38,borderRadius:12,alignItems:'center',justifyContent:'center'},menuSep:{height:StyleSheet.hairlineWidth,marginLeft:62},nameModal:{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24},nameModalBox:{width:'100%',borderRadius:22,padding:24},nameModalTitle:{fontSize:18,fontWeight:'900',marginBottom:4},nameModalHint:{fontSize:12,marginBottom:14},nameInput:{height:52,borderWidth:1.5,borderRadius:14,paddingHorizontal:16,fontSize:16,fontWeight:'700',fontFamily:'HindSiliguriMedium'},nameModalBtns:{flexDirection:'row',gap:10,marginTop:16},nameBtn:{flex:1,height:48,borderRadius:14,alignItems:'center',justifyContent:'center'},nameBtnText:{fontWeight:'900',fontSize:15},gateIcon:{width:120,height:120,borderRadius:30},gateTop:{},langRow2:{flexDirection:'row',gap:8,marginTop:18,justifyContent:'center'},langBtn2:{paddingHorizontal:18,paddingVertical:10,borderRadius:12,borderWidth:1.5}});
 const featStyles=StyleSheet.create({
   card:{height:252,borderRadius:26,padding:18,flexDirection:'column',justifyContent:'space-between',overflow:'hidden'},
   top:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',zIndex:2},
