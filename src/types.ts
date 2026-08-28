@@ -11,7 +11,7 @@ export type FontFamily = 'default' | 'serif' | 'loose';
 export type PageMode = 'scroll' | 'page';
 export type Settings = { dark: boolean; fontSize: number; lineHeight: number; lineSpacing: number; fontFamily: FontFamily; pageMode: PageMode; notifications: boolean; wifiOnly: boolean; language: Language; themeId: ThemeId };
 export type Comment = { id: string; book_id: string; device_id: string; name: string; body: string; status: string; created_at: string };
-export type WriterProfile = { id: string; username: string; writer_name: string; bio?: string; avatar_url?: string | null; follower_count?: number; followed_at?: string };
+export type WriterProfile = { id: string; username: string; writer_name: string; bio?: string; avatar_url?: string | null; follower_count?: number; badge?: string; followed_at?: string };
 export type LocalState = {
   name: string; deviceId: string; favorites: string[]; downloads: string[]; history: string[];
   positions: Record<string, number>; bookmarks: string[]; searchHistory: string[];

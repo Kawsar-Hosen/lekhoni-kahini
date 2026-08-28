@@ -120,7 +120,7 @@ export async function fetchHomeConfig(): Promise<HomeSectionConfig[]> {
 
 export type HomeSectionsData = {
   sections: { key: string; title: string; books: RemoteBook[] }[];
-  writers: { id: string; writer_name: string; bio: string; avatar_url: string | null; follower_count: number }[];
+  writers: { id: string; username: string; writer_name: string; bio: string; avatar_url: string | null; follower_count: number; badge: string }[];
   viewsVisible?: boolean;
 };
 export async function fetchHomeSections(): Promise<HomeSectionsData | null> {
