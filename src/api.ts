@@ -44,7 +44,7 @@ function mergeRemoteBooks(remote: RemoteBook[], chaptersByBook: Record<string, R
     return {
       id: b.id, title: b.title, author: b.author, category: b.category || 'উপন্যাস',
       categoryIcon: toCategoryIcon(b.category), color: b.color || toBookColor(b.id),
-      accent: b.accent || toAccent(b.id),       views: `${b.views}`, rating: 4.5,
+      accent: b.accent || toAccent(b.id),       views: `${b.views}`, rating: 4.5, likes: Number(b.likes) || 0,
       featured: Boolean(b.featured), homeSection: b.home_section || undefined, views_visible: b.views_visible !== false,
       description: b.description || '', updated: 'অনলাইন', isNew: Boolean(b.is_new), chapters: chs, cover_url: b.cover_url || null,
     };
@@ -71,7 +71,7 @@ export async function fetchRemoteBook(id: string): Promise<Book | null> {
   return {
     id: b.id, title: b.title, author: b.author, category: b.category || 'উপন্যাস',
     categoryIcon: toCategoryIcon(b.category), color: b.color || toBookColor(b.id),
-    accent: b.accent || toAccent(b.id), views: `${b.views}`, rating: 4.5,
+    accent: b.accent || toAccent(b.id), views: `${b.views}`, rating: 4.5, likes: Number(b.likes) || 0,
     featured: Boolean(b.featured), homeSection: b.home_section || undefined,
     description: b.description || '', updated: 'অনলাইন', isNew: Boolean(b.is_new), chapters: chs, cover_url: b.cover_url || null,
   };
@@ -82,6 +82,14 @@ export async function trackEvent(deviceId: string, bookId: string, eventType: 'v
     method: 'POST',
     body: JSON.stringify({ device_id: deviceId, book_id: bookId, event_type: eventType }),
   });
+}
+
+export async function toggleBookLike(deviceId: string, bookId: string, value: boolean): Promise<number> {
+  const r = await apiFetch<{ ok: boolean; likes: number }>(`/api/public/books/${bookId}/like`, {
+    method: 'POST',
+    body: JSON.stringify({ device_id: deviceId, value }),
+  });
+  return typeof r?.likes === 'number' ? r.likes : -1;
 }
 
 export async function fetchRemoteComments(bookId: string): Promise<RemoteComment[]> {
