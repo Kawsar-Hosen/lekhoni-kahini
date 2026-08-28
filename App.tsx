@@ -313,10 +313,12 @@ function FollowedWritersList(p:C){
   </Page>}
 
 function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
-  const t=p.theme;
-  const w=p.writer;
+  const t=p.theme;const w=p.writer;
   const isFollowed=p.state.followedWriters.some(x=>x.id===w.id);
   const writerBooks=p.allBooks.filter(b=>b.author===w.writer_name);
+  const published=writerBooks.length;
+  const totalReads=writerBooks.reduce((s,b)=>s+(Math.round(parseFloat(String(b.views).replace(/[^0-9.]/g,''))||0)),0);
+  const followers=w.follower_count||0;
   const toggleFollow=()=>{
     if(isFollowed){
       unfollowWriter(p.state.deviceId,w.id);
@@ -327,22 +329,30 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
     }
   };
   return <Page theme={t}>
-    <Back title={w.writer_name} theme={t} onPress={()=>p.setScreen({type:'followedWriters'})}/>
-    <ScrollView showsVerticalScrollIndicator={false}>
-      <View style={{alignItems:'center',marginBottom:24}}>
-        <View style={{width:72,height:72,borderRadius:36,backgroundColor:t.primary,alignItems:'center',justifyContent:'center',marginBottom:10,elevation:4,shadowColor:t.primary,shadowOffset:{width:0,height:4},shadowOpacity:0.3,shadowRadius:8}}>
-          <Text style={{fontSize:30,fontWeight:'900',color:'#fff'}}>{w.writer_name[0]?.toUpperCase()||'?'}</Text>
+    <Back title={tr(p,'writer')} theme={t} onPress={()=>p.setScreen({type:'main'})}/>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:24}}>
+      <View style={dStyles.profHero}>
+        <View style={[dStyles.profAvatar,{borderColor:t.primary,backgroundColor:t.tint}]}>
+          {w.avatar_url?<Image source={{uri:w.avatar_url}} style={StyleSheet.absoluteFill}/>:<Text style={{fontSize:34,fontWeight:'900',color:t.primary}}>{w.writer_name[0]?.toUpperCase()||'?'}</Text>}
         </View>
-        <Text style={{fontSize:20,fontWeight:'900',color:t.ink}}>{w.writer_name}</Text>
-        <Text style={{fontSize:13,color:t.muted,marginTop:2}}>@{w.username}</Text>
-        {w.bio?<Text style={{fontSize:13,color:t.muted,marginTop:6,textAlign:'center',lineHeight:20,maxWidth:280}}>{w.bio}</Text>:null}
-        {w.follower_count?<Text style={{fontSize:12,color:t.muted,marginTop:8}}>{w.follower_count} {tr(p,'followers')}</Text>:null}
-        <Pressable onPress={toggleFollow} style={{marginTop:14,paddingHorizontal:28,paddingVertical:10,borderRadius:12,backgroundColor:isFollowed?t.tint:t.primary,borderWidth:isFollowed?1:0,borderColor:t.line}}>
-          <Text style={{fontSize:14,fontWeight:'800',color:isFollowed?t.primary:'#fff'}}>{isFollowed?tr(p,'unfollow'):tr(p,'follow')}</Text>
-        </Pressable>
+        <Text style={[dStyles.profName,{color:t.ink}]}>{w.writer_name}</Text>
+        <Text style={[dStyles.profUser,{color:t.muted}]}>@{w.username}</Text>
+        {w.bio&&<Text style={[dStyles.profBio,{color:t.muted}]}>{w.bio}</Text>}
       </View>
+      <View style={[dStyles.profStats,{borderColor:t.line,backgroundColor:t.card}]}>
+        <View style={dStyles.profStat}><Text style={[dStyles.profStatNum,{color:t.primary}]}>{published}</Text><Text style={[dStyles.profStatLabel,{color:t.muted}]}>{tr(p,'publishedCount')}</Text></View>
+        <View style={[dStyles.profStatDiv,{backgroundColor:t.line}]}/>
+        <View style={dStyles.profStat}><Text style={[dStyles.profStatNum,{color:t.primary}]}>{totalReads}</Text><Text style={[dStyles.profStatLabel,{color:t.muted}]}>{tr(p,'totalReads')}</Text></View>
+        <View style={[dStyles.profStatDiv,{backgroundColor:t.line}]}/>
+        <View style={dStyles.profStat}><Text style={[dStyles.profStatNum,{color:t.primary}]}>{followers}</Text><Text style={[dStyles.profStatLabel,{color:t.muted}]}>{tr(p,'followers')}</Text></View>
+      </View>
+      <Pressable onPress={toggleFollow} style={[dStyles.profFollow,{backgroundColor:isFollowed?t.tint:t.primary}]}>
+        <Feather name={isFollowed?'user-x':'user-plus'} size={16} color={isFollowed?t.primary:'#fff'}/>
+        <Text style={{fontSize:14,fontWeight:'900',color:isFollowed?t.primary:'#fff'}}>{isFollowed?tr(p,'unfollow'):tr(p,'follow')}</Text>
+      </Pressable>
+      <Text style={[dStyles.profHint,{color:t.muted}]}>{tr(p,'followHint')}</Text>
       {writerBooks.length>0&&<>
-        <Text style={{fontSize:14,fontWeight:'800',color:t.ink,marginBottom:10}}>{tr(p,'storiesBy')} {w.writer_name}</Text>
+        <Text style={[dStyles.profSecTitle,{color:t.ink}]}>{tr(p,'storiesBy')} {w.writer_name}</Text>
         {writerBooks.map(b=><Row key={b.id} book={b} theme={t} onPress={()=>p.open(b.id)}/>)}
       </>}
     </ScrollView>
@@ -403,8 +413,21 @@ const dStyles=StyleSheet.create({
  interRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-around',gap:6,borderWidth:1,borderRadius:20,paddingVertical:10,paddingHorizontal:8,marginBottom:14},
  statItem:{flexDirection:'row',alignItems:'center',gap:5},
  statVal:{fontWeight:'900',fontSize:13.5},
- numBadge:{width:34,height:34,borderRadius:11,alignItems:'center',justifyContent:'center'}
-});
+  numBadge:{width:34,height:34,borderRadius:11,alignItems:'center',justifyContent:'center'},
+  profHero:{alignItems:'center',marginBottom:6,paddingVertical:10},
+  profAvatar:{width:88,height:88,borderRadius:44,alignItems:'center',justifyContent:'center',borderWidth:3,overflow:'hidden',elevation:8,shadowColor:'#000',shadowOpacity:.25,shadowRadius:12,shadowOffset:{width:0,height:6}},
+  profName:{fontSize:21,fontWeight:'900',marginTop:12,textAlign:'center'},
+  profUser:{fontSize:13,fontWeight:'600',marginTop:2,textAlign:'center'},
+  profBio:{fontSize:13,marginTop:10,textAlign:'center',lineHeight:21,maxWidth:320,paddingHorizontal:18},
+  profStats:{flexDirection:'row',borderRadius:18,borderWidth:1,marginTop:16,marginBottom:12,overflow:'hidden'},
+  profStat:{flex:1,alignItems:'center',paddingVertical:16},
+  profStatDiv:{width:1,alignSelf:'stretch'},
+  profStatNum:{fontSize:19,fontWeight:'900'},
+  profStatLabel:{fontSize:11,fontWeight:'700',marginTop:3},
+  profFollow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,height:52,borderRadius:16,marginBottom:8},
+  profHint:{fontSize:11.5,textAlign:'center',lineHeight:18,marginBottom:16,paddingHorizontal:24},
+  profSecTitle:{fontSize:15,fontWeight:'900',marginTop:8,marginBottom:10}
+ });
 function Details(p:C&{book:Book}){const b=p.book;if(!b)return <Page theme={p.theme}><Back title={tr(p,'details')} theme={p.theme} onPress={()=>p.setScreen({type:'main'})}/><Empty theme={p.theme}/></Page>;
   const t=p.theme,accent=b.accent||'#F5C660',base=b.color||'#123E39',dark=shade(base,-34);
   const fav=p.state.favorites.includes(b.id),isOffline=!!p.dlBooks[b.id],down=p.state.downloads.includes(b.id)||isOffline;
