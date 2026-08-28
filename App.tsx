@@ -13,6 +13,7 @@ import { Book, LocalState, Language } from './src/types';
 import { copy, CopyKey } from './src/i18n';
 import { fetchRemoteBooks, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, getOfflineBooks, getOfflineCategories, getOfflineNotices, fetchFollowedWriters, writerSignup, writerLogin, writerGoogleAuth, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, updateWriterStory, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchHomeConfig, fetchRemoteComments, submitComment, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionConfig, HomeSectionsData, fetchWriterFollowers } from './src/api';
 import { pickAndResizeImage } from './src/imageUpload';
+import Voice from 'react-native-voice';
 
 type Tab = 'home'|'library'|'categories'|'episodes'|'profile';
 type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' };
@@ -316,6 +317,7 @@ function AllWritersList(p:C){
   const t=p.theme;
   const [q,setQ]=useState('');
   const [showAuth,setShowAuth]=useState(false);
+  const [voiceListening,setVoiceListening]=useState(false);
   const followedIds=new Set(p.state.followedWriters.map(f=>f.id));
   const unfollowed=p.publicWriters.filter(w=>!followedIds.has(w.id));
   const filtered=q.trim()?unfollowed.filter(w=>`${w.writer_name} ${w.username}`.toLowerCase().includes(q.trim().toLowerCase())):unfollowed;
@@ -332,11 +334,38 @@ function AllWritersList(p:C){
       if(!ok)p.update({followedWriters:p.state.followedWriters.filter(x=>x.id!==w.id)});
     }
   };
+  const startVoice=async()=>{
+    try{
+      setVoiceListening(true);
+      await Voice.start('bn-IN');
+    }catch(e){
+      try{await Voice.start('en-US')}catch(e2){}
+      setVoiceListening(false);
+    }
+  };
+  const stopVoice=async()=>{
+    try{await Voice.stop()}catch(e){}
+    try{await Voice.destroy()}catch(e){}
+    setVoiceListening(false);
+  };
+  useEffect(()=>{
+    Voice.onSpeechResults=(e:any)=>{
+      const text=e.value?.[0]||'';
+      if(text){setQ(text);setVoiceListening(false)}
+    };
+    Voice.onSpeechError=()=>{setVoiceListening(false)};
+    return()=>{Voice.destroy().catch(()=>{})};
+  },[]);
+  const isBangla=p.state.settings.language==='bn';
+  const voiceLang=isBangla?'bn-IN':'en-US';
   return <Page theme={t}>
     <Back title={tr(p,'popularAuthors')} theme={t} onPress={()=>p.setScreen({type:'main'})}/>
     <View style={{height:50,borderWidth:1,borderRadius:14,paddingHorizontal:14,marginBottom:16,flexDirection:'row',alignItems:'center',gap:10,backgroundColor:t.card,borderColor:t.line}}>
       <Feather name="search" size={17} color={t.muted}/>
       <TextInput value={q} onChangeText={setQ} placeholder={copy(p.state.settings.language,'search')} placeholderTextColor={t.muted+'88'} style={{flex:1,color:t.ink,fontSize:14,fontFamily:GF()}}/>
+      <Pressable onPress={voiceListening?stopVoice:startVoice} hitSlop={8} style={{padding:4}}>
+        <Feather name={voiceListening?'mic-off':'mic'} size={18} color={voiceListening?'#EF4444':t.muted}/>
+      </Pressable>
       {q.length>0&&<Pressable onPress={()=>setQ('')} hitSlop={8}><Feather name="x" size={16} color={t.muted}/></Pressable>}
     </View>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:30}}>
