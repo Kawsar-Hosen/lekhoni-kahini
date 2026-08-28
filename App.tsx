@@ -11,11 +11,11 @@ import { books as bundledBooks, categories as bundledCategories, notices as bund
 import { initialState, loadState, saveState, clearState } from './src/storage';
 import { Book, LocalState, Language } from './src/types';
 import { copy, CopyKey } from './src/i18n';
-import { fetchRemoteBooks, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, getOfflineBooks, getOfflineCategories, getOfflineNotices, fetchFollowedWriters, writerSignup, writerLogin, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, updateWriterStory, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchHomeConfig, fetchRemoteComments, submitComment, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionConfig, HomeSectionsData } from './src/api';
+import { fetchRemoteBooks, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, getOfflineBooks, getOfflineCategories, getOfflineNotices, fetchFollowedWriters, writerSignup, writerLogin, writerGoogleAuth, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, updateWriterStory, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchHomeConfig, fetchRemoteComments, submitComment, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionConfig, HomeSectionsData, fetchWriterFollowers } from './src/api';
 import { pickAndResizeImage } from './src/imageUpload';
 
 type Tab = 'home'|'library'|'categories'|'episodes'|'profile';
-type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string };
+type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' };
 type Theme = {dark:boolean;primary:string;bg:string;card:string;ink:string;muted:string;line:string;tint:string;reader:string};
 const I = (name:string) => (Feather.glyphMap as Record<string,unknown>)[name] ? name as keyof typeof Feather.glyphMap : 'bell';
 
@@ -39,7 +39,7 @@ function AppShell(){
  const update=(p:Partial<LocalState>)=>setState(s=>({...s,...p})); const open=(id:string)=>{update({history:[id,...state.history.filter(x=>x!==id)].slice(0,20)});setScreen({type:'book',id})}; const read=(id:string,chapter:number)=>setScreen({type:'reader',id,chapter});
  if(!loaded||!fontsLoaded)return <View style={[styles.center,{backgroundColor:theme.bg}]}><Image source={require('./assets/loading-icon.png')} style={{width:120,height:120,borderRadius:30}} resizeMode="contain"/><T style={[styles.brand,{color:theme.ink,marginTop:16,fontSize:28,fontWeight:'900',letterSpacing:1,fontFamily:'HindSiliguriMedium'}]}>Lekhoni Kahini</T></View>;
  if(!state.name)return <NameGate theme={theme} lang={state.settings.language} onDone={(name,lang)=>{update({name,settings:{...state.settings,language:lang}})}}/>;
-  const common={theme,state,update,setScreen,open,read,allBooks,allCategories,publicWriters,homeSections,homeData,remoteNotices,dlBooks,downloadBook,removeDownload}; let body:React.ReactNode;
+  const common={theme,state,update,setScreen,open,read,allBooks,allCategories,publicWriters:state.writer?publicWriters.filter(w=>w.id!==state.writer!.id):publicWriters,homeSections,homeData,remoteNotices,dlBooks,downloadBook,removeDownload}; let body:React.ReactNode;
  if(screen.type==='main')body=<Main {...common} tab={tab} setTab={setTab}/>;
  if(screen.type==='book')body=<Details {...common} book={resolveBook(screen.id)!}/>;
  if(screen.type==='reader')body=<Reader {...common} book={resolveBook(screen.id)!} chapter={screen.chapter}/>;
@@ -49,6 +49,7 @@ function AppShell(){
   if(screen.type==='profileDetails')body=<ProfileDetails {...common}/>;
   if(screen.type==='followedWriters')body=<FollowedWritersList {...common}/>;
   if(screen.type==='writerProfile')body=<WriterProfileView {...common} writer={screen.writer}/>;
+  if(screen.type==='allWriters')body=<AllWritersList {...common}/>;
  return <View style={{flex:1,backgroundColor:theme.bg}}><StatusBar style={state.settings.dark?'light':'dark'}/>{body}</View>;
 }
 type C={theme:Theme;state:LocalState;update:(p:Partial<LocalState>)=>void;setScreen:(s:Screen)=>void;open:(id:string)=>void;read:(id:string,c:number)=>void;allBooks:Book[];allCategories:[string,string,string,string|null][];publicWriters:import('./src/types').WriterProfile[];homeSections:HomeSectionConfig[];homeData:HomeSectionsData|null;remoteNotices:{id:string;title:string;body:string;icon:string;url:string;time:string}[];dlBooks:Record<string,Book>;downloadBook:(id:string)=>void;removeDownload:(id:string)=>void};
@@ -75,7 +76,7 @@ function Main(p:C&{tab:Tab;setTab:(t:Tab)=>void}){
  return <View style={{flex:1}}>{content}<View style={{position:'absolute',bottom:24,left:20,right:20,backgroundColor:theme.card,borderRadius:24,flexDirection:'row',paddingVertical:10,paddingHorizontal:6,shadowColor:'#000',shadowOpacity:0.08,shadowRadius:20,shadowOffset:{width:0,height:8},elevation:8,borderWidth:1,borderColor:theme.line,overflow:'hidden'}}><Animated.View style={{position:'absolute',top:10,bottom:10,left:6,width:itemW,backgroundColor:theme.tint,borderRadius:16,transform:[{translateX:slideAnim.interpolate({inputRange:[0,1,2,3,4],outputRange:[0,itemW,itemW*2,itemW*3,itemW*4]})}]}}/>{tabs.map((x,i)=><Pressable key={x[0]} onPress={()=>setTab(x[0])} style={{flex:1,alignItems:'center',gap:4,paddingVertical:6,zIndex:1}}><Feather name={I(x[1])} size={20} color={tab===x[0]?theme.primary:theme.muted}/><T allowFontScaling={false} numberOfLines={1} style={{fontSize:9,fontWeight:'800',color:tab===x[0]?theme.primary:theme.muted}}>{tr(p,x[2])}</T></Pressable>)}</View></View>
 }
 function Header({title,sub,theme,action,onNotif,unreadCount}:{title:string;sub?:string;theme:Theme;action?:React.ReactNode;onNotif?:()=>void;unreadCount?:number}){return <View style={styles.header}><View style={{flex:1,marginRight:12}}><T numberOfLines={1} style={[styles.title,{color:theme.ink}]}>{title}</T>{sub&&<T numberOfLines={1} style={{color:theme.muted,marginTop:4}}>{sub}</T>}</View><View style={{flexDirection:'row',alignItems:'center',gap:18}}>{action}<Pressable onPress={()=>onNotif?onNotif():null} style={{position:'relative'}}><Feather name="bell" size={20} color={theme.ink}/>{!!unreadCount&&<View style={[styles.badge,{backgroundColor:'#EF4444'}]}><T style={styles.badgeText}>{unreadCount}</T></View>}</Pressable></View></View>}
-function Home(p:C){const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const books=p.allBooks;const byViews=(a:Book,b:Book)=>+b.views-(+a.views);const G='#2AA876',AU='#D9A407',BL='#3B82F6',PU='#8B5CF6';const order=['featured','newEpisodes','mostPopular','weeklyPopular','monthlyPopular','popularAuthors'];const cfg=(p.homeSections.length?p.homeSections:order.map(k=>({key:k,enabled:true}))).filter(c=>c.enabled).map(c=>c.key);const toBook=(b:any):Book=>({id:b.id,title:b.title,author:b.author,views:`${b.views}`,rating:4.5,color:b.color,accent:b.accent,category:b.category||'',categoryIcon:'book-open',description:b.description||'',updated:'',chapters:[],isNew:Boolean(b.is_new),featured:Boolean(b.featured),views_visible: b.views_visible !== false,cover_url:b.cover_url||null});const hd=p.homeData;const hlist=(k:string):Book[]=>{if(hd){const s=hd.sections.find(x=>x.key===k);if(s&&s.books&&s.books.length)return s.books.slice(0,12).map((b:any)=>toBook(b) as Book).filter((b:any)=>b&&b.id);}return[];};const htitle=(k:string)=>hd?(hd.sections.find(x=>x.key===k)?.title||''):'';const section=(title:string,icon:string,accent:string,list:Book[],rank?:boolean)=><View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:accent+'22'}]}><Feather name={I(icon)} size={14} color={accent}/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{title}</T></View><Pressable onPress={()=>p.setScreen({type:'list',title,ids:list.map(x=>x.id)})} style={[styles.seeAllPill,{backgroundColor:accent+'1A'}]}><T style={{color:accent,fontWeight:'800',fontSize:12}}>{tr(p,'seeAllText')}</T></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b,i)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={accent} rank={rank?i:undefined} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>;const authors=()=>p.publicWriters.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{p.publicWriters.map(w=><AuthorCard key={w.id} writer={w} theme={p.theme} lang={p.state.settings.language} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} bookCount={p.allBooks.filter(b=>b.author===w.writer_name).length}/>)}</ScrollView>:<Empty theme={p.theme}/>;const content=(k:string)=>{if(k==='featured'){const fl=hlist('featured');return <Featured {...p} list={fl}/>;}if(k==='popularAuthors')return <View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:'#EC4899'+'22'}]}><Feather name="users" size={14} color="#EC4899"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{htitle('popularAuthors')||tr(p,'popularAuthors')}</T></View></View>{authors()}</View>;if(k==='newEpisodes'){const l=hlist('newEpisodes');return section(htitle('newEpisodes')||tr(p,'newEpisodes'),'zap',G,l.length?l:books);}if(k==='weeklyPopular'){const l=hlist('weeklyPopular');return section(htitle('weeklyPopular')||tr(p,'weeklyPopular'),'calendar',BL,l.length?l:[...books].sort(byViews),true);}if(k==='monthlyPopular'){const l=hlist('monthlyPopular');return section(htitle('monthlyPopular')||tr(p,'monthlyPopular'),'star',PU,l.length?l:[...books].sort(byViews),true);}if(k==='mostPopular'){const l=hlist('mostPopular');return section(htitle('mostPopular')||tr(p,'mostPopular'),'trending-up',AU,l.length?l:[...books].sort(byViews),true);}return null;};return <Page theme={p.theme}><Header title={`${greet(p)}, ${p.state.name}`} sub={tr(p,'choose')} theme={p.theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un} action={<Pressable onPress={()=>p.setScreen({type:'search'})}><Feather name="search" size={21} color={p.theme.ink}/></Pressable>}/>{cfg.map(k=><React.Fragment key={k}>{content(k)}</React.Fragment>)}</Page>}
+function Home(p:C){const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const books=p.allBooks;const byViews=(a:Book,b:Book)=>+b.views-(+a.views);const G='#2AA876',AU='#D9A407',BL='#3B82F6',PU='#8B5CF6';const order=['featured','newEpisodes','mostPopular','weeklyPopular','monthlyPopular','popularAuthors'];const cfg=(p.homeSections.length?p.homeSections:order.map(k=>({key:k,enabled:true}))).filter(c=>c.enabled).map(c=>c.key);const toBook=(b:any):Book=>({id:b.id,title:b.title,author:b.author,views:`${b.views}`,rating:4.5,color:b.color,accent:b.accent,category:b.category||'',categoryIcon:'book-open',description:b.description||'',updated:'',chapters:[],isNew:Boolean(b.is_new),featured:Boolean(b.featured),views_visible: b.views_visible !== false,cover_url:b.cover_url||null});const hd=p.homeData;const hlist=(k:string):Book[]=>{if(hd){const s=hd.sections.find(x=>x.key===k);if(s&&s.books&&s.books.length)return s.books.slice(0,12).map((b:any)=>toBook(b) as Book).filter((b:any)=>b&&b.id);}return[];};const htitle=(k:string)=>hd?(hd.sections.find(x=>x.key===k)?.title||''):'';const section=(title:string,icon:string,accent:string,list:Book[],rank?:boolean)=><View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:accent+'22'}]}><Feather name={I(icon)} size={14} color={accent}/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{title}</T></View><Pressable onPress={()=>p.setScreen({type:'list',title,ids:list.map(x=>x.id)})} style={[styles.seeAllPill,{backgroundColor:accent+'1A'}]}><T style={{color:accent,fontWeight:'800',fontSize:12}}>{tr(p,'seeAllText')}</T></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b,i)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={accent} rank={rank?i:undefined} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>;const followedIds=new Set(p.state.followedWriters.map(f=>f.id));const unfollowedWriters=p.publicWriters.filter(w=>!followedIds.has(w.id));const authors=()=>unfollowedWriters.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{unfollowedWriters.map(w=><AuthorCard key={w.id} writer={w} theme={p.theme} lang={p.state.settings.language} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} bookCount={p.allBooks.filter(b=>b.author===w.writer_name).length}/>)}</ScrollView>:<Empty theme={p.theme}/>;const content=(k:string)=>{if(k==='featured'){const fl=hlist('featured');return <Featured {...p} list={fl}/>;}if(k==='popularAuthors')return <View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:'#EC4899'+'22'}]}><Feather name="users" size={14} color="#EC4899"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{htitle('popularAuthors')||tr(p,'popularAuthors')}</T></View><Pressable onPress={()=>p.setScreen({type:'allWriters'})} style={[styles.seeAllPill,{backgroundColor:'#EC4899'+'1A'}]}><T style={{color:'#EC4899',fontWeight:'800',fontSize:12}}>{tr(p,'seeAllText')}</T></Pressable></View>{authors()}</View>;if(k==='newEpisodes'){const l=hlist('newEpisodes');return section(htitle('newEpisodes')||tr(p,'newEpisodes'),'zap',G,l.length?l:books);}if(k==='weeklyPopular'){const l=hlist('weeklyPopular');return section(htitle('weeklyPopular')||tr(p,'weeklyPopular'),'calendar',BL,l.length?l:[...books].sort(byViews),true);}if(k==='monthlyPopular'){const l=hlist('monthlyPopular');return section(htitle('monthlyPopular')||tr(p,'monthlyPopular'),'star',PU,l.length?l:[...books].sort(byViews),true);}if(k==='mostPopular'){const l=hlist('mostPopular');return section(htitle('mostPopular')||tr(p,'mostPopular'),'trending-up',AU,l.length?l:[...books].sort(byViews),true);}return null;};return <Page theme={p.theme}><Header title={`${greet(p)}, ${p.state.name}`} sub={tr(p,'choose')} theme={p.theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un} action={<Pressable onPress={()=>p.setScreen({type:'search'})}><Feather name="search" size={21} color={p.theme.ink}/></Pressable>}/>{cfg.map(k=><React.Fragment key={k}>{content(k)}</React.Fragment>)}</Page>}
 function LibraryLink({title,icon,n,theme,onPress}:{title:string;icon:string;n:number;theme:Theme;onPress:()=>void}){const scale=React.useRef(new Animated.Value(1)).current;const pressIn=()=>{Animated.spring(scale,{toValue:0.96,useNativeDriver:true}).start()};const pressOut=()=>{Animated.spring(scale,{toValue:1,friction:3,tension:40,useNativeDriver:true}).start()};return <Animated.View style={{transform:[{scale}],width:'48.5%'}}><Pressable onPress={onPress} onPressIn={pressIn} onPressOut={pressOut} style={{backgroundColor:theme.card,borderRadius:20,borderWidth:1,borderColor:theme.line,paddingVertical:20,paddingHorizontal:16,shadowColor:'#000',shadowOpacity:0.04,shadowRadius:10,shadowOffset:{width:0,height:2},elevation:2}}><View style={{width:44,height:44,borderRadius:14,backgroundColor:theme.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}><Feather name={I(icon)} size={20} color={theme.primary}/></View><T style={{fontSize:14,fontWeight:'800',color:theme.ink,marginBottom:4}}>{title}</T><T style={{color:theme.muted,fontSize:11,fontWeight:'600'}}>{n}টি</T></Pressable></Animated.View>}
 function LibBookCard({book,theme,onPress}:{book:Book;theme:Theme;onPress:()=>void}){return <Pressable onPress={onPress} style={{backgroundColor:theme.card,borderRadius:18,borderWidth:1,borderColor:theme.line,flexDirection:'row',alignItems:'center',padding:12,marginBottom:12,shadowColor:'#000',shadowOpacity:0.03,shadowRadius:8,shadowOffset:{width:0,height:2},elevation:2,gap:14}}><View style={{width:72,height:96,borderRadius:12,backgroundColor:book.color,overflow:'hidden',justifyContent:'flex-end',padding:8}}>{book.cover_url?<><Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12}} resizeMode="cover"/><View style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12,backgroundColor:'rgba(0,0,0,0.15)'}}/></>:null}<T numberOfLines={2} style={{color:'#fff',fontWeight:'900',fontSize:10,lineHeight:13}}>{book.title}</T></View><View style={{flex:1}}><T numberOfLines={2} style={{fontSize:15,fontWeight:'800',color:theme.ink,lineHeight:20}}>{book.title}</T><T numberOfLines={1} style={{fontSize:12,fontWeight:'600',color:theme.primary,marginTop:5}}>{book.author}</T><View style={{flexDirection:'row',alignItems:'center',gap:6,marginTop:8}}><View style={{flexDirection:'row',alignItems:'center',gap:3}}><Feather name="eye" size={11} color={theme.muted}/><T style={{color:theme.muted,fontSize:11}}>{book.views_visible !== false ? book.views : ''}</T></View><View style={{width:3,height:3,borderRadius:1.5,backgroundColor:theme.muted,opacity:0.4}}/><T style={{color:theme.muted,fontSize:11}}>{book.category}</T></View></View><Feather name="chevron-right" size={18} color={theme.muted} style={{opacity:0.5}}/></Pressable>}
 function Library(p:C){const[libTab,setLibTab]=React.useState<'downloads'|'favorites'|'history'|'bookmarks'>('downloads');const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const theme=p.theme;const tabs:{key:'downloads'|'favorites'|'history'|'bookmarks';icon:string;label:string}[]=[{key:'downloads',icon:'download-cloud',label:tr(p,'downloads')},{key:'favorites',icon:'heart',label:tr(p,'favorites')},{key:'history',icon:'clock',label:tr(p,'history')},{key:'bookmarks',icon:'bookmark',label:tr(p,'bookmarks')}];const tabIdx=tabs.findIndex(x=>x.key===libTab);const slideAnim=React.useRef(new Animated.Value(tabIdx)).current;React.useEffect(()=>{Animated.timing(slideAnim,{toValue:tabIdx,duration:170,easing:Easing.bezier(0.25,0.1,0.25,1),useNativeDriver:true}).start()},[tabIdx]);const{width:sw}=useWindowDimensions();const pad=18;const contW=sw-pad*2;const inner=contW-8;const tabW=inner/4;const ids=libTab==='downloads'?p.state.downloads:libTab==='favorites'?p.state.favorites:libTab==='history'?p.state.history:p.state.bookmarks;return <Page theme={theme}><Header title={tr(p,'library')} sub={tr(p,'librarySub')} theme={theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/><View style={{backgroundColor:theme.card,borderRadius:16,borderWidth:1,borderColor:theme.line,marginBottom:24,shadowColor:'#000',shadowOpacity:0.03,shadowRadius:6,shadowOffset:{width:0,height:2},elevation:2,overflow:'hidden',flexDirection:'row',padding:4}}><Animated.View style={{position:'absolute',top:4,bottom:4,left:4,width:tabW,backgroundColor:theme.tint,borderRadius:12,transform:[{translateX:slideAnim.interpolate({inputRange:[0,1,2,3],outputRange:[0,tabW+4,tabW*2+8,tabW*3+12]})}]}}/>{tabs.map((t,i)=><Pressable key={t.key} onPress={()=>setLibTab(t.key)} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:14,zIndex:1}}><Feather name={I(t.icon)} size={18} color={libTab===t.key?theme.primary:theme.muted}/>{libTab===t.key&&<T style={{fontSize:10,fontWeight:'800',color:theme.primary,marginTop:3}} numberOfLines={1}>{t.label}</T>}</Pressable>)}</View><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><T style={{fontSize:17,fontWeight:'900',color:theme.ink}}>{tabs[tabIdx].label}</T><View style={{backgroundColor:theme.tint,borderRadius:8,paddingHorizontal:10,paddingVertical:4}}><T style={{color:theme.primary,fontSize:11,fontWeight:'700'}}>{ids.length}টি</T></View></View>{ids.length?ids.map(id=>{const b=p.allBooks.find(x=>x.id===id);return b&&<LibBookCard key={id} book={b} theme={theme} onPress={()=>p.open(id)}/> }):<Empty theme={theme}/>}</Page>}
@@ -291,17 +292,101 @@ function ProfileDetails(p:C){
     {editing&&<Pressable onPress={()=>setEditing(false)} style={styles.nameModal}><Pressable onPress={()=>{}} style={[styles.nameModalBox,{backgroundColor:t.card}]}><T style={[styles.nameModalTitle,{color:t.ink}]}>{tr(p,'editName')}</T><T style={[styles.nameModalHint,{color:t.muted}]}>{tr(p,'editNameHint')}</T><TextInput autoFocus value={nameInput} onChangeText={v=>setNameInput(v.slice(0,20))} placeholder={tr(p,'regularReader')} placeholderTextColor={t.muted} style={[styles.nameInput,{color:t.ink,backgroundColor:t.bg,borderColor:t.line}]}/><View style={styles.nameModalBtns}><Pressable onPress={()=>setEditing(false)} style={[styles.nameBtn,{backgroundColor:t.bg}]}><T style={{color:t.muted,fontWeight:'900'}}>{tr(p,'cancel')}</T></Pressable><Pressable onPress={()=>{if(nameInput.trim()){p.update({name:nameInput.trim()});setEditing(false)}}} style={[styles.nameBtn,{backgroundColor:t.primary}]}><T style={{color:'#fff',fontWeight:'900'}}>{tr(p,'save')}</T></Pressable></View></Pressable></Pressable>}
   </Page>}
 
+function AuthModal({theme,lang,onClose,onGoto}:{theme:Theme;lang:import('./src/types').Language;onClose:()=>void;onGoto:()=>void}){
+  const tl=lang==='hi'?'खाता नहीं बना है':lang==='en'?'Account Not Created':'অ্যাকাউন্ট খোলা হয়নি';
+  const bd=lang==='hi'?'आपका खाता अभी तक नहीं बना है। आप किसी को फ़ॉलो नहीं कर सकते और कोई आपको फ़ॉलो नहीं कर सकता।':lang==='en'?'Your account is not created yet. You cannot follow anyone or be followed by anyone.':'আপনার অ্যাকাউন্ট এখনো খোলা হয়নি। আপনি কাউকে ফলো করতে বা কেউ আপনাকে ফলো করতে পারবে না।';
+  const bt=lang==='hi'?'लेखक पैनल में जाएं':lang==='en'?'Go to Writer Panel':'লেখক প্যানেলে যান';
+  const cn=lang==='hi'?'रद्द करें':lang==='en'?'Cancel':'বাতিল';
+  return <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24}}>
+    <View style={{width:'100%',backgroundColor:theme.card,borderRadius:22,padding:24,alignItems:'center'}}>
+      <View style={{width:56,height:56,borderRadius:28,backgroundColor:theme.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}><Feather name="user-plus" size={24} color={theme.primary}/></View>
+      <T style={{fontSize:17,fontWeight:'900',color:theme.ink,marginBottom:6,textAlign:'center'}}>{tl}</T>
+      <T style={{fontSize:13,color:theme.muted,textAlign:'center',lineHeight:20,marginBottom:18}}>{bd}</T>
+      <Pressable onPress={()=>{onClose();onGoto()}} style={{width:'100%',height:48,borderRadius:14,backgroundColor:theme.primary,alignItems:'center',justifyContent:'center',marginBottom:10}}>
+        <T style={{fontSize:14,fontWeight:'800',color:'#fff'}}>{bt}</T>
+      </Pressable>
+      <Pressable onPress={onClose} style={{paddingVertical:8}}>
+        <T style={{fontSize:13,fontWeight:'700',color:theme.muted}}>{cn}</T>
+      </Pressable>
+    </View>
+  </View>
+}
+
+function AllWritersList(p:C){
+  const t=p.theme;
+  const [q,setQ]=useState('');
+  const [showAuth,setShowAuth]=useState(false);
+  const followedIds=new Set(p.state.followedWriters.map(f=>f.id));
+  const unfollowed=p.publicWriters.filter(w=>!followedIds.has(w.id));
+  const filtered=q.trim()?unfollowed.filter(w=>`${w.writer_name} ${w.username}`.toLowerCase().includes(q.trim().toLowerCase())):unfollowed;
+  const toggleFollow=async(w:import('./src/types').WriterProfile)=>{
+    if(!p.state.writer){setShowAuth(true);return;}
+    const isFollowed=p.state.followedWriters.some(x=>x.id===w.id);
+    if(isFollowed){
+      p.update({followedWriters:p.state.followedWriters.filter(x=>x.id!==w.id)});
+      const ok=await unfollowWriter(p.state.deviceId,w.id);
+      if(!ok)p.update({followedWriters:[...p.state.followedWriters,w]});
+    }else{
+      p.update({followedWriters:[...p.state.followedWriters,w]});
+      const ok=await followWriter(p.state.deviceId,w.id,p.state.writer?.id);
+      if(!ok)p.update({followedWriters:p.state.followedWriters.filter(x=>x.id!==w.id)});
+    }
+  };
+  return <Page theme={t}>
+    <Back title={tr(p,'popularAuthors')} theme={t} onPress={()=>p.setScreen({type:'main'})}/>
+    <View style={{height:50,borderWidth:1,borderRadius:14,paddingHorizontal:14,marginBottom:16,flexDirection:'row',alignItems:'center',gap:10,backgroundColor:t.card,borderColor:t.line}}>
+      <Feather name="search" size={17} color={t.muted}/>
+      <TextInput value={q} onChangeText={setQ} placeholder={copy(p.state.settings.language,'search')} placeholderTextColor={t.muted+'88'} style={{flex:1,color:t.ink,fontSize:14,fontFamily:GF()}}/>
+      {q.length>0&&<Pressable onPress={()=>setQ('')} hitSlop={8}><Feather name="x" size={16} color={t.muted}/></Pressable>}
+    </View>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:30}}>
+      {filtered.length===0?
+        <View style={{alignItems:'center',paddingVertical:60}}>
+          <View style={{width:60,height:60,borderRadius:30,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}>
+            <Feather name="users" size={26} color={t.muted}/>
+          </View>
+          <T style={{fontSize:14,fontWeight:'700',color:t.muted,textAlign:'center'}}>{tr(p,'noFollowedWriters')}</T>
+        </View>
+      :filtered.map(w=>{
+        const isFollowed=p.state.followedWriters.some(x=>x.id===w.id);
+        return <Pressable key={w.id} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:8,borderWidth:1,borderColor:t.line}}>
+          <View style={{width:48,height:48,borderRadius:24,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+            {w.avatar_url?<Image source={{uri:w.avatar_url}} style={{width:48,height:48,borderRadius:24}}/>:<T style={{fontSize:20,fontWeight:'900',color:t.primary}}>{w.writer_name[0]?.toUpperCase()||'?'}</T>}
+          </View>
+          <View style={{flex:1,marginLeft:12}}>
+            <View style={{flexDirection:'row',alignItems:'center',gap:5}}>
+              <T numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{w.writer_name}</T>
+              <BadgeIcon badge={w.badge} size={16}/>
+            </View>
+            <T numberOfLines={1} style={{fontSize:12,color:t.muted,marginTop:2}}>@{w.username}</T>
+          </View>
+          <Pressable onPress={(e)=>{e.stopPropagation();toggleFollow(w)}} hitSlop={8} style={{paddingHorizontal:14,paddingVertical:8,borderRadius:10,backgroundColor:isFollowed?'transparent':t.primary,borderWidth:isFollowed?1.5:0,borderColor:t.line}}>
+            <T style={{fontSize:12,fontWeight:'700',color:isFollowed?t.ink:'#fff'}}>{isFollowed?'ফলো করছেন':'ফলো করুন'}</T>
+          </Pressable>
+        </Pressable>})}
+    </ScrollView>
+    {showAuth&&<AuthModal theme={t} lang={p.state.settings.language} onClose={()=>setShowAuth(false)} onGoto={()=>p.setScreen({type:'writer'})}/>}
+  </Page>
+}
+
 function FollowedWritersList(p:C){
   const t=p.theme;
+  const [showAuth,setShowAuth]=useState(false);
   const writers=p.state.followedWriters;
-  const toggleFollow=(wid:string)=>{
+  const toggleFollow=async(wid:string)=>{
+    if(!p.state.writer){setShowAuth(true);return;}
     const isFollowed=p.state.followedWriters.some(w=>w.id===wid);
     if(isFollowed){
-      unfollowWriter(p.state.deviceId,wid);
       p.update({followedWriters:p.state.followedWriters.filter(w=>w.id!==wid)});
+      const ok=await unfollowWriter(p.state.deviceId,wid);
+      if(!ok)p.update({followedWriters:[...p.state.followedWriters,writers.find(x=>x.id===wid)!].filter(Boolean)});
     }else{
-      const w=writers.find(x=>x.id===wid);
-      if(w)followWriter(p.state.deviceId,wid);
+      const w=p.publicWriters.find(x=>x.id===wid)||writers.find(x=>x.id===wid);
+      if(w){
+        p.update({followedWriters:[...p.state.followedWriters,w]});
+        const ok=await followWriter(p.state.deviceId,wid,p.state.writer?.id);
+        if(!ok)p.update({followedWriters:p.state.followedWriters.filter(x=>x.id!==wid)});
+      }
     }
   };
   return <Page theme={t}>
@@ -327,6 +412,7 @@ function FollowedWritersList(p:C){
         </Pressable>
       </Pressable>)}
     </ScrollView>}
+    {showAuth&&<AuthModal theme={t} lang={p.state.settings.language} onClose={()=>setShowAuth(false)} onGoto={()=>p.setScreen({type:'writer'})}/>}
   </Page>}
 
 function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
@@ -335,22 +421,26 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
   const writerBooks=p.allBooks.filter(b=>b.author===w.writer_name);
   const published=writerBooks.length;
   const totalReads=writerBooks.reduce((s,b)=>s+(Math.round(parseFloat(String(b.views).replace(/[^0-9.]/g,''))||0)),0);
-  const followers=w.follower_count||0;
   const[phase,setPhase]=useState<'idle'|'spinning'|'followed'>(isFollowed?'followed':'idle');
+  const[showAuth,setShowAuth]=useState(false);
   const spin=useRef(new Animated.Value(0)).current;
+  const followers=(w.follower_count||0)+(isFollowed?0:phase==='followed'||phase==='spinning'?1:0);
   useEffect(()=>{setPhase(isFollowed?'followed':'idle')},[isFollowed]);
-  const doFollow=()=>{
+  const doFollow=async()=>{
+    if(!p.state.writer){setShowAuth(true);return;}
     setPhase('spinning');
     spin.setValue(0);
     Animated.timing(spin,{toValue:1,duration:1500,easing:Easing.linear,useNativeDriver:true}).start();
-    followWriter(p.state.deviceId,w.id);
     p.update({followedWriters:[...p.state.followedWriters,w]});
-    setTimeout(()=>{spin.stopAnimation();spin.setValue(0);setPhase('followed')},1800);
+    const ok=await followWriter(p.state.deviceId,w.id,p.state.writer?.id);
+    setTimeout(()=>{spin.stopAnimation();spin.setValue(0);setPhase(ok?'followed':'idle')},1800);
+    if(!ok)p.update({followedWriters:p.state.followedWriters.filter(x=>x.id!==w.id)});
   };
-  const doUnfollow=()=>{
-    unfollowWriter(p.state.deviceId,w.id);
+  const doUnfollow=async()=>{
     p.update({followedWriters:p.state.followedWriters.filter(x=>x.id!==w.id)});
     setPhase('idle');
+    const ok=await unfollowWriter(p.state.deviceId,w.id);
+    if(!ok){p.update({followedWriters:[...p.state.followedWriters,w]});setPhase('followed');}
   };
   const spinDeg=spin.interpolate({inputRange:[0,1],outputRange:['0deg','360deg']});
   return <Page theme={t}>
@@ -397,6 +487,7 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
         {writerBooks.map(b=><Row key={b.id} book={b} theme={t} onPress={()=>p.open(b.id)}/>)}
       </>}
     </ScrollView>
+    {showAuth&&<AuthModal theme={t} lang={p.state.settings.language} onClose={()=>setShowAuth(false)} onGoto={()=>p.setScreen({type:'writer'})}/>}
   </Page>}
 
 function Search(p:C){const [q,setQ]=useState('');const result=q?p.allBooks.filter(b=>`${b.title}${b.author}${b.category}`.includes(q)):p.allBooks.slice(0,3);return <Page theme={p.theme}><Back title="অনুসন্ধান" theme={p.theme} onPress={()=>p.setScreen({type:'main'})}/><View style={[styles.search,{backgroundColor:p.theme.card,borderColor:p.theme.line}]}><Feather name="search" size={18} color={p.theme.muted}/><TextInput autoFocus value={q} onChangeText={setQ} placeholder="বই, লেখক বা বিভাগ খুঁজুন" placeholderTextColor={p.theme.muted} style={{flex:1,color:p.theme.ink,fontFamily:GF()}}/></View><T style={[styles.group,{color:p.theme.muted}]}>{q?`${result.length}টি ফলাফল`:'জনপ্রিয় এখন'}</T>{result.map(b=><Row key={b.id} book={b} theme={p.theme} onPress={()=>{p.update({searchHistory:[q,...p.state.searchHistory.filter(x=>x!==q)].filter(Boolean)});p.open(b.id)}}/>)}{!result.length&&<Empty theme={p.theme}/>}</Page>}
@@ -786,12 +877,49 @@ function Settings(p:C){
       <T style={{fontSize:10,color:t.muted,marginTop:8,lineHeight:15}}>Keep this code to restore your settings if you reinstall the app on this device.</T>
     </View>
   </Page>}
+function GoogleSignInButton({onResult,onError,theme:t,lang}:{onResult:(w:any,token:string)=>void;onError:(msg:string)=>void;theme:Theme;lang:Language}){
+  const[loading,setLoading]=useState(false);
+
+  const handlePress=async()=>{
+    setLoading(true);onError('');
+    try{
+      const{GoogleSignin}=await import('@react-native-google-signin/google-signin');
+      GoogleSignin.configure({
+        webClientId:'940343114841-pd5po6gp5dij90nlp5k28tigp5qqr1rt.apps.googleusercontent.com',
+        offlineAccess:true,
+        scopes:['openid','profile','email'],
+      });
+      await GoogleSignin.hasPlayServices({showPlayServicesUpdateDialog:true});
+      const userInfo=await GoogleSignin.signIn();
+      const tokens=await GoogleSignin.getTokens();
+      if(tokens.idToken){
+        const w=await writerGoogleAuth(tokens.idToken);
+        if(w)onResult(w,w.token);
+        else onError(copy(lang,'networkError'));
+      }else onError('No ID token received');
+    }catch(e:any){
+      if(e.code==='SIGN_IN_CANCELLED'){onError('');setLoading(false);return}
+      onError(e.message||'Google sign-in failed');
+    }finally{setLoading(false)}
+  };
+
+  return <Pressable disabled={loading} onPress={handlePress} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',height:46,borderRadius:12,borderWidth:1.5,borderColor:t.line,backgroundColor:t.card,gap:10,opacity:loading?0.6:1}}>
+    {loading?<ActivityIndicator color={t.ink} size="small"/>:<><GoogleIcon size={20}/>
+    <T style={{color:t.ink,fontWeight:'600',fontSize:14}}>{copy(lang,'continueWithGoogle')}</T></>}
+  </Pressable>
+}
+
 function Writer(p:C){
   const[authTab,setAuthTab]=useState<'login'|'register'>('login');
   const[form,setForm]=useState({username:'',writerName:'',email:'',password:''});
   const[authErr,setAuthErr]=useState('');
   const[loading,setLoading]=useState(false);
-  const[studioTab,setStudioTab]=useState<'dashboard'|'stories'|'profile'|'notifications'>('dashboard');
+
+  const handleGoogleResult=(w:any,token:string)=>{
+    p.update({writer:{id:w.id,username:w.username,writer_name:w.writer_name,avatar_url:w.avatar_url||undefined,bio:w.bio||undefined},writerToken:token});
+    fetchFollowedWriters(p.state.deviceId).then(fw=>p.update({followedWriters:fw as any})).catch(()=>{});
+  };
+  const[studioTab,setStudioTab]=useState<'dashboard'|'stories'|'profile'|'notifications'|'followers'>('dashboard');
   const[unreadCount,setUnreadCount]=useState(0);
   const t=p.theme;
   const isLoggedIn=Boolean(p.state.writer);
@@ -816,11 +944,13 @@ function Writer(p:C){
     try{
       if(authTab==='register'){
         const w=await writerSignup(form.username.trim(),form.writerName.trim(),form.email.trim(),form.password);
-        if(w){p.update({writer:{id:w.writer.id,username:w.writer.username,writer_name:w.writer.writer_name,avatar_url:w.writer.avatar_url||undefined,bio:w.writer.bio||undefined},writerToken:w.token});setForm({username:'',writerName:'',email:'',password:''})}
+        if(w){p.update({writer:{id:w.writer.id,username:w.writer.username,writer_name:w.writer.writer_name,avatar_url:w.writer.avatar_url||undefined,bio:w.writer.bio||undefined},writerToken:w.token});setForm({username:'',writerName:'',email:'',password:''});
+          fetchFollowedWriters(p.state.deviceId).then(fw=>p.update({followedWriters:fw as any})).catch(()=>{});}
         else{setAuthErr(tr(p,'accountExists'))}
       }else{
         const w=await writerLogin(form.email.trim(),form.password);
-        if(w){p.update({writer:{id:w.writer.id,username:w.writer.username,writer_name:w.writer.writer_name,avatar_url:w.writer.avatar_url||undefined,bio:w.writer.bio||undefined},writerToken:w.token});setForm({username:'',writerName:'',email:'',password:''})}
+        if(w){p.update({writer:{id:w.writer.id,username:w.writer.username,writer_name:w.writer.writer_name,avatar_url:w.writer.avatar_url||undefined,bio:w.writer.bio||undefined},writerToken:w.token});setForm({username:'',writerName:'',email:'',password:''});
+          fetchFollowedWriters(p.state.deviceId).then(fw=>p.update({followedWriters:fw as any})).catch(()=>{});}
         else setAuthErr(tr(p,'wrongCredentials'))
       }
     }catch{setAuthErr(tr(p,'networkError'))}finally{setLoading(false)}
@@ -872,6 +1002,12 @@ function Writer(p:C){
       <Pressable disabled={loading} onPress={handleAuth} style={{backgroundColor:t.primary,borderRadius:12,height:46,alignItems:'center',justifyContent:'center',opacity:loading?0.6:1}}>
         {loading?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'600',fontSize:14}}>{authTab==='register'?tr(p,'createAccount'):tr(p,'login')}</T>}
       </Pressable>
+      <View style={{flexDirection:'row',alignItems:'center',marginVertical:16}}>
+        <View style={{flex:1,height:1,backgroundColor:t.line}}/>
+        <T style={{color:t.muted,fontSize:12,marginHorizontal:12}}>{tr(p,'or')}</T>
+        <View style={{flex:1,height:1,backgroundColor:t.line}}/>
+      </View>
+      <GoogleSignInButton onResult={handleGoogleResult} onError={setAuthErr} theme={t} lang={lang}/>
       <T style={{color:t.muted,fontSize:12,textAlign:'center',marginTop:14}}>
         {authTab==='login'?tr(p,'noAccount'):tr(p,'alreadyAccount')}{' '}
         <T onPress={()=>{setAuthTab(authTab==='login'?'register':'login');setAuthErr('')}} style={{color:t.primary,fontWeight:'600'}}>
@@ -898,7 +1034,7 @@ function Writer(p:C){
           <T style={{color:'#fff',fontSize:9,fontWeight:'900'}}>{unreadCount>9?'9+':unreadCount}</T>
         </View>}
       </Pressable>
-      <Pressable onPress={()=>p.update({writer:null,writerToken:null})} style={{width:36,height:36,borderRadius:10,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
+      <Pressable onPress={()=>p.update({writer:null,writerToken:null,followedWriters:[]})} style={{width:36,height:36,borderRadius:10,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
         <Feather name="log-out" size={16} color={t.primary}/>
       </Pressable>
     </View>
@@ -914,42 +1050,96 @@ function Writer(p:C){
     {studioTab==='dashboard'&&<WriterDashboard token={token} theme={t} lang={lang}/>}
     {studioTab==='stories'&&<WriterStories token={token} theme={t} lang={lang} categories={p.allCategories.map(c=>c[0])}/>}
     {studioTab==='profile'&&<WriterProfileStudio token={token} theme={t} writer={p.state.writer} lang={lang} onUpdate={(patch)=>p.update({writer:{...p.state.writer!,...patch}})}/>}
-    {studioTab==='notifications'&&<WriterNotifs token={token} theme={t} lang={lang}/>}
+    {studioTab==='notifications'&&<WriterNotifs token={token} theme={t} lang={lang} deviceID={p.state.deviceId}/>}
   </Page>}
 
 function WriterDashboard({token,theme:t,lang}:{token:string;theme:Theme;lang:Language}){
-  const[d,setD]=useState<{stories:number;totalViews:number;followers:number;published:number;pending:number;recent:any[];activities:any[]}>({stories:0,totalViews:0,followers:0,published:0,pending:0,recent:[],activities:[]});
+  const[d,setD]=useState<any>({stories:0,totalViews:0,followers:0,published:0,pending:0,publishedStories:[],todayViews:0,weekViews:0,monthViews:0});
   const[loading,setLoading]=useState(true);
   useEffect(()=>{fetchWriterDashboard(token).then(s=>{if(s)setD(s)}).finally(()=>setLoading(false))},[token]);
   if(loading)return <View style={{alignItems:'center',paddingVertical:60}}><ActivityIndicator size="large" color={t.primary}/></View>;
-  const cards:{icon:string;label:string;value:number;bg:string}[]=[
-    {icon:'book-open',label:copy(lang,'myStories'),value:d.stories,bg:t.primary},
-    {icon:'eye',label:copy(lang,'totalViews'),value:d.totalViews,bg:'#6366F1'},
-    {icon:'users',label:copy(lang,'followers'),value:d.followers,bg:'#F59E0B'},
-    {icon:'check-circle',label:copy(lang,'publishedStories'),value:d.published,bg:'#10B981'},
-  ];
+  const isEligible=d.followers>=1000&&d.totalViews>=5000;
   return <ScrollView showsVerticalScrollIndicator={false}>
-    <View style={{flexDirection:'row',flexWrap:'wrap',gap:10,marginBottom:18}}>
-      {cards.map((c,i)=><View key={i} style={{width:'47%',backgroundColor:t.card,borderRadius:14,padding:14,borderWidth:1,borderColor:t.line}}>
-        <View style={{width:34,height:34,borderRadius:10,backgroundColor:c.bg+'18',alignItems:'center',justifyContent:'center',marginBottom:8}}>
-          <Feather name={c.icon as any} size={16} color={c.bg}/>
-        </View>
-        <T style={{fontSize:22,fontWeight:'900',color:t.ink}}>{c.value}</T>
-        <T style={{fontSize:10,fontWeight:'700',color:t.muted,marginTop:2}}>{c.label}</T>
+    <View style={{flexDirection:'row',flexWrap:'wrap',gap:8,marginBottom:14}}>
+      {[{icon:'book-open',label:copy(lang,'myStories'),value:d.stories},{icon:'eye',label:copy(lang,'totalViews'),value:d.totalViews},{icon:'users',label:copy(lang,'followers'),value:d.followers},{icon:'check-circle',label:copy(lang,'published'),value:d.published}].map((c,i)=>
+      <View key={i} style={{flex:1,minWidth:'45%',backgroundColor:t.card,borderRadius:12,padding:12,borderWidth:1,borderColor:t.line,alignItems:'center'}}>
+        <Feather name={c.icon as any} size={16} color={t.muted}/>
+        <T style={{fontSize:18,fontWeight:'900',color:t.ink,marginTop:4}}>{c.value}</T>
+        <T style={{fontSize:10,fontWeight:'600',color:t.muted,marginTop:2}}>{c.label}</T>
       </View>)}
     </View>
     {d.pending>0&&<View style={{backgroundColor:'#FEF3C7',borderRadius:12,padding:12,marginBottom:14,flexDirection:'row',alignItems:'center',gap:8}}>
       <Feather name="clock" size={16} color="#D97706"/>
-      <T style={{fontSize:13,fontWeight:'700',color:'#92400E',flex:1}}>{d.pending} {copy(lang,'pendingReview')}</T>
+      <T style={{fontSize:12,fontWeight:'700',color:'#92400E',flex:1}}>{d.pending} {copy(lang,'pendingReview')}</T>
     </View>}
-    <T style={{fontSize:14,fontWeight:'800',color:t.ink,marginBottom:10}}>{copy(lang,'recentActivity')}</T>
-    {d.recent.length===0?<View style={{backgroundColor:t.card,borderRadius:14,padding:20,alignItems:'center',borderWidth:1,borderColor:t.line}}>
-      <Feather name="inbox" size={28} color={t.muted}/><T style={{fontSize:13,color:t.muted,marginTop:8}}>{copy(lang,'noActivity')}</T>
-    </View>:d.recent.map(s=><View key={s.id} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:12,padding:12,marginBottom:6,borderWidth:1,borderColor:t.line}}>
-      <View style={{width:8,height:8,borderRadius:4,backgroundColor:s.status==='published'?'#10B981':s.status==='pending'?'#F59E0B':'#9CA3AF',marginRight:10}}/>
-      <View style={{flex:1}}><T numberOfLines={1} style={{fontSize:13,fontWeight:'700',color:t.ink}}>{s.title}</T><T style={{fontSize:10,color:t.muted,marginTop:1}}>{s.views} {copy(lang,'views')}</T></View>
-      <T style={{fontSize:10,fontWeight:'700',color:s.status==='published'?'#10B981':s.status==='pending'?'#D97706':t.muted}}>{copy(lang,s.status)}</T>
-    </View>)}
+    <View style={{backgroundColor:t.card,borderRadius:16,padding:14,marginBottom:14,borderWidth:1,borderColor:t.line}}>
+      <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:12}}>
+        <View style={{width:32,height:32,borderRadius:8,backgroundColor:'#6366F118',alignItems:'center',justifyContent:'center'}}><Feather name="bar-chart-2" size={16} color="#6366F1"/></View>
+        <T style={{fontSize:14,fontWeight:'800',color:t.ink}}>{copy(lang,'viewsAnalytics')}</T>
+      </View>
+      <View style={{flexDirection:'row',gap:8}}>
+        {[{label:copy(lang,'today'),value:d.todayViews,color:'#10B981'},{label:copy(lang,'thisWeek'),value:d.weekViews,color:'#6366F1'},{label:copy(lang,'thisMonth'),value:d.monthViews,color:'#F59E0B'}].map((v,i)=>
+        <View key={i} style={{flex:1,backgroundColor:v.color+'12',borderRadius:10,padding:10,alignItems:'center'}}>
+          <T style={{fontSize:18,fontWeight:'900',color:v.color}}>{v.value}</T>
+          <T style={{fontSize:9,fontWeight:'700',color:v.color,marginTop:2}}>{v.label}</T>
+        </View>)}
+      </View>
+    </View>
+    {d.publishedStories?.length>0&&<View style={{backgroundColor:t.card,borderRadius:16,padding:14,marginBottom:14,borderWidth:1,borderColor:t.line}}>
+      <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:12}}>
+        <View style={{width:32,height:32,borderRadius:8,backgroundColor:t.primary+'18',alignItems:'center',justifyContent:'center'}}><Feather name="book-open" size={16} color={t.primary}/></View>
+        <T style={{fontSize:14,fontWeight:'800',color:t.ink}}>{copy(lang,'publishedStories')}</T>
+      </View>
+      {d.publishedStories.map((s:any,i:number)=>
+      <View key={s.id} style={{flexDirection:'row',alignItems:'center',paddingVertical:10,borderBottomWidth:i<d.publishedStories.length-1?1:0,borderBottomColor:t.line}}>
+        {s.cover_url?<Image source={{uri:s.cover_url}} style={{width:40,height:30,borderRadius:6,marginRight:10}}/>:
+        <View style={{width:40,height:30,borderRadius:6,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',marginRight:10}}><Feather name="book" size={12} color={t.muted}/></View>}
+        <View style={{flex:1}}>
+          <T numberOfLines={1} style={{fontSize:13,fontWeight:'700',color:t.ink}}>{s.title}</T>
+          <T style={{fontSize:10,color:t.muted,marginTop:2}}>{copy(lang,'views')}: {s.views}</T>
+        </View>
+        <View style={{flexDirection:'row',alignItems:'center',gap:4,backgroundColor:'#10B98115',borderRadius:8,paddingHorizontal:8,paddingVertical:4}}>
+          <Feather name="eye" size={12} color="#10B981"/>
+          <T style={{fontSize:11,fontWeight:'700',color:'#10B981'}}>{s.views}</T>
+        </View>
+      </View>)}
+    </View>}
+    <View style={{backgroundColor:t.card,borderRadius:16,padding:16,marginBottom:20,borderWidth:1,borderColor:isEligible?'#10B981':t.line}}>
+      <View style={{flexDirection:'row',alignItems:'center',gap:10,marginBottom:14}}>
+        <View style={{width:40,height:40,borderRadius:12,backgroundColor:isEligible?'#10B981'+'18':'#F59E0B'+'18',alignItems:'center',justifyContent:'center'}}>
+          {isEligible?<Svg width={22} height={22} viewBox="0 0 24 24" fill="none"><Path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="#10B981"/></Svg>:
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none"><Circle cx="12" cy="12" r="10" stroke="#F59E0B" strokeWidth="2"/><Path d="M12 6V12L16 14" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round"/></Svg>}
+        </View>
+        <View style={{flex:1}}>
+          <T style={{fontSize:14,fontWeight:'800',color:t.ink}}>{copy(lang,'monetization')}</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:2}}>{isEligible?copy(lang,'eligibleForMonetization'):copy(lang,'monetizationProgress')}</T>
+        </View>
+      </View>
+      {!isEligible&&<View style={{marginBottom:14}}>
+        <View style={{flexDirection:'row',justifyContent:'space-between',marginBottom:6}}>
+          <T style={{fontSize:11,fontWeight:'600',color:t.muted}}>{copy(lang,'followers')}: {d.followers}/1,000</T>
+          <T style={{fontSize:11,fontWeight:'700',color:d.followers>=1000?'#10B981':t.muted}}>{Math.min(100,Math.floor(d.followers/10))}%</T>
+        </View>
+        <View style={{height:6,backgroundColor:t.line,borderRadius:3,overflow:'hidden'}}>
+          <View style={{height:6,flex:Math.min(100,Math.floor(d.followers/10))/100,maxWidth:'100%',backgroundColor:d.followers>=1000?'#10B981':t.primary,borderRadius:3}}/>
+        </View>
+        <View style={{flexDirection:'row',justifyContent:'space-between',marginTop:8,marginBottom:6}}>
+          <T style={{fontSize:11,fontWeight:'600',color:t.muted}}>{copy(lang,'totalViews')}: {d.totalViews}/5,000</T>
+          <T style={{fontSize:11,fontWeight:'700',color:d.totalViews>=5000?'#10B981':t.muted}}>{Math.min(100,Math.floor(d.totalViews/50))}%</T>
+        </View>
+        <View style={{height:6,backgroundColor:t.line,borderRadius:3,overflow:'hidden'}}>
+          <View style={{height:6,flex:Math.min(100,Math.floor(d.totalViews/50))/100,maxWidth:'100%',backgroundColor:d.totalViews>=5000?'#10B981':'#6366F1',borderRadius:3}}/>
+        </View>
+      </View>}
+      <View style={{backgroundColor:t.tint,borderRadius:10,padding:12}}>
+        <T style={{fontSize:11,fontWeight:'700',color:t.ink,marginBottom:6}}>{copy(lang,'howMonetizationWorks')}</T>
+        <T style={{fontSize:10,color:t.muted,lineHeight:16}}>
+          {copy(lang,'monetizationDesc1')+'\n\n'+
+          copy(lang,'monetizationDesc2')+'\n\n'+
+          copy(lang,'monetizationDesc3')}
+        </T>
+      </View>
+    </View>
   </ScrollView>}
 
 function WriterStories({token,theme:t,lang,categories}:{token:string;theme:Theme;lang:Language;categories:string[]}){
@@ -1086,6 +1276,7 @@ function WriterStories({token,theme:t,lang,categories}:{token:string;theme:Theme
   </View>}
 
 function WriterProfileStudio({token,theme:t,writer,lang,onUpdate}:{token:string;theme:Theme;writer:any;lang:Language;onUpdate:(patch:any)=>void}){
+  const[editing,setEditing]=useState(false);
   const[name,setName]=useState(writer?.writer_name||'');
   const[username,setUsername]=useState(writer?.username||'');
   const[bio,setBio]=useState(writer?.bio||'');
@@ -1097,31 +1288,44 @@ function WriterProfileStudio({token,theme:t,writer,lang,onUpdate}:{token:string;
   const handlePickAvatar=async()=>{
     setUploadingImg(true);setErr('');
     const url=await pickAndResizeImage('avatar');
-    if(url)setAvatar(url);
+    if(url){setAvatar(url);await updateWriterProfile(token,{avatar_url:url});onUpdate({avatar_url:url})}
     setUploadingImg(false);
   };
   const handleSave=async()=>{
     setSaving(true);setErr('');
     const r=await updateWriterProfile(token,{writer_name:name.trim(),bio:bio.trim(),avatar_url:avatar||undefined,username:username.trim()||undefined});
     setSaving(false);
-    if(r.ok){setSaved(true);onUpdate({writer_name:name.trim(),bio:bio.trim(),avatar_url:avatar||undefined,username:username.trim()||undefined});setTimeout(()=>setSaved(false),2000)}
+    if(r.ok){setSaved(true);onUpdate({writer_name:name.trim(),bio:bio.trim(),avatar_url:avatar||undefined,username:username.trim()||undefined});setTimeout(()=>{setSaved(false);setEditing(false)},1500)}
     else setErr(r.error==='Username already taken'?copy(lang,'usernameTaken'):r.error||'');
   };
   return <ScrollView showsVerticalScrollIndicator={false}>
     <View style={{alignItems:'center',marginBottom:20}}>
-      <Pressable onPress={handlePickAvatar} disabled={uploadingImg} style={{marginBottom:10}}>
-        {uploadingImg?<View style={{width:80,height:80,borderRadius:40,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}><ActivityIndicator size="small" color={t.primary}/></View>:
-        avatar?<View><Image source={{uri:avatar}} style={{width:80,height:80,borderRadius:40}}/><View style={{position:'absolute',bottom:0,right:0,backgroundColor:t.primary,borderRadius:12,width:26,height:26,alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:t.card}}><Feather name="camera" size={12} color="#fff"/></View></View>:
-        <View style={{width:80,height:80,borderRadius:40,backgroundColor:t.primary,alignItems:'center',justifyContent:'center',elevation:4,shadowColor:t.primary,shadowOffset:{width:0,height:4},shadowOpacity:0.3,shadowRadius:8}}>
-          <T style={{fontSize:28,fontWeight:'900',color:'#fff'}}>{writer?.writer_name?.[0]?.toUpperCase()||'?'}</T>
-          <View style={{position:'absolute',bottom:0,backgroundColor:'rgba(0,0,0,0.4)',borderRadius:12,width:26,height:26,alignItems:'center',justifyContent:'center'}}><Feather name="camera" size={12} color="#fff"/></View>
+      <Pressable onPress={editing?handlePickAvatar:()=>setEditing(true)} disabled={uploadingImg} style={{marginBottom:10}}>
+        {uploadingImg?<View style={{width:90,height:90,borderRadius:45,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}><ActivityIndicator size="small" color={t.primary}/></View>:
+        (avatar||writer?.avatar_url)?<View><Image source={{uri:avatar||writer?.avatar_url}} style={{width:90,height:90,borderRadius:45}}/>{editing&&<View style={{position:'absolute',bottom:0,right:0,backgroundColor:t.primary,borderRadius:14,width:28,height:28,alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:t.card}}><Feather name="camera" size={13} color="#fff"/></View>}</View>:
+        <View style={{width:90,height:90,borderRadius:45,backgroundColor:t.primary,alignItems:'center',justifyContent:'center',elevation:4,shadowColor:t.primary,shadowOffset:{width:0,height:4},shadowOpacity:0.3,shadowRadius:8}}>
+          <T style={{fontSize:32,fontWeight:'900',color:'#fff'}}>{writer?.writer_name?.[0]?.toUpperCase()||'?'}</T>
+          {editing&&<View style={{position:'absolute',bottom:0,backgroundColor:'rgba(0,0,0,0.4)',borderRadius:14,width:28,height:28,alignItems:'center',justifyContent:'center'}}><Feather name="camera" size={13} color="#fff"/></View>}
         </View>}
       </Pressable>
-      <T style={{fontSize:18,fontWeight:'900',color:t.ink}}>{name||writer?.writer_name}</T>
-      <T style={{fontSize:12,color:t.muted,marginTop:2}}>@{username||writer?.username}</T>
+      {!editing&&<><View style={{flexDirection:'row',alignItems:'center',gap:6}}>
+        <T style={{fontSize:20,fontWeight:'900',color:t.ink}}>{writer?.writer_name}</T>
+        <BadgeIcon badge={writer?.badge} size={20}/>
+      </View>
+      <T style={{fontSize:13,color:t.muted,marginTop:3}}>@{writer?.username}</T>
+      {writer?.bio&&<T style={{fontSize:13,color:t.muted,marginTop:8,textAlign:'center',lineHeight:20,maxWidth:300}}>{writer?.bio}</T>}
+      </>}
     </View>
+    {!editing?
+    <Pressable onPress={()=>setEditing(true)} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',backgroundColor:t.primary,borderRadius:14,paddingVertical:13,marginBottom:14,gap:8}}>
+      <Feather name="edit-2" size={16} color="#fff"/>
+      <T style={{fontSize:14,fontWeight:'800',color:'#fff'}}>{copy(lang,'editProfile')}</T>
+    </Pressable>:
     <View style={{backgroundColor:t.card,borderRadius:14,padding:16,marginBottom:14,borderWidth:1,borderColor:t.line}}>
-      <T style={{fontSize:11,fontWeight:'800',color:t.muted,marginBottom:12,letterSpacing:0.5}}>{copy(lang,'editProfile')}</T>
+      <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+        <T style={{fontSize:14,fontWeight:'800',color:t.ink}}>{copy(lang,'editProfile')}</T>
+        <Pressable onPress={()=>{setEditing(false);setErr('')}}><T style={{fontSize:13,fontWeight:'700',color:t.muted}}>{copy(lang,'cancel')}</T></Pressable>
+      </View>
       <View style={{marginBottom:12}}>
         <T style={{color:t.muted,fontSize:11,fontWeight:'700',marginBottom:5,marginLeft:4}}>{copy(lang,'username')}</T>
         <View style={{flexDirection:'row',alignItems:'center',backgroundColor:t.bg,borderRadius:12,borderWidth:1.5,borderColor:t.line,paddingHorizontal:12,height:44}}>
@@ -1145,18 +1349,49 @@ function WriterProfileStudio({token,theme:t,writer,lang,onUpdate}:{token:string;
       {err?<View style={{backgroundColor:'#FEF2F2',borderRadius:10,padding:10,marginBottom:12,flexDirection:'row',alignItems:'center',gap:6}}><Feather name="alert-circle" size={14} color="#EF4444"/><T style={{fontSize:12,fontWeight:'600',color:'#EF4444',flex:1}}>{err}</T></View>:null}
       <Pressable disabled={saving} onPress={handleSave} style={{backgroundColor:saved?'#10B981':t.primary,borderRadius:12,paddingVertical:12,alignItems:'center'}}>
         {saving?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{saved?'✓ '+copy(lang,'saved'):copy(lang,'save')}</T>}
-      </Pressable>
-    </View>
+      </Pressable></View>}
   </ScrollView>}
 
-function WriterNotifs({token,theme:t,lang}:{token:string;theme:Theme;lang:Language}){
+function WriterFollowers({token,theme:t,lang}:{token:string;theme:Theme;lang:Language}){
+  const[followers,setFollowers]=useState<{id:string;username:string;writer_name:string;bio?:string;avatar_url?:string;follower_count?:number;badge?:string}[]>([]);
+  const[loading,setLoading]=useState(true);
+  useEffect(()=>{fetchWriterFollowers(token).then(f=>setFollowers(f||[])).finally(()=>setLoading(false))},[token]);
+  return <View style={{flex:1}}>
+    <T style={{fontSize:16,fontWeight:'900',color:t.ink,marginBottom:14}}>{copy(lang,'followers')}</T>
+    {loading?<View style={{alignItems:'center',paddingVertical:40}}><ActivityIndicator color={t.primary}/></View>:
+    followers.length===0?<View style={{alignItems:'center',paddingVertical:40}}><Feather name="users" size={28} color={t.muted}/><T style={{fontSize:13,color:t.muted,marginTop:8}}>{lang==='hi'?'কোনো অনুসারক নেই':lang==='en'?'No followers yet':'কোনো অনুসারক নেই'}</T></View>:
+    followers.map(w=><View key={w.id} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:8,borderWidth:1,borderColor:t.line}}>
+      <View style={{width:44,height:44,borderRadius:22,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
+        {w.avatar_url?<Image source={{uri:w.avatar_url}} style={{width:44,height:44,borderRadius:22}}/>:<T style={{fontSize:18,fontWeight:'900',color:t.primary}}>{w.writer_name[0]?.toUpperCase()||'?'}</T>}
+      </View>
+      <View style={{flex:1,marginLeft:12}}>
+        <View style={{flexDirection:'row',alignItems:'center',gap:5}}>
+          <T numberOfLines={1} style={{fontSize:14,fontWeight:'800',color:t.ink}}>{w.writer_name}</T>
+          <BadgeIcon badge={w.badge} size={14}/>
+        </View>
+        <T numberOfLines={1} style={{fontSize:11,color:t.muted,marginTop:1}}>@{w.username}</T>
+      </View>
+      <View style={{alignItems:'center'}}>
+        <Feather name="users" size={12} color={t.muted}/>
+        <T style={{fontSize:10,color:t.muted,marginTop:2}}>{w.follower_count||0}</T>
+      </View>
+    </View>)}
+  </View>
+}
+
+function WriterNotifs({token,theme:t,lang,deviceID}:{token:string;theme:Theme;lang:Language;deviceID:string}){
   const[notifs,setNotifs]=useState<{id:string;title:string;body:string;type:string;is_read:boolean;url?:string;created_at:string}[]>([]);
   const[loading,setLoading]=useState(true);
+  const[followedBack,setFollowedBack]=useState<Record<string,boolean>>({});
   useEffect(()=>{fetchWriterNotifications(token).then(n=>setNotifs(n||[])).finally(()=>setLoading(false))},[token]);
   const markAll=async()=>{await markWriterNotificationsRead(token);setNotifs(n=>n.map(x=>({...x,is_read:true})))};
   const deleteNotif=async(id:string)=>{await deleteWriterNotification(token,id);setNotifs(n=>n.filter(x=>x.id!==id))};
-  const typeIcon=(type:string)=>type==='approved'?'check-circle':type==='rejected'?'x-circle':type==='info'?'info':'bell';
-  const typeColor=(type:string)=>type==='approved'?'#10B981':type==='rejected'?'#EF4444':'#6366F1';
+  const followBack=async(nid:string,fwid:string)=>{
+    const ok=await followWriter(deviceID,fwid);
+    if(ok)setFollowedBack(p=>({...p,[nid]:true}));
+  };
+  const typeIcon=(type:string)=>type==='approved'?'check-circle':type==='rejected'?'x-circle':type==='info'?'info':type==='follow'?'user-plus':'bell';
+  const typeColor=(type:string)=>type==='approved'?'#10B981':type==='rejected'?'#EF4444':type==='follow'?'#EC4899':'#6366F1';
   return <View style={{flex:1}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
       <T style={{fontSize:16,fontWeight:'900',color:t.ink}}>{copy(lang,'notifications')}</T>
@@ -1178,11 +1413,14 @@ function WriterNotifs({token,theme:t,lang}:{token:string;theme:Theme;lang:Langua
       <View style={{flex:1}}>
         <T numberOfLines={1} style={{fontSize:13,fontWeight:'700',color:t.ink}}>{n.title}</T>
         <T numberOfLines={3} style={{fontSize:12,color:t.muted,marginTop:2,lineHeight:17}}>{n.body}</T>
-        <View style={{flexDirection:'row',alignItems:'center',marginTop:4}}>
-          {n.url?<Pressable onPress={()=>Linking.openURL(n.url!)} style={{flexDirection:'row',alignItems:'center',marginRight:10,backgroundColor:t.primary+'15',paddingHorizontal:10,paddingVertical:5,borderRadius:8}}>
-            <Feather name="external-link" size={12} color={t.primary}/>
-            <T style={{fontSize:11,fontWeight:'700',color:t.primary,marginLeft:5}}>{copy(lang,'openLink')}</T>
-          </Pressable>:null}
+        <View style={{flexDirection:'row',alignItems:'center',marginTop:6,gap:8}}>
+          {n.type==='follow'&&n.url&&!followedBack[n.id]?<Pressable onPress={()=>followBack(n.id,n.url!)} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.primary,paddingHorizontal:12,paddingVertical:6,borderRadius:8,gap:4}}>
+            <Feather name="user-plus" size={12} color="#fff"/>
+            <T style={{fontSize:11,fontWeight:'700',color:'#fff'}}>{lang==='hi'?'फ़ॉलो वापस करें':lang==='en'?'Follow Back':'ফলো ব্যাক'}</T>
+          </Pressable>:n.type==='follow'&&followedBack[n.id]?<View style={{flexDirection:'row',alignItems:'center',backgroundColor:t.tint,paddingHorizontal:12,paddingVertical:6,borderRadius:8,gap:4}}>
+            <Feather name="check" size={12} color={t.primary}/>
+            <T style={{fontSize:11,fontWeight:'700',color:t.primary}}>{lang==='hi'?'फ़ॉलो किया':lang==='en'?'Followed':'ফলো করা হয়েছে'}</T>
+          </View>:null}
           <T style={{fontSize:10,color:t.muted}}>{new Date(n.created_at).toLocaleDateString()}</T>
         </View>
       </View>
@@ -1201,6 +1439,15 @@ function Featured(props: C & { list?: Book[] }){const p=props as C;const {width}
 function shade(hex:string,amt:number):string{const h=hex.replace('#','');if(h.length!==6)return hex;const n=parseInt(h,16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;const t=amt<0?0:255;const q=Math.abs(amt)/100;r=Math.round((t-r)*q+r);g=Math.round((t-g)*q+g);b=Math.round((t-b)*q+b);const z=(x:number)=>('0'+x.toString(16)).slice(-2);return '#'+z(r)+z(g)+z(b)}
 function FeaturedCard({book,p,rank}:{book:Book;p:C;rank:number}){const base=book.color||'#123E39';const accent=book.accent||'#F5C660';const dark=shade(base,-32);const isBm=p.state.bookmarks.includes(book.id);const open=()=>p.open(book.id);const toggleBm=()=>p.update({bookmarks:isBm?p.state.bookmarks.filter(x=>x!==book.id):[...p.state.bookmarks,book.id]});const metaW=book.views_visible!==false;const readLabel=p.state.settings.language==='hi'?'पढ़ें':p.state.settings.language==='en'?'Read':'পড়ুন';return <View style={[featStyles.card,{backgroundColor:base}]}><LinearGradient colors={[base,dark]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/><Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="92%" cy={18} r={92} fill={accent+'26'}/><Circle cx="-14" cy={205} r={118} fill="#ffffff10"/><Ellipse cx="34%" cy={262} rx={165} ry={80} fill={accent+'16'}/><Circle cx="70%" cy={248} r={70} fill="#ffffff0c"/></Svg><View style={featStyles.top}><View style={[featStyles.rank,{backgroundColor:accent}]}><T style={[featStyles.rankText,{color:base}]}>#{rank+1}</T></View><Pressable onPress={toggleBm} hitSlop={10} style={[featStyles.bm,{borderColor:'#ffffff44'}]}><Feather name="bookmark" size={15} color={isBm?accent:'#fff'}/></Pressable></View><View style={featStyles.row}><View style={featStyles.left}><View style={[featStyles.tag,{backgroundColor:accent+'33'}]}><T style={[featStyles.tagText,{color:accent}]}>✦ {tr(p,'popular')}</T></View><T numberOfLines={2} style={featStyles.title}>{book.title}</T><T numberOfLines={1} style={featStyles.author}>{book.author}</T><View style={featStyles.meta}>{metaW&&<View style={featStyles.metaC}><Feather name="eye" size={10} color="#E7F2EE"/><T style={featStyles.metaT}>{book.views}</T></View>}<View style={featStyles.metaC}><Feather name="star" size={10} color={accent}/><T style={featStyles.metaT}>{book.rating}</T></View><View style={featStyles.metaC}><Feather name={I(book.categoryIcon)} size={10} color="#E7F2EE"/><T style={featStyles.metaT} numberOfLines={1}>{book.category}</T></View></View><Pressable onPress={open} style={[featStyles.btn,{backgroundColor:accent}]}><Feather name="book-open" size={12} color={base}/><T style={[featStyles.btnText,{color:base}]}>{readLabel}</T></Pressable></View><Pressable onPress={open} style={featStyles.coverWrap}>{book.cover_url?<Image source={{uri:book.cover_url}} style={featStyles.coverImg}/>:<View style={[featStyles.coverImg,{backgroundColor:book.color}]}><Feather name={I(book.categoryIcon)} size={30} color={book.accent}/></View>}</Pressable></View></View>}
 function BookCard({book,theme,lang,rank,accent,onPress}:{book:Book;theme:Theme;lang:Language;rank?:number;accent?:string;onPress:()=>void}){const newBadge=Boolean(book.isNew);return <Pressable onPress={onPress} style={{width:130}}><View style={{position:'relative'}}><Cover book={book}/>{typeof rank==='number'?<View style={[styles.rankBadge,{backgroundColor:rank===0?accent:rank===1?accent:rank<3?(accent||'#888')+'DD':'#555555DD'}]}><T style={[styles.rankBadgeText,{color:rank<2?'#fff':'#fff'}]}>{rank+1}</T></View>:<View style={[styles.statusBadge,{backgroundColor:newBadge?theme.primary:theme.tint}]}><T style={[styles.statusBadgeText,{color:newBadge?'#fff':theme.primary}]}>{newBadge?copy(lang,'statusNew'):copy(lang,'statusOngoing')}</T></View>}{book.views_visible !== false && <View style={styles.viewBadge}><Feather name="eye" size={10} color="#fff"/><T style={styles.viewBadgeText}>{book.views}</T></View>}</View><T numberOfLines={2} style={[styles.bookName,{color:theme.ink}]}>{book.title}</T><T numberOfLines={1} style={{color:theme.muted,fontSize:11}}>{book.author}</T></Pressable>}
+function GoogleIcon({size}:{size?:number}){
+  const s=size||20;
+  return <Svg width={s} height={s} viewBox="0 0 48 48">
+    <Path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
+    <Path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
+    <Path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
+    <Path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+  </Svg>;
+}
 function BadgeIcon({badge,size}:{badge?:string;size?:number}){
   if(!badge||badge==='none')return null;
   const s=size||18;

@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
+    "scheme": "com.lekhoni.kahini",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
@@ -29,12 +30,23 @@
       }
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      "expo-web-browser",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.940343114841-pd5po6gp5dij90nlp5k28tigp5qqr1rt",
+          "androidPackage": "com.lekhoni.kahini",
+          "androidSha1": "94837C9D180050FD4D31366E391EE31AECFB758C"
+        }
+      ]
     ],
     "extra": {
       "eas": {
-        "projectId": ""
-      }
-    }
+        "projectId": "659b4215-d07c-41f8-881b-c3e7cd7e951a"
+      },
+      "googleClientId": "940343114841-h78drktn8bvgl0snv0sjujj7alne60ov.apps.googleusercontent.com"
+    },
+    "owner": "xyte"
   }
 }

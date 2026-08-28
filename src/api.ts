@@ -170,6 +170,14 @@ export async function writerLogin(emailOrUsername: string, password: string): Pr
   return null;
 }
 
+export async function writerGoogleAuth(credential: string): Promise<{ writer: Writer; token: string } | null> {
+  const r = await apiFetch<{ writer?: Writer; token?: string; error?: string }>('/api/public/writers/google', {
+    method: 'POST', body: JSON.stringify({ credential }),
+  });
+  if (r?.writer && r?.token) return { writer: r.writer, token: r.token };
+  return null;
+}
+
 export async function verifyWriterToken(token: string): Promise<Writer | null> {
   const r = await apiFetch<{ writer?: Writer }>('/api/public/writers/verify', {
     method: 'POST', body: JSON.stringify({ token }),
@@ -186,9 +194,9 @@ export async function fetchFollowedWriters(deviceId: string): Promise<Writer[]> 
   return (await apiFetch<Writer[]>(`/api/public/follows?device_id=${deviceId}`)) || [];
 }
 
-export async function followWriter(deviceId: string, writerId: string): Promise<boolean> {
+export async function followWriter(deviceId: string, writerId: string, followerWriterId?: string): Promise<boolean> {
   const r = await apiFetch<{ ok: boolean }>('/api/public/follows', {
-    method: 'POST', body: JSON.stringify({ device_id: deviceId, writer_id: writerId }),
+    method: 'POST', body: JSON.stringify({ device_id: deviceId, writer_id: writerId, follower_writer_id: followerWriterId }),
   });
   return Boolean(r?.ok);
 }
@@ -283,7 +291,7 @@ export async function updateWriterProfile(token: string, patch: { writer_name?: 
   } catch { return { ok: false, error: 'Network error' }; }
 }
 
-export type WriterDashboard = { stories: number; totalViews: number; followers: number; published: number; pending: number; recent: { id: string; title: string; status: string; views: number; created_at: string; updated_at: string }[]; activities: { id: string; type: string; data: any; created_at: string }[] };
+export type WriterDashboard = { stories: number; totalViews: number; followers: number; published: number; pending: number; publishedStories: { id: string; title: string; views: number; cover_url?: string; created_at: string; updated_at: string }[]; todayViews: number; weekViews: number; monthViews: number };
 
 export async function fetchWriterDashboard(token: string): Promise<WriterDashboard | null> {
   return writerApiFetch<WriterDashboard>('/api/writer/dashboard', token);
@@ -305,6 +313,12 @@ export async function markWriterNotificationsRead(token: string, ids?: string[])
 export async function deleteWriterNotification(token: string, id: string): Promise<boolean> {
   const r = await writerApiFetch<{ ok: boolean }>(`/api/writer/notifications/${id}`, token, { method: 'DELETE' });
   return Boolean(r?.ok);
+}
+
+export type WriterFollower = { id: string; username: string; writer_name: string; bio?: string; avatar_url?: string; follower_count?: number; badge?: string };
+
+export async function fetchWriterFollowers(token: string): Promise<WriterFollower[]> {
+  return (await writerApiFetch<WriterFollower[]>('/api/writer/followers', token)) || [];
 }
 
 export async function submitStoryForReview(token: string, storyId: string): Promise<boolean> {
