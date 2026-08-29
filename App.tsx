@@ -1186,8 +1186,8 @@ function WriterDashboard({token,theme:t,lang}:{token:string;theme:Theme;lang:Lan
           <Feather name="eye" size={12} color="#10B981"/>
           <T style={{fontSize:11,fontWeight:'700',color:'#10B981'}}>{s.views}</T>
         </View>
-      </View>)}
-    </View>}
+    </View>)}
+  </View>}
     <View style={{backgroundColor:t.card,borderRadius:16,padding:16,marginBottom:20,borderWidth:1,borderColor:isEligible?'#10B981':t.line}}>
       <View style={{flexDirection:'row',alignItems:'center',gap:10,marginBottom:14}}>
         <View style={{width:40,height:40,borderRadius:12,backgroundColor:isEligible?'#10B981'+'18':'#F59E0B'+'18',alignItems:'center',justifyContent:'center'}}>
@@ -1245,6 +1245,7 @@ function WriterStories({token,theme:t,lang,categories}:{token:string;theme:Theme
   const[saving,setSaving]=useState(false);
   const[uploadingImg,setUploadingImg]=useState(false);
   const[storyStatuses,setStoryStatuses]=useState<Record<string,string>>({});
+  const[deleteId,setDeleteId]=useState<string|null>(null);
   const load=()=>{fetchWriterStories(token).then(s=>{setStories(s||[]);const m:Record<string,string>={};(s||[]).forEach((x:any)=>{if(x.display_status)m[x.id]=x.display_status});setStoryStatuses(m)}).finally(()=>setLoading(false))};
   useEffect(()=>{load()},[token]);
   const filtered=filter==='all'?stories:stories.filter(s=>s.status===filter);
@@ -1272,7 +1273,8 @@ function WriterStories({token,theme:t,lang,categories}:{token:string;theme:Theme
     setChapters(c=>c.filter(x=>x.id!==chapterId));
   };
   const handleSubmit=async(id:string)=>{await submitStoryForReview(token,id);load()};
-  const handleDelete=async(id:string)=>{Alert.alert('',copy(lang,'cancel')+'?',[{text:copy(lang,'cancel'),style:'cancel'},{text:copy(lang,'delete'),style:'destructive',onPress:async()=>{await deleteWriterStory(token,id);load()}}])};
+  const handleDelete=async(id:string)=>{setDeleteId(id)};
+  const confirmDelete=async()=>{if(deleteId){await deleteWriterStory(token,deleteId);setDeleteId(null);load()}};
   const toggleDisplayStatus=async(id:string,status:string)=>{const newStatus=storyStatuses[id]===status?'':status;setStoryStatuses(s=>({...s,[id]:newStatus}));await updateWriterStory(token,id,{display_status:newStatus});setStories(s=>s.map(x=>x.id===id?{...x,display_status:newStatus}:x))};
   return <View style={{flex:1}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
@@ -1365,6 +1367,25 @@ function WriterStories({token,theme:t,lang,categories}:{token:string;theme:Theme
         </Pressable>
       </View>}
     </View>)}
+  {deleteId&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24,zIndex:999}}>
+    <View style={{width:'100%',backgroundColor:t.card,borderRadius:22,padding:24,alignItems:'center',borderWidth:1,borderColor:t.line}}>
+      <View style={{width:56,height:56,borderRadius:28,backgroundColor:'#FEE2E2',alignItems:'center',justifyContent:'center',marginBottom:16}}>
+        <Feather name="alert-triangle" size={28} color="#EF4444"/>
+      </View>
+      <T style={{fontSize:18,fontWeight:'900',color:t.ink,textAlign:'center',marginBottom:8}}>গল্প মুছে ফেলবেন?</T>
+      <T style={{fontSize:13,color:t.muted,textAlign:'center',lineHeight:20,marginBottom:20}}>
+        {'আপনার গল্পটি মুছে ফেললে আর কেউ এটি পড়তে পারবে না। এই গল্পের সব পর্ব, পছন্দ, ভিউ এবং মন্তব্য সব চিরতরে মুছে যাবে।\n\nএই কাজটি আর ফেরানো যাবে না।'}
+      </T>
+      <View style={{flexDirection:'row',gap:10,width:'100%'}}>
+        <Pressable onPress={()=>setDeleteId(null)} style={{flex:1,height:48,borderRadius:14,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
+          <T style={{color:t.primary,fontWeight:'800',fontSize:14}}>ফিরে যান</T>
+        </Pressable>
+        <Pressable onPress={confirmDelete} style={{flex:1,height:48,borderRadius:14,backgroundColor:'#EF4444',alignItems:'center',justifyContent:'center'}}>
+          <T style={{color:'#fff',fontWeight:'800',fontSize:14}}>মুছে ফেলুন</T>
+        </Pressable>
+      </View>
+    </View>
+  </View>}
   </View>}
 
 function WriterProfileStudio({token,theme:t,writer,lang,onUpdate}:{token:string;theme:Theme;writer:any;lang:Language;onUpdate:(patch:any)=>void}){
