@@ -18,7 +18,6 @@
     "android": {
       "package": "com.lekhoni.kahini",
       "versionCode": 1,
-      "permissions": ["RECORD_AUDIO"],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#087A63"
