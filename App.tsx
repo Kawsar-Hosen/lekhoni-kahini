@@ -15,7 +15,7 @@ import { fetchRemoteBooks, fetchRemoteCategories, fetchRemoteNotifications, trac
 import { pickAndResizeImage } from './src/imageUpload';
 
 type Tab = 'home'|'library'|'categories'|'episodes'|'profile';
-type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' };
+type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' } | { type:'newStory' } | { type:'editStory', id:string, title:string, desc:string, coverUrl:string|null, writerStatus:string };
 type Theme = {dark:boolean;primary:string;bg:string;card:string;ink:string;muted:string;line:string;tint:string;reader:string};
 const I = (name:string) => (Feather.glyphMap as Record<string,unknown>)[name] ? name as keyof typeof Feather.glyphMap : 'bell';
 
@@ -107,7 +107,7 @@ function AppShell(){
   useEffect(()=>{_curLang=state.settings.language},[state.settings.language]);
   const update=(p:Partial<LocalState>)=>setState(s=>({...s,...p})); const open=(id:string)=>{update({history:[id,...state.history.filter(x=>x!==id)].slice(0,20)});setScreen({type:'book',id})}; const read=(id:string,chapter:number)=>setScreen({type:'reader',id,chapter});
   const filteredWriters=React.useMemo(()=>state.writer?publicWriters.filter(w=>w.id!==state.writer!.id):publicWriters,[publicWriters,state.writer]);
-  const common=React.useMemo(()=>({theme,state,update,setScreen,open,read,allBooks,allCategories,publicWriters:filteredWriters,homeData,remoteNotices,dlBooks,downloadBook,removeDownload,dataLoaded}),[theme,state,allBooks,allCategories,filteredWriters,homeData,remoteNotices,dlBooks,dataLoaded]);
+  const common=React.useMemo(()=>({theme,state,update,setScreen,open,read,allBooks,allCategories,publicWriters:filteredWriters,homeData,remoteNotices,dlBooks,downloadBook,removeDownload,dataLoaded,syncRemote}),[theme,state,allBooks,allCategories,filteredWriters,homeData,remoteNotices,dlBooks,dataLoaded,syncRemote]);
   const [splashPhase,setSplashPhase]=useState<'splash'|'loading'|'done'>('splash');
   const [loadError,setLoadError]=useState<string|null>(null);
   const [isOffline,setIsOffline]=useState(false);
@@ -133,9 +133,10 @@ function AppShell(){
   if(screen.type==='followedWriters')body=<FollowedWritersList {...common}/>;
   if(screen.type==='writerProfile')body=<WriterProfileView {...common} writer={screen.writer}/>;
   if(screen.type==='allWriters')body=<AllWritersList {...common}/>;
- return <View style={{flex:1,backgroundColor:theme.bg}}><StatusBar style={state.settings.dark?'light':'dark'}/>{body}</View>;
+  if(screen.type==='newStory')body=<NewStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} categories={allCategories.map(c=>c[0])} onBack={()=>setScreen({type:'writer'})} onCreated={()=>{setScreen({type:'writer'})}}/>;
+  if(screen.type==='editStory')body=<EditStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} storyId={screen.id} initialTitle={screen.title} initialDesc={screen.desc} initialCover={screen.coverUrl} initialWriterStatus={screen.writerStatus} onBack={()=>setScreen({type:'writer'})} onSaved={syncRemote}/>; return <View style={{flex:1,backgroundColor:theme.bg}}><StatusBar style={state.settings.dark?'light':'dark'}/>{body}</View>;
 }
-type C={theme:Theme;state:LocalState;update:(p:Partial<LocalState>)=>void;setScreen:(s:Screen)=>void;open:(id:string)=>void;read:(id:string,c:number)=>void;allBooks:Book[];allCategories:[string,string,string,string|null][];publicWriters:import('./src/types').WriterProfile[];homeData:HomeSectionsData|null;remoteNotices:{id:string;title:string;body:string;icon:string;url:string;time:string}[];dlBooks:Record<string,Book>;downloadBook:(id:string)=>void;removeDownload:(id:string)=>void;dataLoaded:boolean};
+type C={theme:Theme;state:LocalState;update:(p:Partial<LocalState>)=>void;setScreen:(s:Screen)=>void;open:(id:string)=>void;read:(id:string,c:number)=>void;allBooks:Book[];allCategories:[string,string,string,string|null][];publicWriters:import('./src/types').WriterProfile[];homeData:HomeSectionsData|null;remoteNotices:{id:string;title:string;body:string;icon:string;url:string;time:string}[];dlBooks:Record<string,Book>;downloadBook:(id:string)=>void;removeDownload:(id:string)=>void;dataLoaded:boolean;syncRemote?:()=>void};
 const F_BN='HindSiliguriMedium';
 const F_EN='OswaldVariableFont';
 let _curLang:import('./src/types').Language='bn';
@@ -159,7 +160,7 @@ function Main(p:C&{tab:Tab;setTab:(t:Tab)=>void}){
  return <View style={{flex:1}}>{content}<View style={{position:'absolute',bottom:24,left:20,right:20,backgroundColor:theme.card,borderRadius:24,flexDirection:'row',paddingVertical:10,paddingHorizontal:6,shadowColor:'#000',shadowOpacity:0.08,shadowRadius:20,shadowOffset:{width:0,height:8},elevation:8,borderWidth:1,borderColor:theme.line,overflow:'hidden'}}><Animated.View style={{position:'absolute',top:10,bottom:10,left:6,width:itemW,backgroundColor:theme.tint,borderRadius:16,transform:[{translateX:slideAnim.interpolate({inputRange:[0,1,2,3,4],outputRange:[0,itemW,itemW*2,itemW*3,itemW*4]})}]}}/>{tabs.map((x,i)=><Pressable key={x[0]} onPress={()=>setTab(x[0])} style={{flex:1,alignItems:'center',gap:4,paddingVertical:6,zIndex:1}}><Feather name={I(x[1])} size={20} color={tab===x[0]?theme.primary:theme.muted}/><T allowFontScaling={false} numberOfLines={1} style={{fontSize:9,fontWeight:'800',color:tab===x[0]?theme.primary:theme.muted}}>{tr(p,x[2])}</T></Pressable>)}</View></View>
 }
 function Header({title,sub,theme,action,onNotif,unreadCount}:{title:string;sub?:string;theme:Theme;action?:React.ReactNode;onNotif?:()=>void;unreadCount?:number}){return <View style={styles.header}><View style={{flex:1,marginRight:12}}><T numberOfLines={1} style={[styles.title,{color:theme.ink}]}>{title}</T>{sub&&<T numberOfLines={1} style={{color:theme.muted,marginTop:4}}>{sub}</T>}</View><View style={{flexDirection:'row',alignItems:'center',gap:18}}>{action}<Pressable onPress={()=>onNotif?onNotif():null} style={{position:'relative'}}><Feather name="bell" size={20} color={theme.ink}/>{!!unreadCount&&<View style={[styles.badge,{backgroundColor:'#EF4444'}]}><T style={styles.badgeText}>{unreadCount}</T></View>}</Pressable></View></View>}
-function HomeInner(p:C){const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const books=p.allBooks;const hd=p.homeData;const toBook=(b:any):Book=>({id:b.id,title:b.title,author:b.author,views:`${b.views}`,rating:4.5,color:b.color,accent:b.accent,category:b.category||'',categoryIcon:'book-open',description:b.description||'',updated:'',chapters:[],isNew:Boolean(b.is_new),featured:Boolean(b.featured),views_visible:b.views_visible!==false,cover_url:b.cover_url||null,display_status:b.display_status||undefined});const hlist=(k:string):Book[]=>{if(hd){const s=hd.sections.find((x:any)=>x.key===k);if(s&&s.books&&s.books.length)return s.books.slice(0,12).map((b:any)=>toBook(b) as Book).filter((b:any)=>b&&b.id);}return[];};const hdtitle=(k:string)=>hd?(hd.sections.find((x:any)=>x.key===k)?.title||''):'';const byViews=(a:Book,b:Book)=>+b.views-(+a.views);const G='#2AA876',AU='#D9A407',BL='#3B82F6',PU='#8B5CF6';const section=(title:string,icon:string,accent:string,list:Book[],sectionKey?:string)=>!list.length?null:<View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade(accent,-30)}]}><Feather name={I(icon)} size={15} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{title}</T></View><Pressable onPress={()=>p.setScreen({type:'list',title,ids:list.map(x=>x.id)})} style={[styles.seeAllPill,{backgroundColor:shade(accent,-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:13,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b,i)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={accent} section={sectionKey} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>;const followedIds=new Set(p.state.followedWriters.map(f=>f.id));const unfollowedWriters=p.publicWriters.filter(w=>!followedIds.has(w.id));const authors=()=>unfollowedWriters.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{unfollowedWriters.map(w=><AuthorCard key={w.id} writer={w} theme={p.theme} lang={p.state.settings.language} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} bookCount={p.allBooks.filter(b=>b.author===w.writer_name).length}/>)}</ScrollView>:<Empty theme={p.theme}/>;const sections=hd?hd.sections:[];const isFixed=(k:string)=>['featured','mostPopular','newEpisodes','popularAuthors','weeklyPopular','monthlyPopular'].includes(k);const fixedSecs=sections.filter((s:any)=>isFixed(s.key));const catSecs=sections.filter((s:any)=>!isFixed(s.key));const renderFixed=(k:string)=>{if(k==='featured'){const fl=hlist('featured');return <Featured {...p} list={fl}/>;}if(k==='popularAuthors')return <View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade('#EC4899',-30)}]}><Feather name="users" size={15} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{hdtitle('popularAuthors')||tr(p,'popularAuthors')}</T></View><Pressable onPress={()=>p.setScreen({type:'allWriters'})} style={[styles.seeAllPill,{backgroundColor:shade('#EC4899',-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:13,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View>{authors()}</View>;if(k==='newEpisodes'){const l=hlist('newEpisodes');return section(hdtitle('newEpisodes')||tr(p,'newEpisodes'),'zap',G,l.length?l:books,'newEpisodes');}if(k==='weeklyPopular'){const l=hlist('weeklyPopular');return section(hdtitle('weeklyPopular')||tr(p,'weeklyPopular'),'calendar',BL,l.length?l:(books.length?[...books].sort(byViews):[]),'weeklyPopular');}if(k==='monthlyPopular'){const l=hlist('monthlyPopular');return section(hdtitle('monthlyPopular')||tr(p,'monthlyPopular'),'star',PU,l.length?l:(books.length?[...books].sort(byViews):[]),'monthlyPopular');}if(k==='mostPopular'){const l=hlist('mostPopular');return section(hdtitle('mostPopular')||tr(p,'mostPopular'),'trending-up',AU,l.length?l:(books.length?[...books].sort(byViews):[]),'mostPopular');}return null;};return <Page theme={p.theme}><Header title={`${greet(p)}, ${p.state.name}`} sub={tr(p,'choose')} theme={p.theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/><Pressable onPress={()=>p.setScreen({type:'search'})} style={{backgroundColor:p.theme.card,borderRadius:14,borderWidth:1,borderColor:p.theme.line,flexDirection:'row',alignItems:'center',paddingHorizontal:14,paddingVertical:13,marginBottom:20,gap:10}}><Feather name="search" size={18} color={p.theme.muted}/><T style={{color:p.theme.muted,fontSize:14,fontWeight:'500',flex:1}}>বই, লেখক বা বিভাগ খুঁজুন</T></Pressable>{!p.dataLoaded&&!books.length?<><View><View style={styles.secHead}><SkeletonPulse width={120} height={16} borderRadius={4}/></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{[1,2,3].map(i=><View key={i} style={{width:130}}><SkeletonPulse width={130} height={170} borderRadius={14}/><SkeletonPulse width={100} height={14} borderRadius={4} style={{marginTop:8}}/><SkeletonPulse width={80} height={11} borderRadius={3} style={{marginTop:6}}/></View>)}</ScrollView></View><View><View style={styles.secHead}><SkeletonPulse width={140} height={16} borderRadius={4}/></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{[1,2,3].map(i=><View key={i} style={{width:130}}><SkeletonPulse width={130} height={170} borderRadius={14}/><SkeletonPulse width={100} height={14} borderRadius={4} style={{marginTop:8}}/><SkeletonPulse width={80} height={11} borderRadius={3} style={{marginTop:6}}/></View>)}</ScrollView></View></>:<>{fixedSecs.map((s:any)=><React.Fragment key={s.key}>{renderFixed(s.key)}</React.Fragment>)}{catSecs.length>0&&catSecs.map((s:any)=>{const list=hlist(s.key);if(!list.length)return null;const c=s.color||'#123E39';return <View key={s.key}><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade(c,-30)}]}><Feather name={I(s.icon||'book-open')} size={15} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{s.title}</T></View><Pressable onPress={()=>p.setScreen({type:'list',title:s.title,ids:list.map((x:any)=>x.id)})} style={[styles.seeAllPill,{backgroundColor:shade(c,-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:13,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b:Book,i:number)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={c} section={s.key} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>})}</>}</Page>}
+function HomeInner(p:C){const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const books=p.allBooks;const hd=p.homeData;const toBook=(b:any):Book=>({id:b.id,title:b.title,author:b.author,views:`${b.views}`,rating:4.5,color:b.color,accent:b.accent,category:b.category||'',categoryIcon:'book-open',description:b.description||'',updated:'',chapters:[],isNew:Boolean(b.is_new),featured:Boolean(b.featured),views_visible:b.views_visible!==false,cover_url:b.cover_url||null,display_status:b.display_status||undefined,writer_status:b.writer_status||undefined});const hlist=(k:string):Book[]=>{if(hd){const s=hd.sections.find((x:any)=>x.key===k);if(s&&s.books&&s.books.length)return s.books.slice(0,12).map((b:any)=>toBook(b) as Book).filter((b:any)=>b&&b.id);}return[];};const hdtitle=(k:string)=>hd?(hd.sections.find((x:any)=>x.key===k)?.title||''):'';const byViews=(a:Book,b:Book)=>+b.views-(+a.views);const G='#2AA876',AU='#D9A407',BL='#3B82F6',PU='#8B5CF6';const section=(title:string,icon:string,accent:string,list:Book[],sectionKey?:string)=>!list.length?null:<View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade(accent,-30)}]}><Feather name={I(icon)} size={15} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{title}</T></View><Pressable onPress={()=>p.setScreen({type:'list',title,ids:list.map(x=>x.id)})} style={[styles.seeAllPill,{backgroundColor:shade(accent,-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:13,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b,i)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={accent} section={sectionKey} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>;const followedIds=new Set(p.state.followedWriters.map(f=>f.id));const unfollowedWriters=p.publicWriters.filter(w=>!followedIds.has(w.id));const authors=()=>unfollowedWriters.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{unfollowedWriters.map(w=><AuthorCard key={w.id} writer={w} theme={p.theme} lang={p.state.settings.language} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} bookCount={p.allBooks.filter(b=>b.author===w.writer_name).length}/>)}</ScrollView>:<Empty theme={p.theme}/>;const sections=hd?hd.sections:[];const isFixed=(k:string)=>['featured','mostPopular','newEpisodes','popularAuthors','weeklyPopular','monthlyPopular'].includes(k);const fixedSecs=sections.filter((s:any)=>isFixed(s.key));const catSecs=sections.filter((s:any)=>!isFixed(s.key));const renderFixed=(k:string)=>{if(k==='featured'){const fl=hlist('featured');return <Featured {...p} list={fl}/>;}if(k==='popularAuthors')return <View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade('#EC4899',-30)}]}><Feather name="users" size={15} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{hdtitle('popularAuthors')||tr(p,'popularAuthors')}</T></View><Pressable onPress={()=>p.setScreen({type:'allWriters'})} style={[styles.seeAllPill,{backgroundColor:shade('#EC4899',-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:13,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View>{authors()}</View>;if(k==='newEpisodes'){const l=hlist('newEpisodes');return section(hdtitle('newEpisodes')||tr(p,'newEpisodes'),'zap',G,l.length?l:books,'newEpisodes');}if(k==='weeklyPopular'){const l=hlist('weeklyPopular');return section(hdtitle('weeklyPopular')||tr(p,'weeklyPopular'),'calendar',BL,l.length?l:(books.length?[...books].sort(byViews):[]),'weeklyPopular');}if(k==='monthlyPopular'){const l=hlist('monthlyPopular');return section(hdtitle('monthlyPopular')||tr(p,'monthlyPopular'),'star',PU,l.length?l:(books.length?[...books].sort(byViews):[]),'monthlyPopular');}if(k==='mostPopular'){const l=hlist('mostPopular');return section(hdtitle('mostPopular')||tr(p,'mostPopular'),'trending-up',AU,l.length?l:(books.length?[...books].sort(byViews):[]),'mostPopular');}return null;};return <Page theme={p.theme}><Header title={`${greet(p)}, ${p.state.name}`} sub={tr(p,'choose')} theme={p.theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/><Pressable onPress={()=>p.setScreen({type:'search'})} style={{backgroundColor:p.theme.card,borderRadius:14,borderWidth:1,borderColor:p.theme.line,flexDirection:'row',alignItems:'center',paddingHorizontal:14,paddingVertical:13,marginBottom:20,gap:10}}><Feather name="search" size={18} color={p.theme.muted}/><T style={{color:p.theme.muted,fontSize:14,fontWeight:'500',flex:1}}>বই, লেখক বা বিভাগ খুঁজুন</T></Pressable>{!p.dataLoaded&&!books.length?<><View><View style={styles.secHead}><SkeletonPulse width={120} height={16} borderRadius={4}/></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{[1,2,3].map(i=><View key={i} style={{width:130}}><SkeletonPulse width={130} height={170} borderRadius={14}/><SkeletonPulse width={100} height={14} borderRadius={4} style={{marginTop:8}}/><SkeletonPulse width={80} height={11} borderRadius={3} style={{marginTop:6}}/></View>)}</ScrollView></View><View><View style={styles.secHead}><SkeletonPulse width={140} height={16} borderRadius={4}/></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{[1,2,3].map(i=><View key={i} style={{width:130}}><SkeletonPulse width={130} height={170} borderRadius={14}/><SkeletonPulse width={100} height={14} borderRadius={4} style={{marginTop:8}}/><SkeletonPulse width={80} height={11} borderRadius={3} style={{marginTop:6}}/></View>)}</ScrollView></View></>:<>{fixedSecs.map((s:any)=><React.Fragment key={s.key}>{renderFixed(s.key)}</React.Fragment>)}{catSecs.length>0&&catSecs.map((s:any)=>{const list=hlist(s.key);if(!list.length)return null;const c=s.color||'#123E39';return <View key={s.key}><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade(c,-30)}]}><Feather name={I(s.icon||'book-open')} size={15} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{s.title}</T></View><Pressable onPress={()=>p.setScreen({type:'list',title:s.title,ids:list.map((x:any)=>x.id)})} style={[styles.seeAllPill,{backgroundColor:shade(c,-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:13,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b:Book,i:number)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={c} section={s.key} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>})}</>}</Page>}
 const Home=React.memo(HomeInner);
 function LibraryLink({title,icon,n,theme,onPress}:{title:string;icon:string;n:number;theme:Theme;onPress:()=>void}){const scale=React.useRef(new Animated.Value(1)).current;const pressIn=()=>{Animated.spring(scale,{toValue:0.96,useNativeDriver:true}).start()};const pressOut=()=>{Animated.spring(scale,{toValue:1,friction:3,tension:40,useNativeDriver:true}).start()};return <Animated.View style={{transform:[{scale}],width:'48.5%'}}><Pressable onPress={onPress} onPressIn={pressIn} onPressOut={pressOut} style={{backgroundColor:theme.card,borderRadius:20,borderWidth:1,borderColor:theme.line,paddingVertical:20,paddingHorizontal:16,shadowColor:'#000',shadowOpacity:0.04,shadowRadius:10,shadowOffset:{width:0,height:2},elevation:2}}><View style={{width:44,height:44,borderRadius:14,backgroundColor:theme.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}><Feather name={I(icon)} size={20} color={theme.primary}/></View><T style={{fontSize:14,fontWeight:'800',color:theme.ink,marginBottom:4}}>{title}</T><T style={{color:theme.muted,fontSize:11,fontWeight:'600'}}>{n}টি</T></Pressable></Animated.View>}
 function LibBookCard({book,theme,onPress}:{book:Book;theme:Theme;onPress:()=>void}){return <Pressable onPress={onPress} style={{backgroundColor:theme.card,borderRadius:18,borderWidth:1,borderColor:theme.line,flexDirection:'row',alignItems:'center',padding:12,marginBottom:12,shadowColor:'#000',shadowOpacity:0.03,shadowRadius:8,shadowOffset:{width:0,height:2},elevation:2,gap:14}}><View style={{width:72,height:96,borderRadius:12,backgroundColor:book.color,overflow:'hidden',justifyContent:'flex-end',padding:8}}>{book.cover_url?<><Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12}} resizeMode="cover"/><View style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12,backgroundColor:'rgba(0,0,0,0.15)'}}/></>:null}<T numberOfLines={2} style={{color:'#fff',fontWeight:'900',fontSize:10,lineHeight:13}}>{book.title}</T></View><View style={{flex:1}}><T numberOfLines={2} style={{fontSize:15,fontWeight:'800',color:theme.ink,lineHeight:20}}>{book.title}</T><T numberOfLines={1} style={{fontSize:12,fontWeight:'600',color:theme.primary,marginTop:5}}>{book.author}</T><View style={{flexDirection:'row',alignItems:'center',gap:6,marginTop:8}}><View style={{flexDirection:'row',alignItems:'center',gap:3}}><Feather name="eye" size={11} color={theme.muted}/><T style={{color:theme.muted,fontSize:11}}>{book.views_visible !== false ? book.views : ''}</T></View><View style={{width:3,height:3,borderRadius:1.5,backgroundColor:theme.muted,opacity:0.4}}/><T style={{color:theme.muted,fontSize:11}}>{book.category}</T></View></View><Feather name="chevron-right" size={18} color={theme.muted} style={{opacity:0.5}}/></Pressable>}
@@ -677,7 +678,11 @@ function Details(p:C&{book:Book}){const b=p.book;if(!b)return <Page theme={p.the
         <View style={dStyles.storyCard}>
           <View style={dStyles.coverBox}><Cover book={b}/></View>
           <View style={dStyles.storyInfo}>
-            <View style={[dStyles.statusBadge,{backgroundColor:accent+'2E'}]}><Feather name={I(b.categoryIcon)} size={11} color={accent}/><T style={{color:accent,fontSize:10.5,fontWeight:'900'}}>{b.category||tr(p,'chapters')}</T></View>
+            <View style={{flexDirection:'row',alignItems:'center',gap:6}}>
+              <View style={[dStyles.statusBadge,{backgroundColor:accent+'2E'}]}><Feather name={I(b.categoryIcon)} size={11} color={accent}/><T style={{color:accent,fontSize:10.5,fontWeight:'900'}}>{b.category||tr(p,'chapters')}</T></View>
+              {b.writer_status==='ongoing'&&<View style={[dStyles.statusBadge,{backgroundColor:'#10B9812E'}]}><Feather name="loader" size={10} color="#10B981"/><T style={{color:'#10B981',fontSize:10,fontWeight:'900'}}>ধারাবাহিক</T></View>}
+              {b.writer_status==='complete'&&<View style={[dStyles.statusBadge,{backgroundColor:'#F59E0B2E'}]}><Feather name="check-circle" size={10} color="#F59E0B"/><T style={{color:'#F59E0B',fontSize:10,fontWeight:'900'}}>সম্পূর</T></View>}
+            </View>
             <T numberOfLines={2} style={dStyles.storyTitle}>{b.title}</T>
             <T numberOfLines={1} style={dStyles.storyAuthor}>{b.author}</T>
             <View style={dStyles.tagRow}>
@@ -1132,7 +1137,7 @@ function Writer(p:C){
       </Pressable>)}
     </View>
     {studioTab==='dashboard'&&<WriterDashboard token={token} theme={t} lang={lang}/>}
-    {studioTab==='stories'&&<WriterStories token={token} theme={t} lang={lang} categories={p.allCategories.map(c=>c[0])}/>}
+    {studioTab==='stories'&&<WriterStories token={token} theme={t} lang={lang} categories={p.allCategories.map(c=>c[0])} setScreen={p.setScreen} onRefresh={p.syncRemote}/>}
     {studioTab==='profile'&&<WriterProfileStudio token={token} theme={t} writer={p.state.writer} lang={lang} onUpdate={(patch)=>p.update({writer:{...p.state.writer!,...patch}})}/>}
     {studioTab==='notifications'&&<WriterNotifs token={token} theme={t} lang={lang} deviceID={p.state.deviceId}/>}
   </Page>}
@@ -1226,37 +1231,250 @@ function WriterDashboard({token,theme:t,lang}:{token:string;theme:Theme;lang:Lan
     </View>
   </ScrollView>}
 
-function WriterStories({token,theme:t,lang,categories}:{token:string;theme:Theme;lang:Language;categories:string[]}){
+function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated}:{token:string;theme:Theme;lang:Language;categories:string[];onBack:()=>void;onCreated:()=>void}){
+  const insets=useSafeAreaInsets();
+  const[title,setTitle]=useState('');
+  const[desc,setDesc]=useState('');
+  const[cover,setCover]=useState('');
+  const[coverPreview,setCoverPreview]=useState('');
+  const[category,setCategory]=useState('');
+  const[catOpen,setCatOpen]=useState(false);
+  const[displayStatus,setDisplayStatus]=useState<'complete'|'ongoing'>('ongoing');
+  const[saving,setSaving]=useState(false);
+  const[uploadingImg,setUploadingImg]=useState(false);
+  const[showNewCat,setShowNewCat]=useState(false);
+  const[newCatName,setNewCatName]=useState('');
+  const[localCats,setLocalCats]=useState<string[]>(categories);
+  const[showColors,setShowColors]=useState(false);
+  const[textColor,setTextColor]=useState<string|null>(null);
+  const[showPreview,setShowPreview]=useState(false);
+  const TITLE_MAX=60;
+  const COLORS=['#EF4444','#F59E0B','#10B981','#3B82F6','#8B5CF6','#EC4899','#F97316','#06B6D4'];
+  const pickCover=async()=>{setUploadingImg(true);const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}setUploadingImg(false)};
+  const handleCreate=async()=>{
+    if(!title.trim())return;setSaving(true);
+    const r=await createWriterStory(token,title.trim(),desc.trim(),category||localCats[0]||'',cover||undefined,displayStatus==='ongoing'?'ongoing':'new',displayStatus==='ongoing'?'ongoing':'complete');
+    if(r)onCreated();
+    setSaving(false);
+  };
+  const addNewCat=()=>{if(newCatName.trim()&&!localCats.includes(newCatName.trim())){setLocalCats(c=>[...c,newCatName.trim()]);setCategory(newCatName.trim());setNewCatName('');setShowNewCat(false)}};
+  const parseFormatted=(text:string)=>{
+    if(!text)return null;
+    const parts=text.split(/(\*\*[^*]+\*\*|\*[^*]+\*|__[^_]+__|~~[^~]+~~|\{\{[^}]+\}\}|\[[^\]]+\])/g);
+    return parts.map((part,i)=>{
+      if(part.startsWith('**')&&part.endsWith('**'))return <T key={i} style={{fontWeight:'800',color:t.ink}}>{part.slice(2,-2)}</T>;
+      if(part.startsWith('*')&&part.endsWith('*')&&!part.startsWith('**'))return <T key={i} style={{fontStyle:'italic',color:t.ink}}>{part.slice(1,-1)}</T>;
+      if(part.startsWith('__')&&part.endsWith('__'))return <T key={i} style={{backgroundColor:'#FEF3C7',paddingHorizontal:3,borderRadius:3,color:'#92400E'}}>{part.slice(2,-2)}</T>;
+      if(part.startsWith('{{')&&part.endsWith('}}')){const c=part.slice(2,-2);return <T key={i} style={{color:c||'#8B5CF6',fontWeight:'700'}}>{c}</T>;}
+      if(part.startsWith('[')&&part.endsWith(']')){const c=part.slice(1,-1);return <T key={i} style={{color:c}}>{c}</T>;}
+      return <T key={i} style={{color:t.ink}}>{part}</T>;
+    });
+  };
+  return <View style={{flex:1,backgroundColor:t.bg}}>
+    <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
+      <Pressable onPress={onBack} style={{flexDirection:'row',alignItems:'center',gap:4}}>
+        <Feather name="arrow-left" size={18} color={t.primary}/>
+        <T style={{fontSize:13,fontWeight:'700',color:t.primary}}>{copy(lang,'cancel')}</T>
+      </Pressable>
+      <View style={{alignItems:'center'}}>
+        <Feather name="feather" size={16} color={t.primary}/>
+        <T style={{fontSize:10,fontWeight:'800',color:t.primary,marginTop:1}}>লেখা স্টুডিও</T>
+      </View>
+      <Pressable disabled={saving||!title.trim()} onPress={handleCreate} style={{backgroundColor:t.primary,borderRadius:8,paddingHorizontal:12,paddingVertical:6,opacity:saving||!title.trim()?0.5:1}}>
+        {saving?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:11}}>প্রকাশ</T>}
+      </Pressable>
+    </View>
+    <ScrollView contentContainerStyle={{padding:14,paddingBottom:50}} keyboardShouldPersistTaps="handled">
+      <View style={{marginBottom:14}}>
+        <T style={{fontSize:10,fontWeight:'700',color:t.muted,marginBottom:4}}>শিরোনাম ({title.length}/{TITLE_MAX})</T>
+        <TextInput value={title} onChangeText={v=>{if(v.length<=TITLE_MAX)setTitle(v)}} placeholder="আপনার গল্পের নাম..." placeholderTextColor={t.muted} style={{color:t.ink,fontSize:16,fontWeight:'800',backgroundColor:t.card,borderWidth:1,borderColor:title.length>=TITLE_MAX-5?'#EF4444':title.length>0?t.primary:t.line,borderRadius:10,padding:10,fontFamily:GF()}}/>
+      </View>
+
+      <View style={{marginBottom:14}}>
+        <T style={{fontSize:10,fontWeight:'700',color:t.muted,marginBottom:4}}>বিবরণ</T>
+        <View style={{backgroundColor:t.card,borderRadius:10,borderWidth:1,borderColor:t.line,overflow:'hidden'}}>
+          <View style={{flexDirection:'row',gap:2,paddingHorizontal:6,paddingVertical:5,backgroundColor:t.tint,borderBottomWidth:1,borderBottomColor:t.line,flexWrap:'wrap'}}>
+            <Pressable onPress={()=>setDesc(d=>d+'**গাঢ়**')} style={{width:28,height:28,borderRadius:6,backgroundColor:t.primary,alignItems:'center',justifyContent:'center'}}>
+              <T style={{fontSize:12,fontWeight:'900',color:'#fff'}}>B</T>
+            </Pressable>
+            <Pressable onPress={()=>setDesc(d=>d+'*তির্যক*')} style={{width:28,height:28,borderRadius:6,backgroundColor:t.primary,alignItems:'center',justifyContent:'center'}}>
+              <T style={{fontSize:12,fontWeight:'500',fontStyle:'italic',color:'#fff'}}>I</T>
+            </Pressable>
+            <Pressable onPress={()=>setDesc(d=>d+'__হাইলাইট__')} style={{width:28,height:28,borderRadius:6,backgroundColor:'#F59E0B',alignItems:'center',justifyContent:'center'}}>
+              <T style={{fontSize:10,fontWeight:'800',color:'#fff'}}>H</T>
+            </Pressable>
+            <Pressable onPress={()=>setShowColors(!showColors)} style={{width:28,height:28,borderRadius:6,backgroundColor:showColors?t.primary:t.card,alignItems:'center',justifyContent:'center',borderWidth:1.5,borderColor:t.line}}>
+              <Feather name="type" size={12} color={t.muted}/>
+            </Pressable>
+          </View>
+          {showColors&&<View style={{flexDirection:'row',gap:5,paddingHorizontal:8,paddingVertical:6,backgroundColor:t.tint,borderBottomWidth:1,borderColor:t.line}}>
+            {COLORS.map(c=><Pressable key={c} onPress={()=>{setTextColor(c);setDesc(d=>d+'{{'+c+' রঙিন}}');setShowColors(false)}} style={{width:22,height:22,borderRadius:11,backgroundColor:c,borderWidth:2,borderColor:'#fff'}}/>)}
+          </View>}
+          <TextInput value={desc} onChangeText={setDesc} multiline placeholder="আপনার গল্প লিখুন..." placeholderTextColor={t.muted} style={{color:t.ink,fontSize:13,minHeight:100,textAlignVertical:'top',padding:10,fontFamily:GF(),lineHeight:20}}/>
+        </View>
+        <T style={{fontSize:9,color:t.muted,marginTop:3}}>B=গাঢ় I=তির্যক H=হাইলাইট</T>
+      </View>
+
+      <View style={{marginBottom:14}}>
+        <T style={{fontSize:10,fontWeight:'700',color:t.muted,marginBottom:4}}>গল্পের ধরন</T>
+        <View style={{flexDirection:'row',gap:8}}>
+          {([['ongoing','ধারাবাহিক'],['complete','সম্পূর']] as const).map(([k,l])=>(
+            <Pressable key={k} onPress={()=>setDisplayStatus(k)} style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,backgroundColor:displayStatus===k?t.primary:t.card,borderWidth:1.5,borderColor:displayStatus===k?t.primary:t.line,borderRadius:10,paddingVertical:10}}>
+              <View style={{width:16,height:16,borderRadius:8,borderWidth:2,borderColor:displayStatus===k?'#fff':t.muted,alignItems:'center',justifyContent:'center'}}>
+                {displayStatus===k&&<View style={{width:8,height:8,borderRadius:4,backgroundColor:'#fff'}}/>}
+              </View>
+              <T style={{fontSize:12,fontWeight:'800',color:displayStatus===k?'#fff':t.ink}}>{l}</T>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={{marginBottom:14}}>
+        <T style={{fontSize:10,fontWeight:'700',color:t.muted,marginBottom:4}}>থাম্বনেইল</T>
+        <Pressable onPress={pickCover} disabled={uploadingImg} style={{borderRadius:10,borderWidth:1.5,borderColor:t.line,borderStyle:'dashed',overflow:'hidden'}}>
+          {uploadingImg?<View style={{height:120,alignItems:'center',justifyContent:'center',backgroundColor:t.card}}><ActivityIndicator size="small" color={t.primary}/></View>:
+          coverPreview?<View style={{height:120,backgroundColor:t.card,alignItems:'center',justifyContent:'center'}}><Image source={{uri:coverPreview}} style={{width:100,height:100,borderRadius:10}} resizeMode="cover"/><View style={{flexDirection:'row',alignItems:'center',gap:5,marginTop:6}}><Feather name="refresh-cw" size={12} color={t.muted}/><T style={{fontSize:11,color:t.muted,fontWeight:'600'}}>{copy(lang,'changePhoto')}</T></View></View>:
+          <View style={{height:100,alignItems:'center',justifyContent:'center',gap:6,backgroundColor:t.card}}>
+            <Feather name="image" size={20} color={t.muted}/>
+            <T style={{fontSize:11,color:t.muted,fontWeight:'600'}}>{copy(lang,'tapToUpload')}</T>
+            <T style={{fontSize:9,color:t.muted,opacity:0.6}}>1:1 আকারে</T>
+          </View>}
+        </Pressable>
+      </View>
+
+      <View style={{marginBottom:14}}>
+        <T style={{fontSize:10,fontWeight:'700',color:t.muted,marginBottom:4}}>বিভাগ</T>
+        <Pressable onPress={()=>setCatOpen(!catOpen)} style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderWidth:1,borderColor:catOpen?t.primary:t.line,borderRadius:10,padding:10,backgroundColor:t.card}}>
+          <T style={{fontSize:12,fontWeight:category?'700':'500',color:category?t.ink:t.muted}}>{category||'বিভাগ নির্বাচন করুন'}</T>
+          <Feather name={catOpen?'chevron-up':'chevron-down'} size={16} color={t.muted}/>
+        </Pressable>
+        {catOpen&&<View style={{borderWidth:1,borderColor:t.line,borderRadius:10,backgroundColor:t.card,maxHeight:160,overflow:'hidden',marginTop:4}}>
+          <ScrollView nestedScrollEnabled style={{maxHeight:140}}>
+            {localCats.map(c=><Pressable key={c} onPress={()=>{setCategory(c);setCatOpen(false)}} style={{paddingHorizontal:12,paddingVertical:9,borderBottomWidth:1,borderBottomColor:t.line,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
+              <T style={{fontSize:12,fontWeight:category===c?'800':'500',color:category===c?t.primary:t.ink}}>{c}</T>
+              {category===c&&<Feather name="check" size={14} color={t.primary}/>}
+            </Pressable>)}
+          </ScrollView>
+          <Pressable onPress={()=>{setShowNewCat(true);setCatOpen(false)}} style={{padding:10,backgroundColor:t.tint,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:5}}>
+            <Feather name="plus" size={14} color={t.primary}/>
+            <T style={{fontSize:11,fontWeight:'800',color:t.primary}}>নতুন বিভাগ তৈরি করুন</T>
+          </Pressable>
+        </View>}
+        {showNewCat&&<View style={{borderRadius:10,borderWidth:1,borderColor:t.primary,padding:10,marginTop:4,backgroundColor:t.card}}>
+          <TextInput value={newCatName} onChangeText={setNewCatName} placeholder="বিভাগের নাম..." placeholderTextColor={t.muted} style={{color:t.ink,fontSize:12,backgroundColor:t.bg,borderWidth:1,borderColor:t.line,borderRadius:8,padding:8,marginBottom:6,fontFamily:GF()}}/>
+          <View style={{flexDirection:'row',gap:6}}>
+            <Pressable onPress={()=>{setShowNewCat(false);setNewCatName('')}} style={{flex:1,alignItems:'center',paddingVertical:7,borderRadius:8,backgroundColor:t.tint}}>
+              <T style={{fontSize:11,fontWeight:'700',color:t.muted}}>{copy(lang,'cancel')}</T>
+            </Pressable>
+            <Pressable disabled={!newCatName.trim()} onPress={addNewCat} style={{flex:1,alignItems:'center',paddingVertical:7,borderRadius:8,backgroundColor:newCatName.trim()?t.primary:t.tint,opacity:newCatName.trim()?1:0.5}}>
+              <T style={{fontSize:11,fontWeight:'700',color:newCatName.trim()?'#fff':t.muted}}>{copy(lang,'create')}</T>
+            </Pressable>
+          </View>
+        </View>}
+      </View>
+
+      <Pressable onPress={()=>setShowPreview(!showPreview)} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,backgroundColor:t.tint,borderRadius:10,paddingVertical:10,marginBottom:showPreview?10:16,borderWidth:1,borderColor:t.line}}>
+        <Feather name={showPreview?'chevron-up':'eye'} size={16} color={t.primary}/>
+        <T style={{fontSize:12,fontWeight:'800',color:t.primary}}>{showPreview?'প্রিভিউ বন্ধ':'প্রিভিউ দেখুন'}</T>
+      </Pressable>
+      {showPreview&&<View style={{backgroundColor:t.card,borderRadius:12,borderWidth:1,borderColor:t.line,padding:14,marginBottom:16}}>
+        <View style={{flexDirection:'row',alignItems:'center',gap:6,marginBottom:10}}>
+          <Feather name="book-open" size={14} color={t.primary}/>
+          <T style={{fontSize:11,fontWeight:'800',color:t.primary}}>পাঠকের দৃষ্টিকোণ</T>
+        </View>
+        <View style={{backgroundColor:t.bg,borderRadius:10,padding:12}}>
+          {title?<T style={{fontSize:16,fontWeight:'900',color:t.ink,marginBottom:6,fontFamily:GF()}}>{title}</T>:<T style={{fontSize:16,fontWeight:'900',color:t.muted,marginBottom:6,fontFamily:GF()}}>গল্পের শিরোনাম</T>}
+          {category&&<View style={{flexDirection:'row',gap:4,marginBottom:8}}>
+            <View style={{backgroundColor:t.primary+'18',borderRadius:5,paddingHorizontal:6,paddingVertical:2}}>
+              <T style={{fontSize:9,fontWeight:'700',color:t.primary}}>{category}</T>
+            </View>
+            <View style={{backgroundColor:displayStatus==='ongoing'?'#10B98118':'#F59E0B18',borderRadius:5,paddingHorizontal:6,paddingVertical:2}}>
+              <T style={{fontSize:9,fontWeight:'700',color:displayStatus==='ongoing'?'#10B981':'#F59E0B'}}>{displayStatus==='ongoing'?'ধারাবাহিক':'সম্পূর'}</T>
+            </View>
+          </View>}
+          {desc?<View><T style={{fontSize:13,color:t.ink,fontFamily:GF(),lineHeight:22}}>{parseFormatted(desc)}</T></View>:
+          <T style={{fontSize:13,color:t.muted,fontFamily:GF(),lineHeight:22}}>গল্পের বিবরণ এখানে দেখা যাবে...</T>}
+          {coverPreview&&<Image source={{uri:coverPreview}} style={{width:'100%',height:160,borderRadius:10,marginTop:10}} resizeMode="cover"/>}
+        </View>
+      </View>}
+    </ScrollView>
+  </View>;
+}
+
+function EditStoryScreen({token,theme:t,lang,storyId,initialTitle,initialDesc,initialCover,initialWriterStatus,onBack,onSaved}:{token:string;theme:Theme;lang:Language;storyId:string;initialTitle:string;initialDesc:string;initialCover:string|null;initialWriterStatus:string;onBack:()=>void;onSaved:()=>void}){
+  const insets=useSafeAreaInsets();
+  const[title,setTitle]=useState(initialTitle);
+  const[desc,setDesc]=useState(initialDesc);
+  const[cover,setCover]=useState(initialCover||'');
+  const[coverPreview,setCoverPreview]=useState(initialCover||'');
+  const[writerStatus,setWriterStatus]=useState(initialWriterStatus);
+  const[saving,setSaving]=useState(false);
+  const[saved,setSaved]=useState(false);
+  const[uploadingImg,setUploadingImg]=useState(false);
+  const pickCover=async()=>{setUploadingImg(true);const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}setUploadingImg(false)};
+  const save=async()=>{if(!title.trim())return;setSaving(true);try{await updateWriterStory(token,storyId,{title:title.trim(),description:desc.trim(),cover_url:cover||undefined,writer_status:writerStatus||undefined});onSaved();setSaved(true);setTimeout(()=>onBack(),1200)}catch(e){}finally{setSaving(false)}};
+  return <View style={{flex:1,backgroundColor:t.bg}}>
+    <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
+      <Pressable onPress={onBack} style={{flexDirection:'row',alignItems:'center',gap:4}}>
+        <Feather name="arrow-left" size={18} color={t.primary}/>
+        <T style={{fontSize:13,fontWeight:'700',color:t.primary}}>{copy(lang,'cancel')}</T>
+      </Pressable>
+      <T style={{fontSize:15,fontWeight:'900',color:t.ink}}>সম্পাদনা</T>
+      <Pressable onPress={save} disabled={saving||!title.trim()} style={{backgroundColor:t.primary,borderRadius:8,paddingHorizontal:12,paddingVertical:6,opacity:saving||!title.trim()?0.5:1}}>
+        {saving?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:12}}>{copy(lang,'save')}</T>}
+      </Pressable>
+    </View>
+    <ScrollView contentContainerStyle={{padding:16,paddingBottom:40}} keyboardShouldPersistTaps="handled">
+      {saved&&<View style={{backgroundColor:'#10B981'+'18',borderRadius:10,padding:12,marginBottom:14,flexDirection:'row',alignItems:'center',gap:8}}>
+        <Feather name="check-circle" size={18} color="#10B981"/>
+        <T style={{fontSize:13,fontWeight:'700',color:'#10B981'}}>সংরক্ষিত হয়েছে</T>
+      </View>}
+      <View style={{backgroundColor:t.primary+'12',borderRadius:10,padding:12,marginBottom:16,flexDirection:'row',alignItems:'flex-start',gap:8}}>
+        <Feather name="info" size={16} color={t.primary} style={{marginTop:2}}/>
+        <T style={{fontSize:12,color:t.ink,lineHeight:20,flex:1}}>আপনি যেকোনো সময় এই গল্পটি পুনরায় সম্পাদনা করতে পারবেন। পরিবর্তন করার পর "সংরক্ষণ" চাপুন।</T>
+      </View>
+      <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>কভার ছবি</T>
+      <Pressable onPress={pickCover} disabled={uploadingImg} style={{borderRadius:12,borderWidth:1.5,borderColor:t.line,borderStyle:'dashed',overflow:'hidden',marginBottom:16}}>
+        {uploadingImg?<View style={{height:140,alignItems:'center',justifyContent:'center',backgroundColor:t.card}}><ActivityIndicator size="small" color={t.primary}/></View>:
+        coverPreview?<View style={{height:140,backgroundColor:t.card,alignItems:'center',justifyContent:'center'}}><Image source={{uri:coverPreview}} style={{width:100,height:130,borderRadius:10}} resizeMode="cover"/><View style={{flexDirection:'row',alignItems:'center',gap:5,marginTop:8}}><Feather name="refresh-cw" size={12} color={t.muted}/><T style={{fontSize:11,color:t.muted,fontWeight:'600'}}>{copy(lang,'changePhoto')}</T></View></View>:
+        <View style={{height:140,backgroundColor:t.card,alignItems:'center',justifyContent:'center'}}><Feather name="camera" size={28} color={t.muted}/><T style={{fontSize:12,color:t.muted,marginTop:6,fontWeight:'600'}}>{copy(lang,'addCover')}</T></View>}
+      </Pressable>
+      <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:4}}>শিরোনাম</T>
+      <TextInput value={title} onChangeText={setTitle} placeholder="গল্পের শিরোনাম" placeholderTextColor={t.muted} style={{color:t.ink,fontSize:16,fontWeight:'700',backgroundColor:t.card,borderWidth:1,borderColor:t.line,borderRadius:10,padding:12,marginBottom:16,fontFamily:GF()}}/>
+      <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:4}}>বিবরণ</T>
+      <TextInput value={desc} onChangeText={setDesc} multiline placeholder="বিবরণ লিখুন..." placeholderTextColor={t.muted} style={{color:t.ink,fontSize:13,backgroundColor:t.card,borderWidth:1,borderColor:t.line,borderRadius:10,padding:12,minHeight:120,textAlignVertical:'top',fontFamily:GF(),lineHeight:20,marginBottom:16}}/>
+      <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>গল্পের ধরন</T>
+      <View style={{flexDirection:'row',gap:8,marginBottom:20}}>
+        {([['ongoing','ধারাবাহিক','ongoing'],['complete','সম্পূর','complete']] as const).map(([k,l,v])=>(
+          <Pressable key={k} onPress={()=>setWriterStatus(writerStatus===v?'':v)} style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,backgroundColor:writerStatus===v?t.primary:t.card,borderWidth:1.5,borderColor:writerStatus===v?t.primary:t.line,borderRadius:10,paddingVertical:12}}>
+            <View style={{width:18,height:18,borderRadius:9,borderWidth:2,borderColor:writerStatus===v?'#fff':t.muted,alignItems:'center',justifyContent:'center'}}>
+              {writerStatus===v&&<View style={{width:10,height:10,borderRadius:5,backgroundColor:'#fff'}}/>}
+            </View>
+            <T style={{fontSize:14,fontWeight:'800',color:writerStatus===v?'#fff':t.ink}}>{l}</T>
+          </Pressable>
+        ))}
+      </View>
+    </ScrollView>
+  </View>;
+}
+
+function WriterStories({token,theme:t,lang,categories,setScreen,onRefresh}:{token:string;theme:Theme;lang:Language;categories:string[];setScreen:(s:Screen)=>void;onRefresh?:()=>void}){
+  const insets=useSafeAreaInsets();
   const[stories,setStories]=useState<any[]>([]);
   const[loading,setLoading]=useState(true);
   const[filter,setFilter]=useState<'all'|'published'|'draft'|'pending'|'rejected'>('all');
-  const[showNew,setShowNew]=useState(false);
-  const[newTitle,setNewTitle]=useState('');
-  const[newDesc,setNewDesc]=useState('');
-  const[newCover,setNewCover]=useState('');
-  const[newCoverPreview,setNewCoverPreview]=useState('');
-  const[newCategory,setNewCategory]=useState('');
-  const[catOpen,setCatOpen]=useState(false);
   const[expanded,setExpanded]=useState<string|null>(null);
   const[chapters,setChapters]=useState<any[]>([]);
   const[chTitle,setChTitle]=useState('');
   const[chBody,setChBody]=useState('');
   const[chSaving,setChSaving]=useState(false);
-  const[saving,setSaving]=useState(false);
-  const[uploadingImg,setUploadingImg]=useState(false);
   const[storyStatuses,setStoryStatuses]=useState<Record<string,string>>({});
+  const[writerStatuses,setWriterStatuses]=useState<Record<string,string>>({});
   const[deleteId,setDeleteId]=useState<string|null>(null);
-  const load=()=>{fetchWriterStories(token).then(s=>{setStories(s||[]);const m:Record<string,string>={};(s||[]).forEach((x:any)=>{if(x.display_status)m[x.id]=x.display_status});setStoryStatuses(m)}).finally(()=>setLoading(false))};
+  const load=()=>{fetchWriterStories(token).then(s=>{setStories(s||[]);const m:Record<string,string>={};const w:Record<string,string>={};(s||[]).forEach((x:any)=>{if(x.display_status)m[x.id]=x.display_status;if(x.writer_status)w[x.id]=x.writer_status});setStoryStatuses(m);setWriterStatuses(w)}).finally(()=>setLoading(false))};
   useEffect(()=>{load()},[token]);
   const filtered=filter==='all'?stories:stories.filter(s=>s.status===filter);
   const statusColor=(s:string)=>s==='published'?'#10B981':s==='pending'?'#F59E0B':s==='rejected'?'#EF4444':'#9CA3AF';
-  const pickCover=async()=>{setUploadingImg(true);const url=await pickAndResizeImage('cover');if(url){setNewCover(url);setNewCoverPreview(url)}setUploadingImg(false)};
-  const handleCreate=async()=>{
-    if(!newTitle.trim())return;setSaving(true);
-    const r=await createWriterStory(token,newTitle.trim(),newDesc.trim(),newCategory||(categories[0]||''),newCover||undefined,storyStatuses['new']||undefined);
-    if(r){setStories(s=>[r,...s]);setShowNew(false);setNewTitle('');setNewDesc('');setNewCover('');setNewCoverPreview('');setNewCategory('');setStoryStatuses({})}
-    setSaving(false);
-  };
   const toggleExpand=async(id:string)=>{
     if(expanded===id){setExpanded(null);return}
     setExpanded(id);setChapters([]);
@@ -1274,14 +1492,16 @@ function WriterStories({token,theme:t,lang,categories}:{token:string;theme:Theme
   };
   const handleSubmit=async(id:string)=>{await submitStoryForReview(token,id);load()};
   const handleDelete=async(id:string)=>{setDeleteId(id)};
-  const confirmDelete=async()=>{if(deleteId){await deleteWriterStory(token,deleteId);setDeleteId(null);load()}};
+  const confirmDelete=async()=>{if(deleteId){await deleteWriterStory(token,deleteId);setDeleteId(null);load();onRefresh?.()}};
   const toggleDisplayStatus=async(id:string,status:string)=>{const newStatus=storyStatuses[id]===status?'':status;setStoryStatuses(s=>({...s,[id]:newStatus}));await updateWriterStory(token,id,{display_status:newStatus});setStories(s=>s.map(x=>x.id===id?{...x,display_status:newStatus}:x))};
+  const toggleWriterStatus=async(id:string,status:string)=>{const newStatus=writerStatuses[id]===status?'':status;setWriterStatuses(s=>({...s,[id]:newStatus}));await updateWriterStory(token,id,{writer_status:newStatus});setStories(s=>s.map(x=>x.id===id?{...x,writer_status:newStatus}:x))};
+  const startEdit=(s:any)=>{setScreen({type:'editStory',id:s.id,title:s.title,desc:s.description||'',coverUrl:s.cover_url||null,writerStatus:s.writer_status||''})};
   return <View style={{flex:1}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
       <T style={{fontSize:16,fontWeight:'900',color:t.ink}}>{copy(lang,'myStories')} ({stories.length})</T>
-      <Pressable onPress={()=>setShowNew(!showNew)} style={{backgroundColor:t.primary,borderRadius:10,paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:5}}>
-        <Feather name={showNew?'x':'plus'} size={14} color="#fff"/>
-        <T style={{color:'#fff',fontWeight:'800',fontSize:12}}>{showNew?copy(lang,'cancel'):copy(lang,'newStory')}</T>
+      <Pressable onPress={()=>setScreen({type:'newStory'})} style={{backgroundColor:t.primary,borderRadius:10,paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:5}}>
+        <Feather name="plus" size={14} color="#fff"/>
+        <T style={{color:'#fff',fontWeight:'800',fontSize:12}}>{copy(lang,'newStory')}</T>
       </Pressable>
     </View>
     <View style={{flexDirection:'row',gap:5,marginBottom:14}}>
@@ -1289,32 +1509,6 @@ function WriterStories({token,theme:t,lang,categories}:{token:string;theme:Theme
         <T style={{fontSize:11,fontWeight:'700',color:filter===f?'#fff':t.muted}}>{copy(lang,f)}</T>
       </Pressable>)}
     </View>
-    {showNew&&<View style={{backgroundColor:t.card,borderRadius:14,padding:16,marginBottom:14,borderWidth:1,borderColor:t.line}}>
-      <TextInput value={newTitle} onChangeText={setNewTitle} placeholder={copy(lang,'storyTitle')} placeholderTextColor={t.muted} style={{color:t.ink,fontSize:15,fontWeight:'700',marginBottom:10,borderBottomWidth:1,borderBottomColor:t.line,paddingBottom:8,fontFamily:GF()}}/>
-      <TextInput value={newDesc} onChangeText={setNewDesc} multiline placeholder={copy(lang,'description')} placeholderTextColor={t.muted} style={{color:t.ink,fontSize:13,marginBottom:10,minHeight:50,textAlignVertical:'top',fontFamily:GF()}}/>
-      <Pressable onPress={pickCover} disabled={uploadingImg} style={{backgroundColor:t.bg,borderRadius:12,borderWidth:1.5,borderColor:t.line,borderStyle:'dashed',padding:uploadingImg?16:12,marginBottom:10,alignItems:'center'}}>
-        {uploadingImg?<ActivityIndicator size="small" color={t.primary}/>:
-        newCoverPreview?<View style={{flexDirection:'row',alignItems:'center',gap:10}}><Image source={{uri:newCoverPreview}} style={{width:60,height:45,borderRadius:8}}/><View style={{flex:1}}><T style={{fontSize:12,fontWeight:'700',color:t.ink}}>{copy(lang,'changePhoto')}</T><T style={{fontSize:10,color:t.muted,marginTop:2}}>{copy(lang,'tapToUpload')}</T></View><Feather name="refresh-cw" size={14} color={t.muted}/></View>:
-        <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Feather name="image" size={18} color={t.muted}/><T style={{fontSize:12,color:t.muted,fontWeight:'600'}}>{copy(lang,'tapToUpload')}</T></View>}
-      </Pressable>
-      <View style={{marginBottom:12}}>
-        <Pressable onPress={()=>setCatOpen(!catOpen)} style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderWidth:1,borderColor:catOpen?t.primary:t.line,borderRadius:8,padding:10,backgroundColor:t.bg}}>
-          <T style={{fontSize:12,fontWeight:'600',color:newCategory?t.ink:t.muted}}>{newCategory||copy(lang,'selectCategory')}</T>
-          <Feather name={catOpen?'chevron-up':'chevron-down'} size={16} color={t.muted}/>
-        </Pressable>
-        {catOpen&&<View style={{marginTop:6,borderWidth:1,borderColor:t.line,borderRadius:8,backgroundColor:t.card,maxHeight:160,overflow:'hidden'}}>
-          <ScrollView nestedScrollEnabled style={{maxHeight:160}}>
-            {categories.map(c=><Pressable key={c} onPress={()=>{setNewCategory(c);setCatOpen(false)}} style={{paddingHorizontal:12,paddingVertical:9,borderBottomWidth:1,borderBottomColor:t.line,flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
-              <T style={{fontSize:12,fontWeight:newCategory===c?'800':'500',color:newCategory===c?t.primary:t.ink}}>{c}</T>
-              {newCategory===c&&<Feather name="check" size={14} color={t.primary}/>}
-            </Pressable>)}
-          </ScrollView>
-        </View>}
-      </View>
-      <Pressable disabled={saving||!newTitle.trim()} onPress={handleCreate} style={{backgroundColor:t.primary,borderRadius:10,paddingVertical:10,alignItems:'center',opacity:saving||!newTitle.trim()?0.5:1}}>
-        {saving?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:13}}>{copy(lang,'create')}</T>}
-      </Pressable>
-    </View>}
     {loading?<View style={{alignItems:'center',paddingVertical:40}}><ActivityIndicator color={t.primary}/></View>:
     filtered.length===0?<View style={{alignItems:'center',paddingVertical:40}}><Feather name="book" size={28} color={t.muted}/><T style={{fontSize:13,color:t.muted,marginTop:8}}>{copy(lang,'noStories')}</T></View>:
     filtered.map(s=><View key={s.id} style={{backgroundColor:t.card,borderRadius:14,padding:14,marginBottom:8,borderWidth:1,borderColor:t.line}}>
@@ -1335,13 +1529,16 @@ function WriterStories({token,theme:t,lang,categories}:{token:string;theme:Theme
         {s.status==='rejected'&&<Pressable onPress={()=>handleSubmit(s.id)} style={{flex:1,backgroundColor:'#FEE2E2',borderRadius:8,paddingVertical:7,alignItems:'center'}}>
           <T style={{fontSize:11,fontWeight:'700',color:'#EF4444'}}>{copy(lang,'submitReview')}</T>
         </Pressable>}
-        <Pressable onPress={()=>toggleExpand(s.id)} style={{width:32,height:32,borderRadius:8,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',marginRight:6}}>
+        <Pressable onPress={()=>toggleExpand(s.id)} style={{width:32,height:32,borderRadius:8,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
           <Feather name="book-open" size={14} color={expanded===s.id?t.primary:t.muted}/>
         </Pressable>
-        <Pressable onPress={()=>toggleDisplayStatus(s.id,'ongoing')} style={{width:32,height:32,borderRadius:8,backgroundColor:(storyStatuses[s.id]||s.display_status)==='ongoing'?'#10B981':t.tint,alignItems:'center',justifyContent:'center',marginRight:6}}>
+        <Pressable onPress={()=>startEdit(s)} style={{width:32,height:32,borderRadius:8,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
+          <Feather name="edit-2" size={14} color={t.muted}/>
+        </Pressable>
+        <Pressable onPress={()=>toggleDisplayStatus(s.id,'ongoing')} style={{width:32,height:32,borderRadius:8,backgroundColor:(storyStatuses[s.id]||s.display_status)==='ongoing'?'#10B981':t.tint,alignItems:'center',justifyContent:'center'}}>
           <T style={{fontSize:9,fontWeight:'800',color:(storyStatuses[s.id]||s.display_status)==='ongoing'?'#fff':t.muted}}>চলমান</T>
         </Pressable>
-        <Pressable onPress={()=>toggleDisplayStatus(s.id,'new')} style={{width:32,height:32,borderRadius:8,backgroundColor:(storyStatuses[s.id]||s.display_status)==='new'?'#8B5CF6':t.tint,alignItems:'center',justifyContent:'center',marginRight:6}}>
+        <Pressable onPress={()=>toggleDisplayStatus(s.id,'new')} style={{width:32,height:32,borderRadius:8,backgroundColor:(storyStatuses[s.id]||s.display_status)==='new'?'#8B5CF6':t.tint,alignItems:'center',justifyContent:'center'}}>
           <T style={{fontSize:9,fontWeight:'800',color:(storyStatuses[s.id]||s.display_status)==='new'?'#fff':t.muted}}>নতুন</T>
         </Pressable>
         <Pressable onPress={()=>handleDelete(s.id)} style={{width:32,height:32,borderRadius:8,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
@@ -1550,7 +1747,10 @@ function Cover({book,large}:{book:Book;large?:boolean}){return <View style={[sty
 function Episode({book,theme,onPress}:{book:Book;theme:Theme;onPress:()=>void}){const c=book.chapters[book.chapters.length-1];return <Pressable onPress={onPress} style={[styles.episode,{backgroundColor:theme.card,borderColor:theme.line}]}><Cover book={book}/><View style={{flex:1}}><T style={{color:theme.primary,fontSize:10,fontWeight:'900'}}>নতুন পর্ব</T><T style={[styles.rowTitle,{color:theme.ink}]}>{book.title}</T><T style={{color:theme.muted,fontSize:11,marginTop:4}}>পর্ব {book.chapters.length}: {c?.title||'—'}</T></View><Feather name="play-circle" size={23} color={theme.primary}/></Pressable>}
 function Featured(props: C & { list?: Book[] }){const p=props as C;const {width}=useWindowDimensions();const W=width-36;const items=(props.list&&props.list.length?props.list:p.allBooks.slice(0,6));const N=items.length;const anim=useRef(new Animated.Value(0)).current;const idxRef=useRef(0);const[idx,setIdx]=useState(0);const setter=(i:number)=>{idxRef.current=((i%N)+N)%N;setIdx(idxRef.current)};useEffect(()=>{Animated.timing(anim,{toValue:-idx*W,duration:450,useNativeDriver:true}).start()},[idx,anim,W]);useEffect(()=>{if(N<2)return;const id=setInterval(()=>setter(idxRef.current+1),4000);return()=>clearInterval(id)},[N,setter]);const pan=useRef(PanResponder.create({onStartShouldSetPanResponder:(e:{nativeEvent:{locationY:number;locationX:number}})=>{if(e.nativeEvent.locationY<60&&e.nativeEvent.locationX>W-80)return false;return true},onMoveShouldSetPanResponder:()=>N>1,onPanResponderRelease:(_,g)=>{if(N<2)return;if(g.dx<-50)setter(idxRef.current+1);else if(g.dx>50)setter(idxRef.current-1)}})).current;if(!N)return null;return <View><View style={{overflow:'hidden',borderRadius:24}}><Animated.View style={{flexDirection:'row',width:W*N,transform:[{translateX:anim}]}} {...pan.panHandlers}>{items.map((b,i)=><View key={b.id} style={{width:W}}><FeaturedCard book={b} p={p} rank={i}/></View>)}</Animated.View></View><View style={{flexDirection:'row',justifyContent:'center',gap:6,marginTop:12}}>{items.map((_,i)=>{const on=i===idx;return <View key={i} style={[styles.dot,{width:on?18:6,backgroundColor:on?p.theme.primary:p.theme.line}]}/>})}</View></View>}
 function shade(hex:string,amt:number):string{const h=hex.replace('#','');if(h.length!==6)return hex;const n=parseInt(h,16);let r=(n>>16)&255,g=(n>>8)&255,b=n&255;const t=amt<0?0:255;const q=Math.abs(amt)/100;r=Math.round((t-r)*q+r);g=Math.round((t-g)*q+g);b=Math.round((t-b)*q+b);const z=(x:number)=>('0'+x.toString(16)).slice(-2);return '#'+z(r)+z(g)+z(b)}
-function FeaturedCard({book,p,rank}:{book:Book;p:C;rank:number}){const base=book.color||'#123E39';const accent=book.accent||'#F5C660';const dark=shade(base,-32);const isBm=p.state.bookmarks.includes(book.id);const bmScale=React.useRef(new Animated.Value(1)).current;const bmAnim=()=>{Animated.sequence([Animated.timing(bmScale,{toValue:0.6,duration:80,useNativeDriver:true}),Animated.spring(bmScale,{toValue:1,friction:3,tension:300,useNativeDriver:true})]).start()};const open=()=>p.open(book.id);const toggleBm=()=>{bmAnim();p.update({bookmarks:isBm?p.state.bookmarks.filter(x=>x!==book.id):[...p.state.bookmarks,book.id]})};const metaW=book.views_visible!==false;const readLabel=p.state.settings.language==='hi'?'पढ़ें':p.state.settings.language==='en'?'Read':'পড়ুন';return <View style={[featStyles.card,{backgroundColor:base}]}><LinearGradient colors={[base,dark]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/><Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="92%" cy={18} r={92} fill={accent+'26'}/><Circle cx="-14" cy={205} r={118} fill="#ffffff10"/><Ellipse cx="34%" cy={262} rx={165} ry={80} fill={accent+'16'}/><Circle cx="70%" cy={248} r={70} fill="#ffffff0c"/></Svg><View style={featStyles.top}><View style={[featStyles.rank,{backgroundColor:accent}]}><T style={[featStyles.rankText,{color:base}]}>#{rank+1}</T></View><Animated.View style={{transform:[{scale:bmScale}]}}><Pressable onPress={toggleBm} hitSlop={10} style={[featStyles.bm,{borderColor:'#ffffff44'}]}><Feather name="bookmark" size={15} color={isBm?accent:'#fff'}/></Pressable></Animated.View></View><View style={featStyles.row}><View style={featStyles.left}><View style={[featStyles.tag,{backgroundColor:accent+'33'}]}><T style={[featStyles.tagText,{color:accent}]}>✦ {tr(p,'popular')}</T></View><T numberOfLines={2} style={featStyles.title}>{book.title}</T><T numberOfLines={1} style={featStyles.author}>{book.author}</T><View style={featStyles.meta}>{metaW&&<View style={featStyles.metaC}><Feather name="eye" size={10} color="#E7F2EE"/><T style={featStyles.metaT}>{book.views}</T></View>}<View style={featStyles.metaC}><Feather name="star" size={10} color={accent}/><T style={featStyles.metaT}>{book.rating}</T></View><View style={featStyles.metaC}><Feather name={I(book.categoryIcon)} size={10} color="#E7F2EE"/><T style={featStyles.metaT} numberOfLines={1}>{book.category}</T></View></View><Pressable onPress={open} style={[featStyles.btn,{backgroundColor:accent}]}><Feather name="book-open" size={12} color={base}/><T style={[featStyles.btnText,{color:base}]}>{readLabel}</T></Pressable></View><Pressable onPress={open} style={featStyles.coverWrap}>{book.cover_url?<Image source={{uri:book.cover_url}} style={featStyles.coverImg}/>:<View style={[featStyles.coverImg,{backgroundColor:book.color}]}><Feather name={I(book.categoryIcon)} size={30} color={book.accent}/></View>}</Pressable></View></View>}
+function FeaturedCard({book,p,rank}:{book:Book;p:C;rank:number}){const base=book.color||'#123E39';const accent=book.accent||'#F5C660';const dark=shade(base,-32);const isBm=p.state.bookmarks.includes(book.id);const bmScale=React.useRef(new Animated.Value(1)).current;const bmAnim=()=>{Animated.sequence([Animated.timing(bmScale,{toValue:0.6,duration:80,useNativeDriver:true}),Animated.spring(bmScale,{toValue:1,friction:3,tension:300,useNativeDriver:true})]).start()};const open=()=>p.open(book.id);const toggleBm=()=>{bmAnim();p.update({bookmarks:isBm?p.state.bookmarks.filter(x=>x!==book.id):[...p.state.bookmarks,book.id]})};const metaW=book.views_visible!==false;const readLabel=p.state.settings.language==='hi'?'पढ़ें':p.state.settings.language==='en'?'Read':'পড়ুন';return <View style={[featStyles.card,{backgroundColor:base}]}><LinearGradient colors={[base,dark]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/><Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="92%" cy={18} r={92} fill={accent+'26'}/><Circle cx="-14" cy={205} r={118} fill="#ffffff10"/><Ellipse cx="34%" cy={262} rx={165} ry={80} fill={accent+'16'}/><Circle cx="70%" cy={248} r={70} fill="#ffffff0c"/></Svg><View style={featStyles.top}><View style={[featStyles.rank,{backgroundColor:accent}]}><T style={[featStyles.rankText,{color:base}]}>#{rank+1}</T></View><Animated.View style={{transform:[{scale:bmScale}]}}><Pressable onPress={toggleBm} hitSlop={10} style={[featStyles.bm,{borderColor:'#ffffff44'}]}><Feather name="bookmark" size={15} color={isBm?accent:'#fff'}/></Pressable></Animated.View></View><View style={featStyles.row}><View style={featStyles.left}><View style={{flexDirection:'row',alignItems:'center',gap:6}}><View style={[featStyles.tag,{backgroundColor:accent+'33'}]}><T style={[featStyles.tagText,{color:accent}]}>✦ {tr(p,'popular')}</T></View>
+              {book.writer_status==='ongoing'&&<View style={[featStyles.tag,{backgroundColor:'#10B98133'}]}><T style={[featStyles.tagText,{color:'#34D399'}]}>ধারাবাহিক</T></View>}
+              {book.writer_status==='complete'&&<View style={[featStyles.tag,{backgroundColor:'#F59E0B33'}]}><T style={[featStyles.tagText,{color:'#FBBF24'}]}>সম্পূর</T></View>}
+            </View><T numberOfLines={2} style={featStyles.title}>{book.title}</T><T numberOfLines={1} style={featStyles.author}>{book.author}</T><View style={featStyles.meta}>{metaW&&<View style={featStyles.metaC}><Feather name="eye" size={10} color="#E7F2EE"/><T style={featStyles.metaT}>{book.views}</T></View>}<View style={featStyles.metaC}><Feather name="star" size={10} color={accent}/><T style={featStyles.metaT}>{book.rating}</T></View><View style={featStyles.metaC}><Feather name={I(book.categoryIcon)} size={10} color="#E7F2EE"/><T style={featStyles.metaT} numberOfLines={1}>{book.category}</T></View></View><Pressable onPress={open} style={[featStyles.btn,{backgroundColor:accent}]}><Feather name="book-open" size={12} color={base}/><T style={[featStyles.btnText,{color:base}]}>{readLabel}</T></Pressable></View><Pressable onPress={open} style={featStyles.coverWrap}>{book.cover_url?<Image source={{uri:book.cover_url}} style={featStyles.coverImg}/>:<View style={[featStyles.coverImg,{backgroundColor:book.color}]}><Feather name={I(book.categoryIcon)} size={30} color={book.accent}/></View>}</Pressable></View></View>}
 const BookCard=React.memo(function BookCard({book,theme,lang,rank,accent,onPress,section}:{book:Book;theme:Theme;lang:Language;rank?:number;accent?:string;onPress:()=>void;section?:string}){const hasStatus=Boolean(book.display_status);const showBadge=hasStatus&&(section==='newEpisodes'||section==='mostPopular');return <Pressable onPress={onPress} style={{width:130}}><View style={{position:'relative'}}><Cover book={book}/>{typeof rank==='number'?<View style={[styles.rankBadge,{backgroundColor:rank===0?accent:rank===1?accent:rank<3?(accent||'#888')+'DD':'#555555DD'}]}><T style={[styles.rankBadgeText,{color:rank<2?'#fff':'#fff'}]}>{rank+1}</T></View>:showBadge&&<View style={[styles.statusBadge,{backgroundColor:book.display_status==='new'?'#8B5CF6':'#10B981'}]}><T style={[styles.statusBadgeText,{color:'#fff'}]}>{book.display_status==='new'?copy(lang,'statusNew'):copy(lang,'statusOngoing')}</T></View>}{book.views_visible !== false && <View style={styles.viewBadge}><Feather name="eye" size={10} color="#fff"/><T style={styles.viewBadgeText}>{book.views}</T></View>}</View><T numberOfLines={2} style={[styles.bookName,{color:theme.ink}]}>{book.title}</T><T numberOfLines={1} style={{color:theme.muted,fontSize:11}}>{book.author}</T></Pressable>});
 function GoogleIcon({size}:{size?:number}){
   const s=size||20;

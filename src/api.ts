@@ -4,7 +4,7 @@ import { Book, Chapter } from './types';
 const API_BASE = 'https://lekhoni-admin-api.smdkawsar2.workers.dev';
 const TIMEOUT = 6000;
 
-type RemoteBook = { id:string; title:string; author:string; cover_url:string|null; status:string; views:number|string; likes:number|string; dislikes:number|string; description:string|null; category:string|null; color:string; accent:string; is_new?:boolean; featured?:boolean; home_section?:string|null; views_visible?:boolean; display_status?:string; updated_at:string };
+type RemoteBook = { id:string; title:string; author:string; cover_url:string|null; status:string; views:number|string; likes:number|string; dislikes:number|string; description:string|null; category:string|null; color:string; accent:string; is_new?:boolean; featured?:boolean; home_section?:string|null; views_visible?:boolean; display_status?:string; writer_status?:string; updated_at:string };
 type RemoteChapter = { id:string; book_id:string; title:string; body:string; position:number; sort_order?:number; minutes?:number };
 type RemoteComment = { id:string; book_id:string; display_name:string; body:string; status:string; created_at:string };
 type RemoteNotification = { id:string; title:string; body:string; icon:string|null; url:string|null; created_at:string };
@@ -48,6 +48,7 @@ function mergeRemoteBooks(remote: RemoteBook[], chaptersByBook: Record<string, R
       featured: Boolean(b.featured), homeSection: b.home_section || undefined, views_visible: b.views_visible !== false,
       description: b.description || '', updated: 'অনলাইন', isNew: Boolean(b.is_new), chapters: chs, cover_url: b.cover_url || null,
       display_status: b.display_status || undefined,
+      writer_status: b.writer_status || undefined,
     };
   }).filter(Boolean) as Book[];
 }
@@ -75,6 +76,7 @@ export async function fetchRemoteBook(id: string): Promise<Book | null> {
     accent: b.accent || toAccent(b.id), views: `${b.views}`, rating: 4.5, likes: Number(b.likes) || 0,
     featured: Boolean(b.featured), homeSection: b.home_section || undefined,
     description: b.description || '', updated: 'অনলাইন', isNew: Boolean(b.is_new), chapters: chs, cover_url: b.cover_url || null,
+    display_status: b.display_status || undefined, writer_status: b.writer_status || undefined,
   };
 }
 
@@ -222,13 +224,13 @@ export async function fetchWriterStories(token: string): Promise<Story[]> {
   return (await writerApiFetch<Story[]>('/api/writer/stories', token)) || [];
 }
 
-export async function createWriterStory(token: string, title: string, description: string, category: string, coverUrl?: string, displayStatus?: string): Promise<Story | null> {
+export async function createWriterStory(token: string, title: string, description: string, category: string, coverUrl?: string, displayStatus?: string, writerStatus?: string): Promise<Story | null> {
   return writerApiFetch<Story>('/api/writer/stories', token, {
-    method: 'POST', body: JSON.stringify({ title, description, category, cover_url: coverUrl, display_status: displayStatus }),
+    method: 'POST', body: JSON.stringify({ title, description, category, cover_url: coverUrl, display_status: displayStatus, writer_status: writerStatus }),
   });
 }
 
-export async function updateWriterStory(token: string, storyId: string, patch: { title?: string; description?: string; status?: string; category?: string; display_status?: string }): Promise<boolean> {
+export async function updateWriterStory(token: string, storyId: string, patch: { title?: string; description?: string; status?: string; category?: string; display_status?: string; writer_status?: string; cover_url?: string }): Promise<boolean> {
   const r = await writerApiFetch<{ ok: boolean }>(`/api/writer/stories/${storyId}`, token, {
     method: 'PUT', body: JSON.stringify(patch),
   });
