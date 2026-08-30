@@ -3,7 +3,7 @@ export type Book = {
   id: string; title: string; author: string; category: string; categoryIcon: string;
   color: string; accent: string; views: string; rating: number; likes?: number; isNew?: boolean;
   featured?: boolean; homeSection?: string; views_visible?: boolean; display_status?: string; writer_status?: string;
-  description: string; updated: string; chapters: Chapter[]; cover_url?: string | null;
+  description: string; updated: string; chapters: Chapter[]; cover_url?: string | null; hide_title_on_cover?: boolean;
 };
 export type Language = 'en' | 'bn' | 'hi';
 export type ThemeId = 'katagolap' | 'sepia' | 'midnight' | 'godhuli' | 'sagar' | 'oronno' | 'lavender' | 'golapi' | 'shapla' | 'golap';
