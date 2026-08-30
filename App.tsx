@@ -11,11 +11,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initialState, loadState, saveState, clearState } from './src/storage';
 import { Book, LocalState, Language } from './src/types';
 import { copy, CopyKey } from './src/i18n';
-import { fetchRemoteBooks, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, fetchFollowedWriters, writerSignup, writerLogin, writerGoogleAuth, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, updateWriterStory, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchRemoteComments, submitComment, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionsData, fetchWriterFollowers } from './src/api';
+import { fetchRemoteBooks, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, fetchFollowedWriters, writerSignup, writerLogin, writerGoogleAuth, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, updateWriterStory, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchRemoteComments, submitComment, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionsData, fetchWriterFollowers, fetchAbout, deleteWriterAccount } from './src/api';
 import { pickAndResizeImage } from './src/imageUpload';
 
 type Tab = 'home'|'library'|'categories'|'episodes'|'profile';
-type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' } | { type:'newStory' } | { type:'editStory', id:string, title:string, desc:string, coverUrl:string|null, writerStatus:string };
+type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' } | { type:'newStory' } | { type:'editStory', id:string, title:string, desc:string, coverUrl:string|null, writerStatus:string } | { type:'aboutApp' } | { type:'terms' };
 type Theme = {dark:boolean;primary:string;bg:string;card:string;ink:string;muted:string;line:string;tint:string;reader:string};
 const I = (name:string) => (Feather.glyphMap as Record<string,unknown>)[name] ? name as keyof typeof Feather.glyphMap : 'bell';
 
@@ -103,7 +103,7 @@ function AppShell(){
  useEffect(()=>{const sub=BackHandler.addEventListener('hardwareBackPress',()=>{if(screen.type!=='main'){setScreen({type:'main'});return true}if(tab!=='home'){setTab('home');return true}return false});return()=>sub.remove()},[screen,tab]);
   const syncRemote=useCallback(async()=>{if(syncRef.current)return;syncRef.current=true;try{const[remote,cats,notices,writers,hdata]=await Promise.all([fetchRemoteBooks(),fetchRemoteCategories(),fetchRemoteNotifications(),fetchPublicWriters(),fetchHomeSections()]);if(remote.length){setAllBooks(remote.map(b => b.views_visible !== false && (hdata?.viewsVisible !== false) ? { ...b, views_visible: true } : { ...b, views_visible: false }));if(cats.length)setAllCategories(cats.map(c=>[c.name,c.icon,c.color,c.cover_url||null] as [string,string,string,string|null]));if(notices.length)setRemoteNotices(notices.map(n=>({id:n.id,title:n.title,body:n.body,icon:n.icon||'bell',url:n.url||'',time:n.created_at})));if(writers.length)setPublicWriters(writers);if(hdata&&hdata.sections&&hdata.sections.length){setHomeData({...hdata,sections:(hdata.sections||[]).map(x=>({...x,books:(x.books||[]).map((b:any)=>({...b,views_visible:(b.views_visible!==false&&(hdata.viewsVisible!==false))}))}))});if(!writers.length&&hdata.writers&&hdata.writers.length)setPublicWriters(hdata.writers.map(w=>({id:w.id,username:w.username||w.writer_name,writer_name:w.writer_name,bio:w.bio,avatar_url:w.avatar_url,follower_count:w.follower_count,badge:w.badge||'none'})));}setState(s=>({...s,online:true,remoteBooks:remote,lastSync:new Date().toISOString()}));setDataLoaded(true)}else{setState(s=>({...s,online:false}))}}catch{setState(s=>({...s,online:false}));setIsOffline(true)}finally{syncRef.current=false}},[]);
   useEffect(()=>{const id=setInterval(syncRemote,30000);syncRemote();return()=>clearInterval(id)},[syncRemote]);
-  useEffect(()=>{if(!loaded||!state.deviceId)return;const t=setTimeout(()=>{saveUserState(state.deviceId,{settings:state.settings as any,favorites:state.favorites,downloads:state.downloads,history:state.history,positions:state.positions,bookmarks:state.bookmarks as any}).catch(()=>{})},2000);return()=>clearTimeout(t)},[loaded,state]);
+  useEffect(()=>{if(!loaded||!state.deviceId)return;const t=setTimeout(()=>{saveUserState(state.deviceId,{settings:{...state.settings,name:state.name} as any,favorites:state.favorites,downloads:state.downloads,history:state.history,positions:state.positions,bookmarks:state.bookmarks as any}).catch(()=>{})},2000);return()=>clearTimeout(t)},[loaded,state]);
   useEffect(()=>{_curLang=state.settings.language},[state.settings.language]);
   const update=(p:Partial<LocalState>)=>setState(s=>({...s,...p})); const open=(id:string)=>{update({history:[id,...state.history.filter(x=>x!==id)].slice(0,20)});setScreen({type:'book',id})}; const read=(id:string,chapter:number)=>setScreen({type:'reader',id,chapter});
   const filteredWriters=React.useMemo(()=>state.writer?publicWriters.filter(w=>w.id!==state.writer!.id):publicWriters,[publicWriters,state.writer]);
@@ -121,6 +121,7 @@ function AppShell(){
     if(!loaded)return <SkeletonScreen theme={theme}/>;
   }
   if(splashPhase==='loading'&&loaded)setSplashPhase('done');
+  if(!state.ageVerified)return <AgeGate theme={theme} lang={state.settings.language} onDone={()=>update({ageVerified:true})}/>;
   if(!state.name)return <NameGate theme={theme} lang={state.settings.language} onDone={(name,lang)=>{update({name,settings:{...state.settings,language:lang}})}}/>;
    let body:React.ReactNode;
  if(screen.type==='main')body=<Main {...common} tab={tab} setTab={setTab}/>;
@@ -134,7 +135,10 @@ function AppShell(){
   if(screen.type==='writerProfile')body=<WriterProfileView {...common} writer={screen.writer}/>;
   if(screen.type==='allWriters')body=<AllWritersList {...common}/>;
   if(screen.type==='newStory')body=<NewStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} categories={allCategories.map(c=>c[0])} onBack={()=>setScreen({type:'writer'})} onCreated={()=>{setScreen({type:'writer'})}}/>;
-  if(screen.type==='editStory')body=<EditStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} storyId={screen.id} initialTitle={screen.title} initialDesc={screen.desc} initialCover={screen.coverUrl} initialWriterStatus={screen.writerStatus} onBack={()=>setScreen({type:'writer'})} onSaved={syncRemote}/>; return <View style={{flex:1,backgroundColor:theme.bg}}><StatusBar style={state.settings.dark?'light':'dark'}/>{body}</View>;
+  if(screen.type==='editStory')body=<EditStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} storyId={screen.id} initialTitle={screen.title} initialDesc={screen.desc} initialCover={screen.coverUrl} initialWriterStatus={screen.writerStatus} onBack={()=>setScreen({type:'writer'})} onSaved={syncRemote}/>;
+  if(screen.type==='aboutApp')body=<AboutAppScreen theme={theme} lang={state.settings.language} onBack={()=>setScreen({type:'main'})}/>;
+  if(screen.type==='terms')body=<TermsScreen theme={theme} lang={state.settings.language} onBack={()=>setScreen({type:'main'})}/>;
+  return <View style={{flex:1,backgroundColor:theme.bg}}><StatusBar style={state.settings.dark?'light':'dark'}/>{body}</View>;
 }
 type C={theme:Theme;state:LocalState;update:(p:Partial<LocalState>)=>void;setScreen:(s:Screen)=>void;open:(id:string)=>void;read:(id:string,c:number)=>void;allBooks:Book[];allCategories:[string,string,string,string|null][];publicWriters:import('./src/types').WriterProfile[];homeData:HomeSectionsData|null;remoteNotices:{id:string;title:string;body:string;icon:string;url:string;time:string}[];dlBooks:Record<string,Book>;downloadBook:(id:string)=>void;removeDownload:(id:string)=>void;dataLoaded:boolean;syncRemote?:()=>void};
 const F_BN='HindSiliguriMedium';
@@ -145,6 +149,38 @@ function T({style,...rest}:React.ComponentProps<typeof Text>){return <Text {...r
 const tr=(p:C,key:CopyKey)=>copy(p.state.settings.language,key);
 function greet(p:C){const h=new Date().getHours();const key=h<12?'morning':h<17?'afternoon':h<21?'evening':'night';return tr(p,key as CopyKey);}
 function Page({children,theme}:{children:React.ReactNode;theme:Theme}){const insets=useSafeAreaInsets();return <ScrollView style={{flex:1,backgroundColor:theme.bg}} contentContainerStyle={{paddingTop:insets.top+12,paddingHorizontal:18,paddingBottom:110}} showsVerticalScrollIndicator={false}>{children}</ScrollView>}
+function AgeGate({theme:t,lang,onDone}:{theme:Theme;lang:import('./src/types').Language;onDone:()=>void}){
+  const[checked,setChecked]=useState(false);
+  const{height}=useWindowDimensions();
+  return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'}>
+    <ScrollView contentContainerStyle={{paddingHorizontal:25,paddingTop:height*0.15,paddingBottom:40}} keyboardShouldPersistTaps="handled">
+      <View style={{alignItems:'center',marginBottom:24}}>
+        <Image source={require('./assets/adaptive-icon.png')} style={[styles.gateIcon]} resizeMode="contain"/>
+      </View>
+      <T style={[styles.eyebrow,{color:t.primary,textAlign:'center'}]}>{copy(lang,'ageGateTitle')}</T>
+      <T style={[styles.gateTitle,{color:t.ink,textAlign:'center',fontSize:22,marginBottom:12}]}>Lekhoni Kahini</T>
+      <Pressable onPress={()=>setChecked(!checked)} style={{flexDirection:'row',alignItems:'flex-start',gap:12,backgroundColor:t.card,borderRadius:14,padding:16,marginBottom:20,borderWidth:1.5,borderColor:checked?t.primary:t.line}}>
+        <View style={{width:24,height:24,borderRadius:8,borderWidth:2,borderColor:checked?t.primary:t.muted,backgroundColor:checked?t.primary:'transparent',alignItems:'center',justifyContent:'center',marginTop:2}}>
+          {checked&&<Feather name="check" size={14} color="#fff"/>}
+        </View>
+        <View style={{flex:1}}>
+          <T style={{fontSize:15,fontWeight:'700',color:t.ink,lineHeight:22}}>{copy(lang,'ageGateText')}</T>
+          <T style={{fontSize:12,color:t.muted,marginTop:4,lineHeight:18}}>{copy(lang,'ageGateError')}</T>
+        </View>
+      </Pressable>
+      <Pressable onPress={()=>{if(checked)onDone()}} disabled={!checked} style={{backgroundColor:checked?t.primary:t.line,borderRadius:14,height:50,alignItems:'center',justifyContent:'center',opacity:checked?1:0.5}}>
+        <T style={{color:'#fff',fontWeight:'700',fontSize:15}}>{lang==='bn'?'এগিয়ে যান':lang==='hi'?'आगे बढ़ें':'Continue'}</T>
+      </Pressable>
+      <View style={styles.langRow2}>
+        {([['bn','বাংলা'],['en','English'],['hi','हिन्दी']] as [import('./src/types').Language,string][]).map(([code,label])=>
+          <Pressable key={code} onPress={()=>{}} style={[styles.langBtn2,{backgroundColor:t.card,borderColor:t.line}]}>
+            <T style={{color:t.ink,fontWeight:'800',fontSize:13}}>{label}</T>
+          </Pressable>
+        )}
+      </View>
+    </ScrollView>
+  </KeyboardAvoidingView>;
+}
 function NameGate({theme,lang,onDone}:{theme:Theme;lang:import('./src/types').Language;onDone:(n:string,l:import('./src/types').Language)=>void}){const[name,setName]=useState('');const[curLang,setCurLang]=useState<import('./src/types').Language>(lang);const langs:[import('./src/types').Language,string][]=[['bn','বাংলা'],['en','English'],['hi','हिन्दी']];const{height}=useWindowDimensions();return <KeyboardAvoidingView style={{flex:1,backgroundColor:theme.bg}} behavior={Platform.OS==='ios'?'padding':'height'}><ScrollView contentContainerStyle={{paddingHorizontal:25,paddingTop:80,paddingBottom:40}} keyboardShouldPersistTaps="handled"><View style={{alignItems:'center',marginBottom:10}}><Image source={require('./assets/adaptive-icon.png')} style={[styles.gateIcon]} resizeMode="contain"/></View><T style={[styles.eyebrow,{color:theme.primary,textAlign:'center'}]}>{copy(curLang,'welcome')}</T><T style={[styles.gateTitle,{color:theme.ink,textAlign:'center'}]}>{copy(curLang,'nameQuestion')}</T><T style={[styles.copy,{color:theme.muted,textAlign:'center'}]}>{copy(curLang,'gateHint')}</T><TextInput autoFocus value={name} onChangeText={setName} placeholder={copy(curLang,'namePlaceholder')} placeholderTextColor={theme.muted} style={[styles.input,{color:theme.ink,backgroundColor:theme.card,borderColor:theme.line}]}/><Button title={copy(curLang,'startBtn')} icon="arrow-right" disabled={!name.trim()} onPress={()=>onDone(name.trim(),curLang)}/><T style={[styles.note,{color:theme.muted}]}>{copy(curLang,'nameNote')}</T><View style={styles.langRow2}>{langs.map(([code,label])=><Pressable key={code} onPress={()=>setCurLang(code)} style={[styles.langBtn2,{backgroundColor:curLang===code?theme.primary:theme.card,borderColor:curLang===code?theme.primary:theme.line}]}><T style={{color:curLang===code?'#fff':theme.ink,fontWeight:'800',fontSize:13}}>{label}</T></Pressable>)}</View></ScrollView></KeyboardAvoidingView>}
 function Main(p:C&{tab:Tab;setTab:(t:Tab)=>void}){
  const {width:screenW}=useWindowDimensions();
@@ -316,6 +352,8 @@ function Profile(p:C){
 
     <T style={[styles.menuGroupTitle,{color:t.muted}]}>{tr(p,'aboutApp')}</T>
     <View style={[styles.menuGroup,{backgroundColor:t.card}]}>
+      <Menu title={tr(p,'aboutApp')} icon="info" theme={t} onPress={()=>p.setScreen({type:'aboutApp'})}/>
+      <Menu title={tr(p,'termsOfService')} icon="file-text" theme={t} onPress={()=>p.setScreen({type:'terms'})}/>
       <Menu title={tr(p,'shareApp')} icon="share-2" theme={t} onPress={()=>Share.share({message:'Lekhoni Kahini - Bengali stories app'})}/>
       <Menu title={tr(p,'rateApp')} icon="star" theme={t} onPress={()=>Alert.alert(tr(p,'rateApp'),tr(p,'appDesc'))}/>
     </View>
@@ -769,50 +807,53 @@ function Settings(p:C){
     {id:'golap',nameBn:'গোলাপ',nameEn:'Rose',colors:['#E63946','#3A1520']},
   ];
 
+  const Section=({title,children}:{title:string;children:React.ReactNode})=><><T style={[styles.group,{color:t.muted,marginTop:16,marginBottom:8,fontSize:13,fontWeight:'700'}]}>{title}</T><View style={[styles.menuGroup,{borderRadius:16,borderWidth:1,borderColor:t.line,backgroundColor:t.card,overflow:'hidden'}]}>{children}</View></>;
+  const Row=({icon,iconBg,iconColor,children,onPress}:{icon:string;iconBg:string;iconColor:string;children:React.ReactNode;onPress?:()=>void})=><Pressable onPress={onPress} disabled={!onPress} style={[styles.menuItem,{backgroundColor:t.card,opacity:onPress?1:0.9}]}><View style={[styles.menuIconBig,{backgroundColor:iconBg}]}><Feather name={icon as any} size={18} color={iconColor}/></View>{children}</Pressable>;
+  const Sep=()=><View style={{height:1,backgroundColor:t.line,marginLeft:62}}/>;
+
   return <Page theme={t}>
     <Back title={tr(p,'settings')} theme={t} onPress={()=>p.setScreen({type:'main'})}/>
 
-    <T style={[styles.group,{color:t.muted,marginTop:4}]}>Themes</T>
-    <View style={{borderRadius:18,borderWidth:1,borderColor:t.line,backgroundColor:t.card,padding:9}}>
-      <View style={{flexDirection:'row',flexWrap:'wrap',gap:5}}>
+    {/* Themes */}
+    <T style={[styles.group,{color:t.muted,marginTop:4,marginBottom:8,fontSize:13,fontWeight:'700'}]}>{copy(language,'settingsThemes')}</T>
+    <View style={{borderRadius:16,borderWidth:1,borderColor:t.line,backgroundColor:t.card,padding:10}}>
+      <View style={{flexDirection:'row',flexWrap:'wrap',gap:6}}>
         {themes.map(th=>{
           const selected=currentThemeId===th.id;
           const selTheme=themeFor(th.id,false);
           const flowerKinds=new Set(['shapla','golap']);
           const isFlower=flowerKinds.has(th.id);
           return <Pressable key={th.id} onPress={()=>set({themeId:th.id})}
-            style={{width:'18.5%',borderRadius:11,overflow:'hidden',borderWidth:1.5,borderColor:selected?t.primary:selTheme.line,backgroundColor:selTheme.card}}>
-            <View style={{backgroundColor:selTheme.bg,alignItems:'center',justifyContent:'center',paddingVertical:9,opacity:0.95}}>
-              <FlowerArt kind={isFlower?th.id:'dot'} s={36} primary={selTheme.primary} tint={selTheme.tint} bg={selTheme.bg}/>
+            style={{width:'18.5%',borderRadius:12,overflow:'hidden',borderWidth:2,borderColor:selected?t.primary:selTheme.line,backgroundColor:selTheme.card}}>
+            <View style={{backgroundColor:selTheme.bg,alignItems:'center',justifyContent:'center',paddingVertical:10,opacity:0.95}}>
+              <FlowerArt kind={isFlower?th.id:'dot'} s={34} primary={selTheme.primary} tint={selTheme.tint} bg={selTheme.bg}/>
             </View>
-            <View style={{alignItems:'center',paddingVertical:3}}>
+            <View style={{alignItems:'center',paddingVertical:4}}>
               <T style={{fontSize:8,fontWeight:'800',color:selTheme.ink}} numberOfLines={1}>{th.nameEn}</T>
             </View>
-            {selected&&<View style={{position:'absolute',top:3,right:3,width:13,height:13,borderRadius:7,backgroundColor:t.primary,alignItems:'center',justifyContent:'center'}}><Feather name="check" size={8} color="#fff"/></View>}
+            {selected&&<View style={{position:'absolute',top:3,right:3,width:14,height:14,borderRadius:7,backgroundColor:t.primary,alignItems:'center',justifyContent:'center'}}><Feather name="check" size={8} color="#fff"/></View>}
           </Pressable>})}
       </View>
     </View>
 
-    <T style={[styles.group,{color:t.muted}]}>{tr(p,'appearance')}</T>
-    <View style={styles.menuGroup}>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:darkMode?'#1E293B':t.tint}]}><Feather name={darkMode?'moon':'sun'} size={18} color={darkMode?'#FCD34D':t.primary}/></View>
+    {/* Appearance */}
+    <Section title={copy(language,'settingsAppearance')}>
+      <Row icon="sun" iconBg={darkMode?'#1E293B':t.tint} iconColor={darkMode?'#FCD34D':t.primary}>
         <View style={{flex:1}}>
           <T style={[styles.rowTitle,{color:t.ink}]}>{darkMode?tr(p,'darkMode'):tr(p,'lightMode')}</T>
           <T style={{fontSize:11,color:t.muted,marginTop:1}}>{darkMode?tr(p,'darkModeSub'):tr(p,'lightModeSub')}</T>
         </View>
         <AnimatedToggle value={darkMode} onChange={(v)=>set({dark:v})} color={t.primary} track={t.line}/>
-      </View>
-      <View style={[styles.menuSep,{backgroundColor:t.line,marginLeft:62}]}/>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="type" size={18} color={t.primary}/></View>
+      </Row>
+      <Sep/>
+      <Row icon="type" iconBg={t.tint} iconColor={t.primary}>
         <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{tr(p,'readerSize')}</T>
         <View style={{alignItems:'center'}}>
           <View style={{flexDirection:'row',alignItems:'center',gap:10}}>
             <Pressable onPress={()=>{const f=Math.max(16,p.state.settings.fontSize-2);set({fontSize:f,lineHeight:f+13});}} style={{width:34,height:34,borderRadius:11,backgroundColor:p.state.settings.fontSize<=16?t.bg:t.tint,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:t.line}}>
               <Feather name="minus" size={17} color={p.state.settings.fontSize<=16?t.muted:t.primary}/>
             </Pressable>
-            <View style={{width:58,height:58,borderRadius:18,borderWidth:2,borderColor:t.line,backgroundColor:t.bg,alignItems:'center',justifyContent:'center'}}>
+            <View style={{width:52,height:52,borderRadius:16,borderWidth:2,borderColor:t.line,backgroundColor:t.bg,alignItems:'center',justifyContent:'center'}}>
               <T style={{fontSize:Math.max(12,p.state.settings.fontSize-2),fontWeight:'900',color:t.ink,lineHeight:Math.max(12,p.state.settings.fontSize-2)+6}}>Aa</T>
             </View>
             <Pressable onPress={()=>{const f=Math.min(28,p.state.settings.fontSize+2);set({fontSize:f,lineHeight:f+13});}} style={{width:34,height:34,borderRadius:11,backgroundColor:p.state.settings.fontSize>=28?t.bg:t.tint,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:t.line}}>
@@ -821,150 +862,123 @@ function Settings(p:C){
           </View>
           <T style={{color:t.muted,fontSize:10,marginTop:4}}>{p.state.settings.fontSize}px</T>
         </View>
-      </View>
-    </View>
+      </Row>
+    </Section>
 
-    <T style={[styles.group,{color:t.muted}]}>Reading</T>
-    <View style={styles.menuGroup}>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="align-justify" size={18} color={t.primary}/></View>
+    {/* Reading */}
+    <Section title={copy(language,'settingsReading')}>
+      <Row icon="align-justify" iconBg={t.tint} iconColor={t.primary}>
         <View style={{flex:1}}>
-          <T style={[styles.rowTitle,{color:t.ink}]}>Line spacing</T>
-          <T style={{fontSize:11,color:t.muted,marginTop:1}}>লাইনের ফাঁক সামঞ্জস্য করুন</T>
+          <T style={[styles.rowTitle,{color:t.ink}]}>{copy(language,'settingsLineSpacing')}</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>{copy(language,'lineSpacingDesc')}</T>
         </View>
         <View style={{flexDirection:'row',alignItems:'center',gap:8}}>
           <Pressable onPress={()=>set({lineSpacing:Math.round((Math.max(0.8,p.state.settings.lineSpacing-0.1))*10)/10})} style={{width:30,height:30,borderRadius:9,backgroundColor:p.state.settings.lineSpacing<=0.8?t.bg:t.tint,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:t.line}}><Feather name="minus" size={15} color={p.state.settings.lineSpacing<=0.8?t.muted:t.primary}/></Pressable>
           <T style={{color:t.ink,fontWeight:'800',fontSize:13,width:30,textAlign:'center'}}>{p.state.settings.lineSpacing.toFixed(1)}</T>
           <Pressable onPress={()=>set({lineSpacing:Math.round((Math.min(1.8,p.state.settings.lineSpacing+0.1))*10)/10})} style={{width:30,height:30,borderRadius:9,backgroundColor:p.state.settings.lineSpacing>=1.8?t.bg:t.tint,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:t.line}}><Feather name="plus" size={15} color={p.state.settings.lineSpacing>=1.8?t.muted:t.primary}/></Pressable>
         </View>
-      </View>
-      <View style={[styles.menuSep,{backgroundColor:t.line,marginLeft:62}]}/>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="align-left" size={18} color={t.primary}/></View>
-        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>Font</T>
+      </Row>
+      <Sep/>
+      <Row icon="align-left" iconBg={t.tint} iconColor={t.primary}>
+        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{copy(language,'settingsFont')}</T>
         <View style={{flexDirection:'row',gap:6}}>
-          {([['default','Default'],['serif','Serif'],['loose','Loose']] as const).map(([k,l])=>{
+          {([['default',copy(language,'fontDefault')],['serif',copy(language,'fontSerif')],['loose',copy(language,'fontLoose')]] as const).map(([k,l])=>{
             const act=p.state.settings.fontFamily===k;
             return <Pressable key={k} onPress={()=>set({fontFamily:k})} style={{paddingVertical:6,paddingHorizontal:10,borderRadius:9,backgroundColor:act?t.primary:t.bg,borderWidth:1,borderColor:act?t.primary:t.line}}><T style={{fontWeight:'800',fontSize:11,color:act?'#fff':t.muted}}>{l}</T></Pressable>;
           })}
         </View>
-      </View>
-    </View>
+      </Row>
+    </Section>
 
-    <T style={[styles.group,{color:t.muted}]}>{tr(p,'language')}</T>
-    <View style={[styles.languageBox,{backgroundColor:t.card,borderColor:t.line}]}>
+    {/* Language */}
+    <Section title={copy(language,'settingsLanguage')}>
       {([['en','english'],['bn','bangla'],['hi','hindi']] as const).map(([code,key],i)=>(
-        <Pressable key={code} onPress={()=>{set({language:code})}} style={[styles.languageRow,{borderBottomWidth:i===2?0:1,borderBottomColor:t.line}]}>
+        <Pressable key={code} onPress={()=>{set({language:code})}} style={[styles.languageRow,{backgroundColor:t.card,paddingHorizontal:14,paddingVertical:12,borderBottomWidth:i===2?0:1,borderBottomColor:t.line}]}>
           <View style={[styles.radio,{borderColor:language===code?t.primary:t.muted}]}>{language===code&&<View style={[styles.radioDot,{backgroundColor:t.primary}]}/>}</View>
           <View style={{flex:1}}>
-            <T style={{color:t.ink,fontWeight:language===code?'900':'600'}}>{copy(code,key)}</T>
-            <T style={{color:t.muted,fontSize:10}}>{code==='en'?'English':code==='bn'?'বাংলা':'हिन्दी'}</T>
+            <T style={{color:t.ink,fontWeight:language===code?'900':'600',fontSize:14}}>{copy(code,key)}</T>
+            <T style={{color:t.muted,fontSize:10}}>{code==='en'?'English':code==='bn'?'বাংলा':'हिन्दी'}</T>
           </View>
           {language===code&&<Feather name="check" size={16} color={t.primary}/>}
         </Pressable>))}
-    </View>
+    </Section>
 
-    <T style={[styles.group,{color:t.muted}]}>{tr(p,'data')}</T>
-    <View style={styles.menuGroup}>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="bell" size={18} color={t.primary}/></View>
-        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{tr(p,'newAlerts')}</T>
-        <Switch value={p.state.settings.notifications} onValueChange={v=>set({notifications:v})} trackColor={{true:t.primary}}/>
-      </View>
-      <View style={[styles.menuSep,{backgroundColor:t.line,marginLeft:62}]}/>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="wifi" size={18} color={t.primary}/></View>
-        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{tr(p,'wifi')}</T>
-        <Switch value={p.state.settings.wifiOnly} onValueChange={v=>set({wifiOnly:v})} trackColor={{true:t.primary}}/>
-      </View>
-    </View>
-
-    <T style={[styles.group,{color:t.muted}]}>Sync</T>
-    <View style={styles.menuGroup}>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:p.state.online?t.tint:'#FEEBC8'}]}><Feather name={p.state.online?'refresh-cw':'cloud-off'} size={18} color={p.state.online?t.primary:'#B45309'}/></View>
+    {/* Data & Sync */}
+    <Section title={copy(language,'settingsData')}>
+      <Row icon={p.state.online?'refresh-cw':'cloud-off'} iconBg={p.state.online?t.tint:'#FEEBC8'} iconColor={p.state.online?t.primary:'#B45309'} onPress={()=>{p.syncRemote?.();trackEvent(p.state.deviceId,'all','view');}}>
         <View style={{flex:1}}>
-          <T style={[styles.rowTitle,{color:t.ink}]}>Sync now</T>
-          <T style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.online?'সর্বশেষ sync: সব ঠিক আছে':'অফলাইন — ক্যাশ থেকে পড়া চলবে'}</T>
+          <T style={[styles.rowTitle,{color:t.ink}]}>{copy(language,'settingsSyncNow')}</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.online?(language==='bn'?'সব ঠিক আছে':language==='hi'?'सब ठीक है':'All good'):(language==='bn'?'অফলাইন':language==='hi'?'ऑफ़लाइन':'Offline')}</T>
         </View>
-        <Pressable onPress={()=>{trackEvent(p.state.deviceId,'all','view');Alert.alert(tr(p,'sync'),p.state.online?'Content synced successfully.':'Offline — using cached content.')}} style={{backgroundColor:t.tint,borderRadius:10,paddingVertical:8,paddingHorizontal:12}}><T style={{color:t.primary,fontWeight:'900',fontSize:12}}>{p.state.online?'Synced':'Offline'}</T></Pressable>
-      </View>
-      <View style={[styles.menuSep,{backgroundColor:t.line,marginLeft:62}]}/>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:'#FEEBC8'}]}><Feather name="trash-2" size={18} color="#B45309"/></View>
-        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{tr(p,'clearSearch')}</T>
-        <Feather name="chevron-right" size={18} color={t.muted}/>
-        <Pressable onPress={()=>p.update({searchHistory:[]})} style={{borderWidth:1,borderColor:t.line,borderRadius:10,paddingVertical:7,paddingHorizontal:12}}><T style={{color:t.primary,fontWeight:'800',fontSize:12}}>Clear</T></Pressable>
-      </View>
-    </View>
+        <View style={{backgroundColor:t.tint,borderRadius:10,paddingVertical:8,paddingHorizontal:12}}>
+          <T style={{color:t.primary,fontWeight:'900',fontSize:12}}>{p.state.online?copy(language,'settingsSynced'):copy(language,'settingsOffline')}</T>
+        </View>
+      </Row>
+      <Sep/>
+      <Row icon="trash-2" iconBg="#FEEBC8" iconColor="#B45309" onPress={()=>p.update({searchHistory:[]})}>
+        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{copy(language,'settingsClearSearch')}</T>
+        <View style={{backgroundColor:t.bg,borderWidth:1,borderColor:t.line,borderRadius:10,paddingVertical:7,paddingHorizontal:12}}>
+          <T style={{color:t.primary,fontWeight:'800',fontSize:12}}>{language==='bn'?'মুছুন':language==='hi'?'साफ़ करें':'Clear'}</T>
+        </View>
+      </Row>
+    </Section>
 
-    <T style={[styles.group,{color:t.muted}]}>Downloads</T>
-    <View style={styles.menuGroup}>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="download-cloud" size={18} color={t.primary}/></View>
+    {/* Downloads */}
+    <Section title={language==='bn'?'ডাউনলোড':language==='hi'?'डाउनलोड':'Downloads'}>
+      <Row icon="download-cloud" iconBg={t.tint} iconColor={t.primary}>
         <View style={{flex:1}}>
-          <T style={[styles.rowTitle,{color:t.ink}]}>{p.state.downloads.length} downloaded</T>
-          <T style={{fontSize:11,color:t.muted,marginTop:1}}>অফলাইনে পড়ার জন্য বই সংরক্ষিত</T>
+          <T style={[styles.rowTitle,{color:t.ink}]}>{p.state.downloads.length} {language==='bn'?'টি ডাউনলোড':language==='hi'?'डाउनलोड':'downloaded'}</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>{language==='bn'?'অফলাইনে পড়ার জন্য সংরক্ষিত':language==='hi'?'ऑफ़लाइन पढ़ने के लिए सहेजा गया':'Saved for offline reading'}</T>
         </View>
-        <View style={{backgroundColor:t.bg,borderWidth:1,borderColor:t.line,borderRadius:9,paddingVertical:6,paddingHorizontal:10}}><T style={{color:t.muted,fontSize:11,fontWeight:'700'}}>{(p.state.downloads.length*0.6).toFixed(1)} MB</T></View>
-      </View>
-      <View style={[styles.menuSep,{backgroundColor:t.line,marginLeft:62}]}/>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:'#FEEBC8'}]}><Feather name="trash-2" size={18} color="#B45309"/></View>
-        <View style={{flex:1}}>
-          <T style={[styles.rowTitle,{color:t.ink}]}>Clear all downloads</T>
-          <T style={{fontSize:11,color:t.muted,marginTop:1}}>সব ডাউনলোড মুছে ফেলুন</T>
+      </Row>
+      <Sep/>
+      <Row icon="trash-2" iconBg="#FEEBC8" iconColor="#B45309" onPress={()=>Alert.alert(copy(language,'settingsClearAll'),language==='bn'?'সব ডাউনলোড মুছে ফেলা হবে। নিশ্চিত?':language==='hi'?'सभी डाउनलोड हटा दिए जाएंगे। पक्का?':'All downloads will be cleared. Sure?',[{text:copy(language,'cancel'),style:'cancel'},{text:language==='bn'?'মুছুন':language==='hi'?'हटाएँ':'Clear',style:'destructive',onPress:()=>p.update({downloads:[]})}])}>
+        <T style={[styles.rowTitle,{color:'#B91C1C',flex:1}]}>{copy(language,'settingsClearAll')}</T>
+        <View style={{backgroundColor:'#FEE2E2',borderRadius:10,paddingVertical:8,paddingHorizontal:12}}>
+          <T style={{color:'#B91C1C',fontWeight:'900',fontSize:12}}>{language==='bn'?'মুছুন':language==='hi'?'हटाएँ':'Clear'}</T>
         </View>
-        <Pressable onPress={()=>Alert.alert('Clear downloads','সব ডাউনলোড মুছে ফেলা হবে। নিশ্চিত?',[{text:'Cancel',style:'cancel'},{text:'Clear',style:'destructive',onPress:()=>p.update({downloads:[]})}])} style={{backgroundColor:'#FEEBC8',borderRadius:10,paddingVertical:8,paddingHorizontal:12}}><T style={{color:'#B45309',fontWeight:'900',fontSize:12}}>Clear</T></Pressable>
-      </View>
-    </View>
+      </Row>
+    </Section>
 
-    <T style={[styles.group,{color:t.muted}]}>Storage</T>
-    <View style={styles.menuGroup}>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="hard-drive" size={18} color={t.primary}/></View>
+    {/* Storage */}
+    <Section title={copy(language,'settingsStorage')}>
+      <Row icon="hard-drive" iconBg="#FEE2E2" iconColor="#B91C1C" onPress={()=>Alert.alert(copy(language,'settingsReset'),language==='bn'?'থিম, বুকমার্ক, ইতিহাস — সব ডেটা মুছে যাবে। নিশ্চিত?':language==='hi'?'थीम, बुकमार्क, इतिहास — सब डेटा मिटा दिया जाएगा। पक्का?':'Theme, bookmarks, history — all data will be deleted. Sure?',[{text:copy(language,'cancel'),style:'cancel'},{text:language==='bn'?'রিসেট':language==='hi'?'रीसेट':'Reset',style:'destructive',onPress:async()=>{p.update(initialState);await clearState();}}])}>
         <View style={{flex:1}}>
-          <T style={[styles.rowTitle,{color:t.ink}]}>Reset app</T>
-          <T style={{fontSize:11,color:t.muted,marginTop:1}}>সব ডেটা মুছে নতুন করে শুরু করুন</T>
+          <T style={[styles.rowTitle,{color:'#B91C1C'}]}>{copy(language,'settingsReset')}</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>{copy(language,'settingsResetDesc')}</T>
         </View>
-        <Pressable onPress={()=>Alert.alert('Reset app','থিম, বুকমার্ক, ইতিহাস — সব ডেটা মুছে যাবে। নিশ্চিত?',[{text:'Cancel',style:'cancel'},{text:'Reset',style:'destructive',onPress:async()=>{p.update(initialState);await clearState();}}])} style={{backgroundColor:'#FEE2E2',borderRadius:10,paddingVertical:8,paddingHorizontal:12}}><T style={{color:'#B91C1C',fontWeight:'900',fontSize:12}}>Reset</T></Pressable>
-      </View>
-    </View>
+        <View style={{backgroundColor:'#FEE2E2',borderRadius:10,paddingVertical:8,paddingHorizontal:12}}>
+          <T style={{color:'#B91C1C',fontWeight:'900',fontSize:12}}>{language==='bn'?'রিসেট':language==='hi'?'रीसेट':'Reset'}</T>
+        </View>
+      </Row>
+    </Section>
 
-    <T style={[styles.group,{color:t.muted}]}>About</T>
-    <View style={styles.menuGroup}>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="book-open" size={18} color={t.primary}/></View>
+    {/* About */}
+    <Section title={copy(language,'settingsAbout')}>
+      <Row icon="book-open" iconBg={t.tint} iconColor={t.primary} onPress={()=>p.setScreen({type:'aboutApp'})}>
         <View style={{flex:1}}>
           <T style={[styles.rowTitle,{color:t.ink}]}>Lekhoni Kahini</T>
-          <T style={{fontSize:11,color:t.muted,marginTop:1}}>বাংলা গল্পের রিডার</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>{copy(language,'settingsAppDesc')}</T>
+        </View>
+        <Feather name="chevron-right" size={18} color={t.muted}/>
+      </Row>
+      <Sep/>
+      <Row icon="star" iconBg={t.tint} iconColor={t.primary} onPress={()=>{try{Linking.openURL('https://play.google.com/store/apps/details?id=com.lekhoni.kahini')}catch{Share.share({message:'Lekhoni Kahini\nhttps://play.google.com/store/apps/details?id=com.lekhoni.kahini'})}}}>
+        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{copy(language,'settingsRate')}</T>
+        <View style={{backgroundColor:t.tint,borderRadius:10,paddingVertical:8,paddingHorizontal:12}}>
+          <T style={{color:t.primary,fontWeight:'900',fontSize:12}}>★</T>
+        </View>
+      </Row>
+      <Sep/>
+      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
+        <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="info" size={18} color={t.primary}/></View>
+        <View style={{flex:1}}>
+          <T style={[styles.rowTitle,{color:t.ink}]}>Lekhoni Kahini</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>© 2026 Kawsar Hosen</T>
         </View>
         <T style={{color:t.muted,fontSize:12,fontWeight:'700'}}>v1.0.0</T>
       </View>
-      <View style={[styles.menuSep,{backgroundColor:t.line,marginLeft:62}]}/>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="star" size={18} color={t.primary}/></View>
-        <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>Rate this app</T>
-        <Pressable onPress={()=>{try{Linking.openURL('https://admin.xyteee.com')}catch{}} } style={{backgroundColor:t.tint,borderRadius:10,paddingVertical:8,paddingHorizontal:12}}><T style={{color:t.primary,fontWeight:'900',fontSize:12}}>Rate</T></Pressable>
-      </View>
-    </View>
-
-    <T style={[styles.group,{color:t.muted}]}>Online backup</T>
-    <View style={[styles.menuItem,{flexDirection:'column',alignItems:'flex-start',backgroundColor:t.card,borderRadius:18,borderWidth:1,borderColor:t.line,padding:16}]}>
-      <View style={{flexDirection:'row',alignItems:'center',gap:12,width:'100%',marginBottom:10}}>
-        <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name={p.state.online?'cloud':'cloud-off'} size={18} color={p.state.online?t.primary:t.muted}/></View>
-        <View style={{flex:1}}>
-          <T style={[styles.rowTitle,{color:t.ink}]}>Settings backup</T>
-          <T style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.online?'Theme, bookmarks & progress restored on this device.':'Offline — will sync when connected.'}</T>
-        </View>
-        <View style={{width:10,height:10,borderRadius:5,backgroundColor:p.state.online?'#2AA876':'#D9A407'}}/>
-      </View>
-      <View style={{flexDirection:'row',alignItems:'center',gap:8,backgroundColor:t.bg,borderRadius:10,paddingHorizontal:12,paddingVertical:9,borderWidth:1,borderColor:t.line,width:'100%'}}>
-        <T style={{fontSize:10,color:t.muted}}>Restore code</T>
-        <T style={{fontSize:12,fontWeight:'700',color:t.ink,flex:1}} selectable>{('LK-'+p.state.deviceId.split('-')[0]+'-'+p.state.deviceId.split('-')[3]).toUpperCase()}</T>
-      </View>
-      <T style={{fontSize:10,color:t.muted,marginTop:8,lineHeight:15}}>Keep this code to restore your settings if you reinstall the app on this device.</T>
-    </View>
+    </Section>
   </Page>}
 function GoogleSignInButton({onResult,onError,theme:t,lang}:{onResult:(w:any,token:string)=>void;onError:(msg:string)=>void;theme:Theme;lang:Language}){
   const[loading,setLoading]=useState(false);
@@ -1001,6 +1015,7 @@ function GoogleSignInButton({onResult,onError,theme:t,lang}:{onResult:(w:any,tok
 function Writer(p:C){
   const[authTab,setAuthTab]=useState<'login'|'register'>('login');
   const[form,setForm]=useState({username:'',writerName:'',email:'',password:''});
+  const[privacyConsent,setPrivacyConsent]=useState(false);
   const[authErr,setAuthErr]=useState('');
   const[loading,setLoading]=useState(false);
 
@@ -1011,6 +1026,8 @@ function Writer(p:C){
   const[studioTab,setStudioTab]=useState<'dashboard'|'stories'|'profile'|'notifications'|'followers'>('dashboard');
   const[unreadCount,setUnreadCount]=useState(0);
   const[showLogoutConfirm,setShowLogoutConfirm]=useState(false);
+  const[showDeleteConfirm,setShowDeleteConfirm]=useState(false);
+  const[deletingAccount,setDeletingAccount]=useState(false);
   const t=p.theme;
   const isLoggedIn=Boolean(p.state.writer);
   const token=p.state.writerToken||'';
@@ -1027,6 +1044,7 @@ function Writer(p:C){
     if(!form.password){setAuthErr(tr(p,'allFieldsRequired'));return}
     if(authTab==='register'){
       if(!form.username.trim()||!form.writerName.trim()||!form.email.trim()){setAuthErr(tr(p,'allFieldsRequired'));return}
+      if(!privacyConsent){setAuthErr(lang==='bn'?'গোপনীয়তা নীতি মেনে নিন':lang==='hi'?'गोपनीयता नीति स्वीकार करें':'Please agree to Privacy Policy');return}
     }else{
       if(!form.email.trim()){setAuthErr(tr(p,'allFieldsRequired'));return}
     }
@@ -1088,6 +1106,14 @@ function Writer(p:C){
           <TextInput value={form.password} onChangeText={v=>setForm({...form,password:v})} placeholder={tr(p,'password')} placeholderTextColor={t.muted+'88'} secureTextEntry style={{flex:1,color:t.ink,fontSize:14,fontWeight:'400',fontFamily:GF()}}/>
         </View>
       </View>
+      {authTab==='register'&&<Pressable onPress={()=>setPrivacyConsent(!privacyConsent)} style={{flexDirection:'row',alignItems:'flex-start',gap:8,marginBottom:14,marginTop:2}}>
+        <View style={{width:20,height:20,borderRadius:6,borderWidth:1.5,borderColor:privacyConsent?t.primary:t.line,backgroundColor:privacyConsent?t.primary:'transparent',alignItems:'center',justifyContent:'center',marginTop:1}}>
+          {privacyConsent&&<Feather name="check" size={12} color="#fff"/>}
+        </View>
+        <T style={{fontSize:12,color:t.muted,flex:1,lineHeight:18}}>{tr(p,'agreeToPrivacy')}{' '}
+          <T onPress={()=>p.setScreen({type:'terms'})} style={{color:t.primary,fontWeight:'700',textDecorationLine:'underline'}}>{tr(p,'privacyPolicyLink')}</T>
+        </T>
+      </Pressable>}
       {authErr?<View style={{backgroundColor:'#FEF2F2',borderRadius:10,padding:10,marginBottom:12,flexDirection:'row',alignItems:'center',gap:6}}><Feather name="alert-circle" size={14} color="#EF4444"/><T style={{color:'#EF4444',fontSize:12,fontWeight:'500',flex:1}}>{authErr}</T></View>:null}
       <Pressable disabled={loading} onPress={handleAuth} style={{backgroundColor:t.primary,borderRadius:12,height:46,alignItems:'center',justifyContent:'center',opacity:loading?0.6:1}}>
         {loading?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'600',fontSize:14}}>{authTab==='register'?tr(p,'createAccount'):tr(p,'login')}</T>}
@@ -1139,7 +1165,7 @@ function Writer(p:C){
     </View>
     {studioTab==='dashboard'&&<WriterDashboard token={token} theme={t} lang={lang}/>}
     {studioTab==='stories'&&<WriterStories token={token} theme={t} lang={lang} categories={p.allCategories.map(c=>c[0])} setScreen={p.setScreen} onRefresh={p.syncRemote}/>}
-    {studioTab==='profile'&&<WriterProfileStudio token={token} theme={t} writer={p.state.writer} lang={lang} onUpdate={(patch)=>p.update({writer:{...p.state.writer!,...patch}})}/>}
+    {studioTab==='profile'&&<WriterProfileStudio token={token} theme={t} writer={p.state.writer} lang={lang} onUpdate={(patch)=>p.update({writer:{...p.state.writer!,...patch}})} onDeleteAccount={()=>setShowDeleteConfirm(true)}/>}
     {studioTab==='notifications'&&<WriterNotifs token={token} theme={t} lang={lang} deviceID={p.state.deviceId}/>}
     {showLogoutConfirm&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24,zIndex:999}}>
       <View style={{width:'100%',backgroundColor:t.card,borderRadius:22,padding:24,alignItems:'center',borderWidth:1,borderColor:t.line}}>
@@ -1158,6 +1184,27 @@ function Writer(p:C){
           </Pressable>
           <Pressable onPress={()=>{setShowLogoutConfirm(false);p.update({writer:null,writerToken:null,followedWriters:[]})}} style={{flex:1,height:48,borderRadius:14,backgroundColor:'#EF4444',alignItems:'center',justifyContent:'center'}}>
             <T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{lang==='bn'?'হ্যাঁ, লগ আউট':lang==='hi'?'हाँ, लॉग आउट':'Yes, Log out'}</T>
+          </Pressable>
+        </View>
+      </View>
+    </View>}
+    {showDeleteConfirm&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24,zIndex:999}}>
+      <View style={{width:'100%',backgroundColor:t.card,borderRadius:22,padding:24,alignItems:'center',borderWidth:1,borderColor:t.line}}>
+        <View style={{width:56,height:56,borderRadius:28,backgroundColor:'#FEE2E2',alignItems:'center',justifyContent:'center',marginBottom:16}}>
+          <Feather name="trash-2" size={28} color="#EF4444"/>
+        </View>
+        <T style={{fontSize:18,fontWeight:'900',color:t.ink,textAlign:'center',marginBottom:8}}>{lang==='bn'?'অ্যাকাউন্ট মুছে ফেলবেন?':lang==='hi'?'खाता हटाएँ?':'Delete Account?'}</T>
+        <T style={{fontSize:13,color:t.muted,textAlign:'center',lineHeight:20,marginBottom:20}}>
+          {lang==='bn'?'এটি অপরিবর্তনীয়! আপনার সমস্ত গল্প, অনুসারক এবং অ্যাকাউন্ট তথ্য মুছে ফেলা হবে।':
+          lang==='hi'?'यह अपरिवर्तनीय है! आपकी सभी कहानियाँ, अनुयायी और खाता जानकारी हटा दी जाएगी।':
+          'This is irreversible! All your stories, followers and account data will be deleted.'}
+        </T>
+        <View style={{flexDirection:'row',gap:10,width:'100%'}}>
+          <Pressable onPress={()=>setShowDeleteConfirm(false)} style={{flex:1,height:48,borderRadius:14,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
+            <T style={{color:t.primary,fontWeight:'800',fontSize:14}}>{lang==='bn'?'বাতিল':lang==='hi'?'रद्द करें':'Cancel'}</T>
+          </Pressable>
+          <Pressable onPress={async()=>{setDeletingAccount(true);const r=await deleteWriterAccount(token);setDeletingAccount(false);if(r.ok){setShowDeleteConfirm(false);p.update({writer:null,writerToken:null,followedWriters:[]})}else{Alert.alert('',r.error||'Failed')}}} disabled={deletingAccount} style={{flex:1,height:48,borderRadius:14,backgroundColor:'#EF4444',alignItems:'center',justifyContent:'center',opacity:deletingAccount?0.6:1}}>
+            {deletingAccount?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{lang==='bn'?'হ্যাঁ, মুছুন':lang==='hi'?'हाँ, हटाएँ':'Yes, Delete'}</T>}
           </Pressable>
         </View>
       </View>
@@ -1423,6 +1470,129 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated}:{token:
   </View>;
 }
 
+function TermsScreen({theme:t,lang,onBack}:{theme:Theme;lang:Language;onBack:()=>void}){
+  const insets=useSafeAreaInsets();
+  const[tab,setTab]=useState<'terms'|'privacy'|'content'>('terms');
+  const tabs={terms:copy(lang,'termsOfService'),privacy:copy(lang,'privacyPolicy'),content:copy(lang,'contentPolicy')} as const;
+  const content={
+    terms:{title:copy(lang,'termsOfService'),sections:[copy(lang,'termsIntro'),copy(lang,'termsAccept'),copy(lang,'termsUserContent'),copy(lang,'termsConduct'),copy(lang,'termsTermination')]},
+    privacy:{title:copy(lang,'privacyPolicy'),sections:[copy(lang,'privacyIntro'),copy(lang,'privacyData'),copy(lang,'privacyUsage'),copy(lang,'privacySharing'),copy(lang,'privacySecurity'),copy(lang,'privacyChanges')]},
+    content:{title:copy(lang,'contentPolicy'),sections:[copy(lang,'contentIntro'),copy(lang,'contentOwnership'),copy(lang,'contentModeration'),copy(lang,'contentReporting'),copy(lang,'contentMonetization')]}
+  } as const;
+  return <View style={{flex:1,backgroundColor:t.bg}}>
+    <View style={{flexDirection:'row',alignItems:'center',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
+      <Pressable onPress={onBack} hitSlop={10}><Feather name="arrow-left" size={22} color={t.ink}/></Pressable>
+      <T style={{fontSize:16,fontWeight:'900',color:t.ink,marginLeft:14}}>{copy(lang,'termsOfService')}</T>
+    </View>
+    {/* Tab bar */}
+    <View style={{flexDirection:'row',backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
+      {(['terms','privacy','content'] as const).map(k=><Pressable key={k} onPress={()=>setTab(k)} style={{flex:1,paddingVertical:10,alignItems:'center',borderBottomWidth:2,borderBottomColor:tab===k?t.primary:'transparent'}}><T style={{fontSize:11,fontWeight:tab===k?'800':'600',color:tab===k?t.primary:t.muted}}>{tabs[k]}</T></Pressable>)}
+    </View>
+    <ScrollView contentContainerStyle={{padding:16,paddingBottom:40}} showsVerticalScrollIndicator={false}>
+      <View style={{backgroundColor:t.card,borderRadius:12,padding:16,borderWidth:1,borderColor:t.line}}>
+        <T style={{fontSize:14,fontWeight:'800',color:t.ink,marginBottom:4}}>{content[tab].title}</T>
+        <T style={{fontSize:10,color:t.muted,marginBottom:12}}>{copy(lang,'lastUpdated')}: 2026-08-30</T>
+        {content[tab].sections.map((s,i)=><T key={i} style={{fontSize:12,color:t.ink,lineHeight:20,marginBottom:10}}>{s}</T>)}
+      </View>
+      {/* Contact */}
+      <View style={{backgroundColor:t.card,borderRadius:12,padding:14,borderWidth:1,borderColor:t.line,marginTop:12}}>
+        <View style={{flexDirection:'row',alignItems:'center',gap:6,marginBottom:6}}>
+          <Feather name="mail" size={14} color={t.primary}/>
+          <T style={{fontSize:12,fontWeight:'700',color:t.ink}}>{copy(lang,'contactUs')}</T>
+        </View>
+        <T style={{fontSize:11,color:t.muted}}>{copy(lang,'contactEmail')}</T>
+        <T style={{fontSize:11,color:t.muted,marginTop:4}}>{copy(lang,'contactResponse')}</T>
+      </View>
+    </ScrollView>
+  </View>;
+}
+
+function AboutAppScreen({theme:t,lang,onBack}:{theme:Theme;lang:Language;onBack:()=>void}){
+  const insets=useSafeAreaInsets();
+  const[apiData,setApiData]=useState<{title:string;subtitle:string;description:string;features:string[];version:string;developer:string}|null>(null);
+  useEffect(()=>{fetchAbout().then(d=>{if(d&&d.title)setApiData(d)}).catch(()=>{})},[]);
+
+  const defaults:Record<string,{title:string;subtitle:string;desc:string;features:{icon:any;color:string;text:string}[]}>={
+    bn:{title:'Lekhoni Kahini',subtitle:'বাংলা সাহিত্য ও উপন্যাসের এক অনন্য পাঠভুবন',desc:'এখানে পাবেন নতুন ও জনপ্রিয় লেখকদের অসংখ্য উপন্যাস, ছোটগল্প, কবিতা ও বিভিন্ন সাহিত্যকর্ম। নিজের পছন্দের গল্প খুঁজে পড়ুন, প্রিয় লেখকদের অনুসরণ করুন এবং বাংলা সাহিত্যের গল্পে হারিয়ে যান।',features:[{icon:'book-open',color:'#10B981',text:'হাজার হাজার বাংলা গল্প ও উপন্যাস'},{icon:'users',color:'#3B82F6',text:'নতুন ও জনপ্রিয় লেখকদের সৃজনশীল সাহিত্য'},{icon:'wifi-off',color:'#8B5CF6',text:'অফলাইনে পড়ার সুবিধা'},{icon:'feather',color:'#F59E0B',text:'নিজের গল্প লেখা ও প্রকাশের সুযোগ'},{icon:'dollar-sign',color:'#EF4444',text:'গল্প লিখে আয়ের সুযোগ পান'},{icon:'shield',color:'#06B6D4',text:'নিরাপদ ও ব্যবহারকারী-বান্ধব অভিজ্ঞতা'}]},
+    en:{title:'Lekhoni Kahini',subtitle:'Your gateway to Bengali literature & novels',desc:'Discover thousands of novels, short stories, poems and literary works from popular Bengali authors. Find your favorite stories, follow beloved writers and immerse yourself in Bengali literature.',features:[{icon:'book-open',color:'#10B981',text:'Thousands of Bengali stories & novels'},{icon:'users',color:'#3B82F6',text:'Creative works from popular authors'},{icon:'wifi-off',color:'#8B5CF6',text:'Read offline anytime'},{icon:'feather',color:'#F59E0B',text:'Write & publish your own stories'},{icon:'dollar-sign',color:'#EF4444',text:'Earn money by writing stories'},{icon:'shield',color:'#06B6D4',text:'Safe & user-friendly experience'}]},
+    hi:{title:'Lekhoni Kahini',subtitle:'बंगाली साहित्य और उपन्यासों का अनोखा मंच',desc:'यहाँ पाएं नए और लोकप्रिय लेखकों की असंख्य कहानियाँ, लघु कथाएँ, कविताएँ और साहित्यिक कृतियाँ। अपनी पसंदीदा कहानियाँ खोजें, प्रिय लेखकों का अनुसरण करें और बंगाली साहित्य में खो जाएं।',features:[{icon:'book-open',color:'#10B981',text:'हज़ारों बंगाली कहानियाँ और उपन्यास'},{icon:'users',color:'#3B82F6',text:'लोकप्रिय लेखकों की रचनाएँ'},{icon:'wifi-off',color:'#8B5CF6',text:'कभी भी ऑफ़लाइन पढ़ें'},{icon:'feather',color:'#F59E0B',text:'अपनी कहानियाँ लिखें और प्रकाशित करें'},{icon:'dollar-sign',color:'#EF4444',text:'कहानी लिखकर कमाएं'},{icon:'shield',color:'#06B6D4',text:'सुरक्षित और उपयोगकर्ता-अनुकूल'}]}
+  };
+  const d=defaults[lang]||defaults.bn;
+  const finalTitle=apiData?.title||d.title;
+  const finalSubtitle=apiData?.subtitle||d.subtitle;
+  const finalDesc=apiData?.description||d.desc;
+  const finalFeatures=(apiData?.features&&apiData.features.length>0?apiData.features:d.features.map(f=>f.text));
+
+  return <View style={{flex:1,backgroundColor:t.bg}}>
+    <View style={{flexDirection:'row',alignItems:'center',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
+      <Pressable onPress={onBack} hitSlop={10}><Feather name="arrow-left" size={22} color={t.ink}/></Pressable>
+      <T style={{fontSize:16,fontWeight:'900',color:t.ink,marginLeft:14}}>{copy(lang,'aboutApp')}</T>
+    </View>
+    <ScrollView contentContainerStyle={{paddingBottom:40}} showsVerticalScrollIndicator={false}>
+      {/* Compact Hero */}
+      <View style={{backgroundColor:t.primary,paddingTop:28,paddingBottom:32,alignItems:'center',position:'relative',overflow:'hidden'}}>
+        <Svg width={140} height={140} style={{position:'absolute',top:-30,right:-40,opacity:0.07}}>
+          <Circle cx={70} cy={70} r={60} fill="#fff"/>
+          {[0,45,90,135,180,225,270,315].map((r,i)=><Ellipse key={i} cx={70} cy={70} rx={14} ry={42} fill="#fff" transform={`rotate(${r} 70 70)`}/>)}
+        </Svg>
+        <Svg width={100} height={100} style={{position:'absolute',bottom:-20,left:-25,opacity:0.05}}>
+          {[0,60,120,180,240,300].map((r,i)=><Ellipse key={i} cx={50} cy={50} rx={10} ry={35} fill="#fff" transform={`rotate(${r} 50 50)`}/>)}
+        </Svg>
+        <View style={{width:56,height:56,borderRadius:14,backgroundColor:'rgba(255,255,255,0.15)',alignItems:'center',justifyContent:'center',marginBottom:10,borderWidth:1.5,borderColor:'rgba(255,255,255,0.2)'}}>
+          <Feather name="book-open" size={26} color="#fff"/>
+        </View>
+        <T style={{fontSize:18,fontWeight:'900',color:'#fff',marginBottom:4}}>{finalTitle}</T>
+        <T style={{fontSize:11,color:'rgba(255,255,255,0.8)',textAlign:'center',maxWidth:260,lineHeight:16}}>{finalSubtitle}</T>
+      </View>
+      {/* Description */}
+      <View style={{paddingHorizontal:16,marginTop:-14}}>
+        <View style={{backgroundColor:t.card,borderRadius:12,padding:14,borderWidth:1,borderColor:t.line}}>
+          <View style={{flexDirection:'row',alignItems:'center',gap:6,marginBottom:8}}>
+            <View style={{width:22,height:22,borderRadius:6,backgroundColor:t.primary+'18',alignItems:'center',justifyContent:'center'}}>
+              <Feather name="file-text" size={11} color={t.primary}/>
+            </View>
+            <T style={{fontSize:12,fontWeight:'800',color:t.ink}}>{copy(lang,'aboutApp')}</T>
+          </View>
+          <T style={{fontSize:11,color:t.muted,lineHeight:18}}>{finalDesc}</T>
+        </View>
+      </View>
+      {/* Features */}
+      <View style={{paddingHorizontal:16,marginTop:12}}>
+        <T style={{fontSize:12,fontWeight:'800',color:t.ink,marginBottom:8,marginLeft:2}}>{lang==='bn'?'বৈশিষ্ট্য':lang==='hi'?'विशेषताएँ':'Features'}</T>
+        {finalFeatures.map((f,i)=>{
+          const colors=['#10B981','#3B82F6','#8B5CF6','#F59E0B','#EF4444','#06B6D4'];
+          const icons=['book-open','users','wifi-off','feather','dollar-sign','shield'];
+          const c=colors[i%colors.length];
+          return <View key={i} style={{flexDirection:'row',alignItems:'center',gap:10,backgroundColor:t.card,borderRadius:10,padding:10,marginBottom:6,borderWidth:1,borderColor:t.line}}>
+            <View style={{width:28,height:28,borderRadius:8,backgroundColor:c+'18',alignItems:'center',justifyContent:'center'}}>
+              <Feather name={icons[i%icons.length]as any} size={13} color={c}/>
+            </View>
+            <T style={{fontSize:11,fontWeight:'600',color:t.ink,flex:1}}>{f}</T>
+          </View>
+        })}
+      </View>
+      {/* Earning Highlight */}
+      <View style={{paddingHorizontal:16,marginTop:12}}>
+        <View style={{backgroundColor:'#FEF3C7',borderRadius:12,padding:12,borderWidth:1,borderColor:'#F59E0B'}}>
+          <View style={{flexDirection:'row',alignItems:'center',gap:6,marginBottom:6}}>
+            <Feather name="zap" size={14} color="#D97706"/>
+            <T style={{fontSize:11,fontWeight:'800',color:'#92400E'}}>{lang==='bn'?'আয়ের সুযোগ':lang==='hi'?'कमाई का अवसर':'Earning Opportunity'}</T>
+          </View>
+          <T style={{fontSize:10,color:'#78350F',lineHeight:16}}>{lang==='bn'?'আপনি আপনার গল্প লিখে এবং এই অ্যাপে প্রকাশ করে আয় করতে পারবেন। আপনার গল্প যত বেশি পড়া হবে, তত বেশি আয় হবে।':lang==='hi'?'आप अपनी कहानी लिखकर और इस ऐप पर प्रकाशित करके कमा सकते हैं। जितनी ज़्यादा आपकी कहानी पढ़ी जाएगी, उतनी ज़्यादा कमाई होगी।':'Write stories and publish on this app to earn. The more your stories are read, the more you earn.'}</T>
+        </View>
+      </View>
+      {/* Footer */}
+      <View style={{paddingHorizontal:16,marginTop:16,alignItems:'center'}}>
+        <View style={{flexDirection:'row',alignItems:'center',gap:4,marginBottom:4}}>
+          <Feather name="heart" size={11} color="#EF4444"/>
+          <T style={{fontSize:10,color:t.muted}}>{apiData?.developer||'Kawsar Hosen'}</T>
+        </View>
+        <T style={{fontSize:9,color:t.muted}}>Version {apiData?.version||'1.0.0'}</T>
+      </View>
+    </ScrollView>
+  </View>;
+}
+
 function EditStoryScreen({token,theme:t,lang,storyId,initialTitle,initialDesc,initialCover,initialWriterStatus,onBack,onSaved}:{token:string;theme:Theme;lang:Language;storyId:string;initialTitle:string;initialDesc:string;initialCover:string|null;initialWriterStatus:string;onBack:()=>void;onSaved:()=>void}){
   const insets=useSafeAreaInsets();
   const[title,setTitle]=useState(initialTitle);
@@ -1607,7 +1777,7 @@ function WriterStories({token,theme:t,lang,categories,setScreen,onRefresh}:{toke
   </View>}
   </View>}
 
-function WriterProfileStudio({token,theme:t,writer,lang,onUpdate}:{token:string;theme:Theme;writer:any;lang:Language;onUpdate:(patch:any)=>void}){
+function WriterProfileStudio({token,theme:t,writer,lang,onUpdate,onDeleteAccount}:{token:string;theme:Theme;writer:any;lang:Language;onUpdate:(patch:any)=>void;onDeleteAccount:()=>void}){
   const[editing,setEditing]=useState(false);
   const[name,setName]=useState(writer?.writer_name||'');
   const[username,setUsername]=useState(writer?.username||'');
@@ -1630,7 +1800,8 @@ function WriterProfileStudio({token,theme:t,writer,lang,onUpdate}:{token:string;
     if(r.ok){setSaved(true);onUpdate({writer_name:name.trim(),bio:bio.trim(),avatar_url:avatar||undefined,username:username.trim()||undefined});setTimeout(()=>{setSaved(false);setEditing(false)},1500)}
     else setErr(r.error==='Username already taken'?copy(lang,'usernameTaken'):r.error||'');
   };
-  return <ScrollView showsVerticalScrollIndicator={false}>
+  return <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={Platform.OS==='ios'?90:0}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:40}} keyboardShouldPersistTaps="handled">
     <View style={{alignItems:'center',marginBottom:20}}>
       <Pressable onPress={editing?handlePickAvatar:()=>setEditing(true)} disabled={uploadingImg} style={{marginBottom:10}}>
         {uploadingImg?<View style={{width:90,height:90,borderRadius:45,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}><ActivityIndicator size="small" color={t.primary}/></View>:
@@ -1682,7 +1853,15 @@ function WriterProfileStudio({token,theme:t,writer,lang,onUpdate}:{token:string;
       <Pressable disabled={saving} onPress={handleSave} style={{backgroundColor:saved?'#10B981':t.primary,borderRadius:12,paddingVertical:12,alignItems:'center'}}>
         {saving?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{saved?'✓ '+copy(lang,'saved'):copy(lang,'save')}</T>}
       </Pressable></View>}
-  </ScrollView>}
+      {/* Delete Account */}
+      {!editing&&<View style={{marginTop:20,paddingTop:20,borderTopWidth:1,borderTopColor:t.line}}>
+        <T style={{fontSize:11,color:t.muted,textAlign:'center',marginBottom:10}}>{lang==='bn'?'বিপজ্জনক এলাকা':lang==='hi'?'खतरनाक क्षेत्र':'Danger Zone'}</T>
+        <Pressable onPress={onDeleteAccount} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',backgroundColor:'#FEE2E2',borderRadius:12,paddingVertical:12,gap:6}}>
+          <Feather name="trash-2" size={16} color="#EF4444"/>
+          <T style={{fontSize:13,fontWeight:'700',color:'#EF4444'}}>{lang==='bn'?'অ্যাকাউন্ট মুছুন':lang==='hi'?'खाता हटाएँ':'Delete Account'}</T>
+        </Pressable>
+      </View>}
+  </ScrollView></KeyboardAvoidingView>}
 
 function WriterFollowers({token,theme:t,lang}:{token:string;theme:Theme;lang:Language}){
   const[followers,setFollowers]=useState<{id:string;username:string;writer_name:string;bio?:string;avatar_url?:string;follower_count?:number;badge?:string}[]>([]);

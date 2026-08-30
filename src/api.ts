@@ -187,6 +187,11 @@ export async function fetchPublicWriters(): Promise<Writer[]> {
   return (await apiFetch<Writer[]>('/api/public/writers')) || [];
 }
 
+export type AboutData = { title: string; subtitle: string; description: string; features: string[]; version: string; developer: string };
+export async function fetchAbout(): Promise<AboutData | null> {
+  return (await apiFetch<AboutData>('/api/public/about')) || null;
+}
+
 // --- Follows ---
 export async function fetchFollowedWriters(deviceId: string): Promise<Writer[]> {
   return (await apiFetch<Writer[]>(`/api/public/follows?device_id=${deviceId}`)) || [];
@@ -286,6 +291,22 @@ export async function updateWriterProfile(token: string, patch: { writer_name?: 
     const body = await res.json().catch(() => null);
     if (!res.ok) return { ok: false, error: body?.error || `HTTP ${res.status}` };
     return body || { ok: true };
+  } catch { return { ok: false, error: 'Network error' }; }
+}
+
+export async function deleteWriterAccount(token: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT);
+    const res = await fetch(`${API_BASE}/api/writer/account`, {
+      method: 'DELETE',
+      signal: controller.signal,
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    clearTimeout(timer);
+    const body = await res.json().catch(() => null);
+    if (!res.ok) return { ok: false, error: body?.error || `HTTP ${res.status}` };
+    return { ok: true };
   } catch { return { ok: false, error: 'Network error' }; }
 }
 

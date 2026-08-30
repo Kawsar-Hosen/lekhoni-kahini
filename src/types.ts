@@ -21,6 +21,7 @@ export type LocalState = {
   writerToken?: string | null;
   followedWriters: WriterProfile[];
   readingActivity: Record<string, { minutes: number; episodes: number }>;
+  ageVerified?: boolean;
 };
 export type Route =
   | { name: 'main' }
