@@ -346,3 +346,15 @@ export async function submitStoryForReview(token: string, storyId: string): Prom
   });
   return Boolean(r?.ok);
 }
+
+export async function submitReport(bookId: string, reason: string, details: string, deviceId: string, reporterName: string): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const r = await fetch(`${API_BASE}/api/reports`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ book_id: bookId, reason, details, device_id: deviceId, reporter_name: reporterName }),
+    });
+    const data = await r.json();
+    return { ok: Boolean(data?.ok), error: data?.error };
+  } catch { return { ok: false, error: 'Network error' }; }
+}

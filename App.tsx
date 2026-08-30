@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initialState, loadState, saveState, clearState } from './src/storage';
 import { Book, LocalState, Language } from './src/types';
 import { copy, CopyKey } from './src/i18n';
-import { fetchRemoteBooks, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, fetchFollowedWriters, writerSignup, writerLogin, writerGoogleAuth, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, updateWriterStory, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchRemoteComments, submitComment, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionsData, fetchWriterFollowers, fetchAbout, deleteWriterAccount } from './src/api';
+import { fetchRemoteBooks, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, fetchFollowedWriters, writerSignup, writerLogin, writerGoogleAuth, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, updateWriterStory, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchRemoteComments, submitComment, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionsData, fetchWriterFollowers, fetchAbout, deleteWriterAccount, submitReport } from './src/api';
 import { pickAndResizeImage } from './src/imageUpload';
 
 type Tab = 'home'|'library'|'categories'|'episodes'|'profile';
@@ -699,16 +699,26 @@ function Details(p:C&{book:Book}){const b=p.book;if(!b)return <Page theme={p.the
   const doLike=()=>{if(liked){setLiked(false);setLikes(l=>Math.max(0,l-1));setRxn(undefined);Vibration.vibrate(30);toggleBookLike(p.state.deviceId,b.id,false).then(r=>{if(r>=0)setLikes(r)});}else{setLiked(true);setDisliked(false);setLikes(l=>l+1);setRxn('like');Vibration.vibrate([0,40,40,80]);bumpLike();toggleBookLike(p.state.deviceId,b.id,true).then(r=>{if(r>=0)setLikes(r)});}};
   const doDislike=()=>{if(disliked){setDisliked(false);setRxn(undefined);}else{setDisliked(true);setLiked(false);setRxn('dislike');Vibration.vibrate([0,40]);}};
   const likeScale=likeAnim.interpolate({inputRange:[0,1],outputRange:[0.5,1]});
-  const doDownload=()=>{if(isOffline){p.removeDownload(b.id);return}if(!haveContent){Alert.alert(tr(p,'details'),'এই বইটিতে এখনো পড়ার মতো কোনো অধ্যায় নেই। যুক্ত হলে ডাউনলোড করা যাবে।');return}if(dlPct!==null)return;let pct=0;setDlPct(0);Vibration.vibrate(30);dlTimer.current=setInterval(()=>{pct+=Math.random()*6+5;if(pct>=100){pct=100;clearInterval(dlTimer.current);dlTimer.current=null;setDlPct(100);p.downloadBook(b.id);Vibration.vibrate([0,40,40,80]);setTimeout(()=>setDlPct(null),1600)}else setDlPct(Math.floor(pct))},110)};
+  const doDownload=()=>{if(isOffline){p.removeDownload(b.id);return}if(!haveContent){Alert.alert(tr(p,'details'),p.state.settings.language==='bn'?'এই বইটিতে এখনো পড়ার মতো কোনো অধ্যায় নেই। যুক্ত হলে ডাউনলোড করা যাবে।':p.state.settings.language==='hi'?'इस किताब में अभी पढ़ने लायक कोई अध्याय नहीं है। जोड़ने पर डाउनलोड हो जाएगा।':'This book has no readable chapters yet. It will be downloadable once chapters are added.');return}if(dlPct!==null)return;let pct=0;setDlPct(0);Vibration.vibrate(30);dlTimer.current=setInterval(()=>{pct+=Math.random()*6+5;if(pct>=100){pct=100;clearInterval(dlTimer.current);dlTimer.current=null;setDlPct(100);p.downloadBook(b.id);Vibration.vibrate([0,40,40,80]);setTimeout(()=>setDlPct(null),1600)}else setDlPct(Math.floor(pct))},110)};
   const goComments=()=>p.setScreen({type:'comments',id:b.id});const readAll=()=>p.read(b.id,0);
   const toggleFav=()=>{Vibration.vibrate(20);fav?p.update({favorites:p.state.favorites.filter(x=>x!==b.id)}):p.update({favorites:[...p.state.favorites,b.id]})};
+  const goWriter=()=>{const w=p.publicWriters.find((x:import('./src/types').WriterProfile)=>x.writer_name===b.author);if(w){p.setScreen({type:'writerProfile',writer:w})}else{p.setScreen({type:'writerProfile',writer:{id:b.id,username:b.author,writer_name:b.author,bio:'',avatar_url:null,follower_count:0,badge:'none'}})}};
+  const totalMins=b.chapters.reduce((s,c)=>s+(c.minutes||0),0);
+  const lastChapter=p.state.positions?.[b.id+'_lastChapter']??0;const hasStarted=lastChapter>0;const continueIdx=hasStarted?lastChapter:0;
+  const [showMoreMenu,setShowMoreMenu]=useState(false);
+  const [showReport,setShowReport]=useState(false);
+  const [reportReason,setReportReason]=useState('');
+  const [reportDetails,setReportDetails]=useState('');
+  const [reportSent,setReportSent]=useState(false);
+  const [reporting,setReporting]=useState(false);
+  const doReport=async()=>{if(!reportReason||reporting)return;setReporting(true);const r=await submitReport(b.id,reportReason,reportDetails,p.state.deviceId,p.state.name||'Anonymous');setReporting(false);if(r.ok){setReportSent(true);setTimeout(()=>{setShowReport(false);setReportSent(false);setReportReason('');setReportDetails('')},2000)}else{Alert.alert(tr(p,'report'),r.error||tr(p,'reportError'))}};
   return <Page theme={t}>
     <Animated.View style={{opacity:fade}}>
       <View style={dStyles.nav}>
         <Pressable onPress={()=>p.setScreen({type:'main'})} hitSlop={10} style={[dStyles.navBtn,{backgroundColor:t.card,borderColor:t.line}]}><Feather name="arrow-left" size={19} color={t.ink}/></Pressable>
         <T numberOfLines={1} style={[dStyles.navTitle,{color:t.ink}]}>{b.title}</T>
         <Pressable onPress={toggleFav} hitSlop={8} style={[dStyles.navBtn,{backgroundColor:fav?'#EF4444':t.card,borderColor:fav?'#EF4444':t.line}]}><Feather name="heart" size={17} color={fav?'#fff':t.ink}/></Pressable>
-        <Pressable onPress={()=>Share.share({message:`${b.title} - ${b.author}`})} hitSlop={8} style={[dStyles.navBtn,{backgroundColor:t.card,borderColor:t.line}]}><Feather name="share-2" size={17} color={t.ink}/></Pressable>
+        <Pressable onPress={()=>setShowMoreMenu(true)} hitSlop={8} style={[dStyles.navBtn,{backgroundColor:t.card,borderColor:t.line}]}><Feather name="more-vertical" size={17} color={t.ink}/></Pressable>
       </View>
       <View style={[dStyles.panel,{borderColor:'#00000022'}]}>
         <LinearGradient colors={[base,dark]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
@@ -716,38 +726,99 @@ function Details(p:C&{book:Book}){const b=p.book;if(!b)return <Page theme={p.the
         <View style={dStyles.storyCard}>
           <View style={dStyles.coverBox}><Cover book={b}/></View>
           <View style={dStyles.storyInfo}>
-            <View style={{flexDirection:'row',alignItems:'center',gap:6}}>
+            <View style={{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap'}}>
               <View style={[dStyles.statusBadge,{backgroundColor:accent+'2E'}]}><Feather name={I(b.categoryIcon)} size={11} color={accent}/><T style={{color:accent,fontSize:10.5,fontWeight:'900'}}>{b.category||tr(p,'chapters')}</T></View>
-              {b.writer_status==='ongoing'&&<View style={[dStyles.statusBadge,{backgroundColor:'#10B9812E'}]}><Feather name="loader" size={10} color="#10B981"/><T style={{color:'#10B981',fontSize:10,fontWeight:'900'}}>ধারাবাহিক</T></View>}
-              {b.writer_status==='complete'&&<View style={[dStyles.statusBadge,{backgroundColor:'#F59E0B2E'}]}><Feather name="check-circle" size={10} color="#F59E0B"/><T style={{color:'#F59E0B',fontSize:10,fontWeight:'900'}}>সম্পূর</T></View>}
+              {b.writer_status==='ongoing'&&<View style={[dStyles.statusBadge,{backgroundColor:'#10B9812E'}]}><Feather name="loader" size={10} color="#10B981"/><T style={{color:'#10B981',fontSize:10,fontWeight:'900'}}>{copy(p.state.settings.language,'statusOngoing')}</T></View>}
+              {b.writer_status==='complete'&&<View style={[dStyles.statusBadge,{backgroundColor:'#F59E0B2E'}]}><Feather name="check-circle" size={10} color="#F59E0B"/><T style={{color:'#F59E0B',fontSize:10,fontWeight:'900'}}>{copy(p.state.settings.language,'statusComplete')}</T></View>}
             </View>
             <T numberOfLines={2} style={dStyles.storyTitle}>{b.title}</T>
-            <T numberOfLines={1} style={dStyles.storyAuthor}>{b.author}</T>
+            <Pressable onPress={goWriter} style={{flexDirection:'row',alignItems:'center',gap:6,marginTop:2}}>
+              <View style={{width:20,height:20,borderRadius:10,backgroundColor:'#ffffff2E',alignItems:'center',justifyContent:'center'}}><Feather name="user" size={10} color="#EAF4F1"/></View>
+              <T numberOfLines={1} style={dStyles.storyAuthor}>{b.author}</T>
+              <Feather name="chevron-right" size={12} color="#EAF4F199"/>
+            </Pressable>
             <View style={dStyles.tagRow}>
               <View style={[dStyles.miniTag,{backgroundColor:'#ffffff1F'}]}><Feather name="star" size={10} color={accent}/><T style={dStyles.miniTagT}>{b.rating}</T></View>
               <View style={[dStyles.miniTag,{backgroundColor:'#ffffff1F'}]}><Feather name="book-open" size={10} color="#EAF4F1"/><T style={dStyles.miniTagT}>{b.chapters.length} {tr(p,'chapters')}</T></View>
-              {b.isNew?<View style={[dStyles.miniTag,{backgroundColor:'#F59E0B'}]}><T style={dStyles.miniTagT}>নতুন</T></View>:null}
+              {totalMins>0&&<View style={[dStyles.miniTag,{backgroundColor:'#ffffff1F'}]}><Feather name="clock" size={10} color="#EAF4F1"/><T style={dStyles.miniTagT}>{totalMins} {tr(p,'mins')}</T></View>}
+              {b.isNew?<View style={[dStyles.miniTag,{backgroundColor:'#F59E0B'}]}><T style={dStyles.miniTagT}>{copy(p.state.settings.language,'statusNew')}</T></View>:null}
             </View>
           </View>
         </View>
       </View>
       <View style={[dStyles.interRow,{backgroundColor:t.card,borderColor:t.line}]}>
-        {b.views_visible!==false?<View style={dStyles.statItem}><Feather name="eye" size={15} color={t.muted}/><T style={[dStyles.statVal,{color:t.ink}]}>{b.views}</T></View>:null}
-        <View style={dStyles.statItem}><Animated.View style={{transform:[{scale:likeScale}]}}><Pressable onPress={doLike} hitSlop={8} style={[dStyles.ytBtn,{width:38,height:38,borderRadius:19,borderColor:liked?'#EF4444':t.line,backgroundColor:liked?'#EF4444':'transparent'}]}><Feather name="thumbs-up" size={15} color={liked?'#fff':t.ink}/></Pressable></Animated.View><T style={[dStyles.statVal,{color:liked?'#EF4444':t.ink}]}>{likes}</T></View>
-        <Pressable onPress={doDislike} hitSlop={8} style={dStyles.statItem}><View style={[dStyles.ytBtn,{width:38,height:38,borderRadius:19,borderColor:disliked?'#3B82F6':t.line,backgroundColor:disliked?'#3B82F6':'transparent'}]}><Feather name="thumbs-down" size={14} color={disliked?'#fff':t.ink}/></View></Pressable>
-        <Pressable onPress={goComments} hitSlop={8} style={dStyles.statItem}><Feather name="message-circle" size={16} color={cmtCount==null?'#90A4AE':t.primary}/><T style={[dStyles.statVal,{color:cmtCount==null?t.muted:t.primary}]}>{cmtCount==null?'…':cmtCount}</T></Pressable>
-        <Pressable onPress={toggleFav} hitSlop={8} style={dStyles.statItem}><Feather name="bookmark" size={16} color={fav?'#EF4444':t.muted}/></Pressable>
+        {b.views_visible!==false?<View style={[dStyles.statItem,{flex:1,justifyContent:'flex-start'}]}><Feather name="eye" size={15} color={t.muted}/><T style={[dStyles.statVal,{color:t.ink}]}>{b.views}</T></View>:null}
+        <View style={[dStyles.statItem,{flex:2,justifyContent:'flex-end'}]}>
+          <View style={[dStyles.statItem]}>
+            <Animated.View style={{transform:[{scale:likeScale}]}}>
+              <Pressable onPress={doLike} hitSlop={8} style={[dStyles.ytBtn,{width:34,height:34,borderRadius:17,borderColor:liked?'#EF4444':t.line,backgroundColor:liked?'#EF4444':'transparent'}]}>
+                <Feather name="thumbs-up" size={14} color={liked?'#fff':t.ink}/>
+              </Pressable>
+            </Animated.View>
+            <T style={[dStyles.statVal,{color:liked?'#EF4444':t.ink,fontSize:12}]}>{likes}</T>
+          </View>
+          <View style={[dStyles.statItem]}>
+            <Pressable onPress={doDislike} hitSlop={8} style={[dStyles.ytBtn,{width:34,height:34,borderRadius:17,borderColor:disliked?'#3B82F6':t.line,backgroundColor:disliked?'#3B82F6':'transparent'}]}>
+              <Feather name="thumbs-down" size={13} color={disliked?'#fff':t.ink}/>
+            </Pressable>
+          </View>
+          <View style={[dStyles.statItem]}>
+            <Pressable onPress={goComments} hitSlop={8} style={[dStyles.ytBtn,{width:34,height:34,borderRadius:17,borderColor:cmtCount==null?'#90A4AE':t.primary,backgroundColor:cmtCount==null?'transparent':t.primary+'22'}]}>
+              <Feather name="message-circle" size={14} color={cmtCount==null?'#90A4AE':t.primary}/>
+            </Pressable>
+            <T style={[dStyles.statVal,{color:cmtCount==null?t.muted:t.primary,fontSize:12}]}>{cmtCount==null?'…':cmtCount}</T>
+          </View>
+        </View>
       </View>
-      <Pressable onPress={readAll} style={[dStyles.readBtn,{backgroundColor:t.primary,marginTop:2,marginBottom:10}]}><Feather name="book-open" size={18} color="#fff"/><T style={dStyles.readBtnTxt}>{tr(p,'startReading')}</T></Pressable>
+      {hasStarted?<Pressable onPress={()=>p.read(b.id,continueIdx)} style={[dStyles.readBtn,{backgroundColor:t.primary,marginTop:10,marginBottom:10}]}><Feather name="play" size={18} color="#fff"/><T style={dStyles.readBtnTxt}>{tr(p,'continueReading')}</T></Pressable>:
+      <Pressable onPress={readAll} style={[dStyles.readBtn,{backgroundColor:t.primary,marginTop:10,marginBottom:10}]}><Feather name="book-open" size={18} color="#fff"/><T style={dStyles.readBtnTxt}>{tr(p,'startReading')}</T></Pressable>}
       {isOffline?<Pressable onPress={doDownload} style={[dStyles.dlBtn,{backgroundColor:'#10B981',borderColor:'#10B981'}]}><Feather name="check-circle" size={18} color="#fff"/><T style={{color:'#fff',fontWeight:'900',fontSize:15}}>{tr(p,'readOffline')}</T></Pressable>:
       dlPct!==null?<View style={[dStyles.dlBtn,{backgroundColor:t.card,borderColor:t.line}]}><Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Path d="M12 3v10m0 0l-4-4m4 4l4-4" stroke={t.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></Svg><T style={{color:t.primary,fontWeight:'900',fontSize:14}}>{tr(p,'downloading')}… {dlPct}%</T></View>:
       <Pressable onPress={doDownload} style={[dStyles.dlBtn,{backgroundColor:t.card,borderColor:t.line}]}><Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Path d="M12 3v10m0 0l-4-4m4 4l4-4" stroke={t.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/><Path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke={t.primary} strokeWidth={2} strokeLinecap="round"/></Svg><T style={{color:t.primary,fontWeight:'900',fontSize:15}}>{tr(p,'readOffline')}</T></Pressable>}
       <Section title={tr(p,'chapters')} theme={t}/>
-      {b.chapters.length?b.chapters.map((c,i)=><Pressable key={c.id} onPress={()=>p.read(b.id,i)} style={[dStyles.chapter,{backgroundColor:t.card,borderColor:t.line}]}><View style={[dStyles.numBadge,{backgroundColor:accent+'1F'}]}><T style={{color:accent,fontWeight:'900',fontSize:13}}>{i+1}</T></View><View style={{flex:1}}><T style={[styles.rowTitle,{color:t.ink}]}>{c.title}</T><T style={{color:t.muted,fontSize:11,marginTop:2}}>অধ্যায় {i+1} • {c.minutes} মিনিট</T></View><Feather name="chevron-right" size={18} color={t.muted}/></Pressable>):<Empty theme={t}/>}
+      {b.chapters.length?b.chapters.map((c,i)=><Pressable key={c.id} onPress={()=>p.read(b.id,i)} style={[dStyles.chapter,{backgroundColor:t.card,borderColor:t.line}]}><View style={[dStyles.numBadge,{backgroundColor:accent+'1F'}]}><T style={{color:accent,fontWeight:'900',fontSize:13}}>{i+1}</T></View><View style={{flex:1}}><T numberOfLines={1} style={[styles.rowTitle,{color:t.ink}]}>{c.title}</T><T style={{color:t.muted,fontSize:11,marginTop:2}}>{copy(p.state.settings.language,'chapterLabel')} {i+1} • {c.minutes} {tr(p,'mins')}</T></View><Feather name="chevron-right" size={18} color={t.muted}/></Pressable>):<Empty theme={t}/>}
       <Section title={tr(p,'summary')} theme={t}/>
-      <View style={[dStyles.sumCard,{backgroundColor:t.card,borderColor:t.line}]}><T style={{color:t.ink,lineHeight:23}}>{b.description||'—'}</T></View>
-      <Pressable onPress={()=>Share.share({message:`${b.title} - ${b.author}`})} style={[dStyles.shareBtn,{borderColor:t.line}]}><Feather name="share-2" size={18} color={t.primary}/><T style={{color:t.ink,fontWeight:'800'}}>{tr(p,'shareBook')}</T></Pressable>
+      <View style={[dStyles.sumCard,{backgroundColor:t.card,borderColor:t.line}]}>
+        <T style={{color:t.ink,lineHeight:23}}>{b.description||'—'}</T>
+        {totalMins>0&&<View style={{flexDirection:'row',alignItems:'center',gap:6,marginTop:12,paddingTop:12,borderTopWidth:1,borderTopColor:t.line}}><Feather name="clock" size={14} color={t.primary}/><T style={{fontSize:13,color:t.muted,fontWeight:'700'}}>{tr(p,'totalReadTime')}: {totalMins} {tr(p,'mins')}</T></View>}
+      </View>
     </Animated.View>
+    {showMoreMenu&&<Pressable onPress={()=>setShowMoreMenu(false)} style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'flex-end',zIndex:100}}>
+      <Pressable onPress={()=>{}} style={{backgroundColor:t.card,borderTopLeftRadius:24,borderTopRightRadius:24,paddingHorizontal:20,paddingTop:20,paddingBottom:40}}>
+        <View style={{width:40,height:4,backgroundColor:t.line,borderRadius:2,alignSelf:'center',marginBottom:20}}/>
+        <Pressable onPress={()=>{setShowMoreMenu(false);Share.share({message:`${b.title} - ${b.author}`})}} style={{flexDirection:'row',alignItems:'center',gap:14,paddingVertical:16,borderBottomWidth:1,borderBottomColor:t.line}}>
+          <View style={{width:40,height:40,borderRadius:20,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}><Feather name="share-2" size={18} color={t.primary}/></View>
+          <T style={{fontSize:15,fontWeight:'700',color:t.ink}}>{tr(p,'shareBook')}</T>
+        </Pressable>
+        <Pressable onPress={()=>{setShowMoreMenu(false);setShowReport(true)}} style={{flexDirection:'row',alignItems:'center',gap:14,paddingVertical:16}}>
+          <View style={{width:40,height:40,borderRadius:20,backgroundColor:'#FEF2F2',alignItems:'center',justifyContent:'center'}}><Feather name="flag" size={18} color="#EF4444"/></View>
+          <T style={{fontSize:15,fontWeight:'700',color:'#EF4444'}}>{tr(p,'reportStory')}</T>
+        </Pressable>
+      </Pressable>
+    </Pressable>}
+    {showReport&&<Pressable onPress={()=>{setShowReport(false);setReportSent(false);setReportReason('');setReportDetails('')}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24,zIndex:101}}>
+      <Pressable onPress={()=>{}} style={{width:'100%',backgroundColor:t.card,borderRadius:20,padding:24}}>
+        {reportSent?<View style={{alignItems:'center',paddingVertical:20}}>
+          <View style={{width:60,height:60,borderRadius:30,backgroundColor:'#ECFDF5',alignItems:'center',justifyContent:'center',marginBottom:14}}><Feather name="check-circle" size={30} color="#10B981"/></View>
+          <T style={{fontSize:16,fontWeight:'800',color:t.ink,textAlign:'center'}}>{tr(p,'reportThanks')}</T>
+        </View>:<>
+          <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:18}}>
+            <T style={{fontSize:17,fontWeight:'900',color:t.ink}}>{tr(p,'reportStory')}</T>
+            <Pressable onPress={()=>{setShowReport(false);setReportReason('');setReportDetails('')}}><Feather name="x" size={20} color={t.muted}/></Pressable>
+          </View>
+          <T style={{fontSize:13,fontWeight:'700',color:t.muted,marginBottom:10}}>{tr(p,'reportReason')}</T>
+          {[{k:'abusive',l:tr(p,'reportAbusive'),c:'#EF4444'},{k:'spam',l:tr(p,'reportSpam'),c:'#F59E0B'},{k:'hate',l:tr(p,'reportHate'),c:'#8B5CF6'},{k:'violence',l:tr(p,'reportViolence'),c:'#DC2626'},{k:'inappropriate',l:tr(p,'reportInappropriate'),c:'#F97316'},{k:'other',l:tr(p,'reportOther'),c:'#6B7280'}].map(r=>{const sel=reportReason===r.k;return <Pressable key={r.k} onPress={()=>setReportReason(r.k)} style={{flexDirection:'row',alignItems:'center',gap:10,paddingVertical:11,paddingHorizontal:12,borderRadius:10,marginBottom:6,backgroundColor:sel?r.c+'18':t.bg,borderWidth:1.5,borderColor:sel?r.c:t.line}}>
+            <View style={{width:20,height:20,borderRadius:10,borderWidth:2,borderColor:sel?r.c:t.muted,alignItems:'center',justifyContent:'center'}}>{sel?<View style={{width:10,height:10,borderRadius:5,backgroundColor:r.c}}/>:null}</View>
+            <T style={{fontSize:14,fontWeight:sel?'800':'600',color:sel?r.c:t.ink,flex:1}}>{r.l}</T>
+          </Pressable>})}
+          <T style={{fontSize:13,fontWeight:'700',color:t.muted,marginBottom:8,marginTop:4}}>{tr(p,'reportDetails')}</T>
+          <TextInput value={reportDetails} onChangeText={setReportDetails} multiline placeholder={tr(p,'reportDetails')} placeholderTextColor={t.muted+'88'} style={{backgroundColor:t.bg,borderWidth:1,borderColor:t.line,borderRadius:12,padding:12,minHeight:70,color:t.ink,fontSize:14,fontWeight:'500',textAlignVertical:'top',marginBottom:16}}/>
+          <Pressable disabled={!reportReason||reporting} onPress={doReport} style={{backgroundColor:!reportReason?'#90A4AE':'#EF4444',borderRadius:12,paddingVertical:14,alignItems:'center',opacity:reporting?.6:1}}>
+            {reporting?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:15}}>{tr(p,'reportSubmit')}</T>}
+          </Pressable>
+        </>}
+      </Pressable>
+    </Pressable>}
   </Page>}
 function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x=>x.id===p.bookId)||p.dlBooks[p.bookId];const [items,setItems]=useState<{id:string;display_name:string;body:string;created_at:string}[]>([]);const [draft,setDraft]=useState('');const [posting,setPosting]=useState(false);const [loading,setLoading]=useState(true);
   const load=()=>fetchRemoteComments(p.bookId).then(c=>{if(c&&Array.isArray(c))setItems(c as any)}).finally(()=>setLoading(false));
@@ -1901,8 +1972,8 @@ function WriterNotifs({token,theme:t,lang,deviceID}:{token:string;theme:Theme;la
     const ok=await followWriter(deviceID,fwid);
     if(ok)setFollowedBack(p=>({...p,[nid]:true}));
   };
-  const typeIcon=(type:string)=>type==='approved'?'check-circle':type==='rejected'?'x-circle':type==='info'?'info':type==='follow'?'user-plus':'bell';
-  const typeColor=(type:string)=>type==='approved'?'#10B981':type==='rejected'?'#EF4444':type==='follow'?'#EC4899':'#6366F1';
+  const typeIcon=(type:string)=>type==='approved'?'check-circle':type==='rejected'?'x-circle':type==='warning'?'alert-triangle':type==='removed'?'trash-2':type==='info'?'info':type==='follow'?'user-plus':'bell';
+  const typeColor=(type:string)=>type==='approved'?'#10B981':type==='rejected'?'#EF4444':type==='warning'?'#F59E0B':type==='removed'?'#DC2626':type==='follow'?'#EC4899':'#6366F1';
   return <View style={{flex:1}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
       <T style={{fontSize:16,fontWeight:'900',color:t.ink}}>{copy(lang,'notifications')}</T>
