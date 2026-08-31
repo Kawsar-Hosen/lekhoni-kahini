@@ -25,12 +25,53 @@ function SplashScreen({theme}:{theme:Theme}){
   const[typed,setTyped]=useState('');
   const full='লেখনী কাহিনী';
   const{height}=useWindowDimensions();
-  useEffect(()=>{let i=0;const iv=setInterval(()=>{i++;setTyped(full.slice(0,i));if(i>=full.length)clearInterval(iv)},70);return()=>clearInterval(iv)},[]);
-  return <View style={{flex:1,backgroundColor:'#087A63',alignItems:'center',justifyContent:'center'}}>
-    <Image source={require('./assets/icon.png')} style={{width:100,height:100,borderRadius:24}} resizeMode="contain"/>
-    <T style={{color:'#fff',fontSize:30,fontWeight:'900',letterSpacing:1,fontFamily:'HindSiliguriMedium',marginTop:20}}>{typed}</T>
-    <View style={{position:'absolute',bottom:80,alignItems:'center'}}>
-      <T style={{color:'rgba(255,255,255,0.4)',fontSize:11,fontWeight:'600'}}>Version 1.0 • XYTEEE</T>
+  const fadeAnim=useRef(new Animated.Value(0)).current;
+  const scaleAnim=useRef(new Animated.Value(0.8)).current;
+  const glowAnim=useRef(new Animated.Value(0.3)).current;
+  const circle1=useRef(new Animated.Value(0)).current;
+  const circle2=useRef(new Animated.Value(0)).current;
+  const circle3=useRef(new Animated.Value(0)).current;
+  useEffect(()=>{
+    Animated.parallel([
+      Animated.timing(fadeAnim,{toValue:1,duration:800,useNativeDriver:true}),
+      Animated.spring(scaleAnim,{toValue:1,friction:6,useNativeDriver:true}),
+    ]).start();
+    Animated.loop(Animated.sequence([
+      Animated.timing(glowAnim,{toValue:0.7,duration:1500,useNativeDriver:true}),
+      Animated.timing(glowAnim,{toValue:0.3,duration:1500,useNativeDriver:true}),
+    ])).start();
+    Animated.loop(Animated.sequence([
+      Animated.parallel([
+        Animated.timing(circle1,{toValue:1,duration:3000,easing:Easing.out(Easing.cubic),useNativeDriver:true}),
+        Animated.timing(circle2,{toValue:1,duration:3500,easing:Easing.out(Easing.cubic),useNativeDriver:true}),
+        Animated.timing(circle3,{toValue:1,duration:4000,easing:Easing.out(Easing.cubic),useNativeDriver:true}),
+      ]),
+      Animated.parallel([
+        Animated.timing(circle1,{toValue:0,duration:3000,easing:Easing.in(Easing.cubic),useNativeDriver:true}),
+        Animated.timing(circle2,{toValue:0,duration:3500,easing:Easing.in(Easing.cubic),useNativeDriver:true}),
+        Animated.timing(circle3,{toValue:0,duration:4000,easing:Easing.in(Easing.cubic),useNativeDriver:true}),
+      ]),
+    ])).start();
+    let i=0;const iv=setInterval(()=>{i++;setTyped(full.slice(0,i));if(i>=full.length)clearInterval(iv)},70);return()=>clearInterval(iv);
+  },[]);
+  return <View style={{flex:1,backgroundColor:'#065D54',alignItems:'center',justifyContent:'center'}}>
+    <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,overflow:'hidden'}}>
+      <Animated.View style={{position:'absolute',width:height*0.7,height:height*0.7,borderRadius:height*0.35,backgroundColor:'rgba(255,255,255,0.04)',top:-height*0.15,right:-height*0.2,transform:[{scale:circle1.interpolate({inputRange:[0,1],outputRange:[0.6,1.2]})}],opacity:circle1.interpolate({inputRange:[0,1],outputRange:[0,0.6]})}}/>
+      <Animated.View style={{position:'absolute',width:height*0.55,height:height*0.55,borderRadius:height*0.275,backgroundColor:'rgba(255,255,255,0.03)',bottom:-height*0.1,left:-height*0.15,transform:[{scale:circle2.interpolate({inputRange:[0,1],outputRange:[0.7,1.1]})}],opacity:circle2.interpolate({inputRange:[0,1],outputRange:[0,0.5]})}}/>
+      <Animated.View style={{position:'absolute',width:height*0.4,height:height*0.4,borderRadius:height*0.2,backgroundColor:'rgba(255,255,255,0.025)',top:height*0.3,left:height*0.25,transform:[{scale:circle3.interpolate({inputRange:[0,1],outputRange:[0.8,1.3]})}],opacity:circle3.interpolate({inputRange:[0,1],outputRange:[0,0.4]})}}/>
+    </View>
+    <Animated.View style={{alignItems:'center',opacity:fadeAnim,transform:[{scale:scaleAnim}]}}>
+      <View style={{width:110,height:110,borderRadius:28,backgroundColor:'rgba(255,255,255,0.12)',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'rgba(255,255,255,0.15)'}}>
+        <Image source={require('./assets/icon.png')} style={{width:90,height:90,borderRadius:22}} resizeMode="contain"/>
+      </View>
+      <Animated.View style={{marginTop:24,alignItems:'center'}}>
+        <T style={{color:'#fff',fontSize:32,fontWeight:'900',letterSpacing:1,fontFamily:'HindSiliguriMedium'}}>{typed}</T>
+        <Animated.View style={{width:40,height:2,backgroundColor:'#fff',borderRadius:1,marginTop:12,opacity:glowAnim}}/>
+      </Animated.View>
+    </Animated.View>
+    <View style={{position:'absolute',bottom:40,alignItems:'center'}}>
+      <T style={{color:'rgba(255,255,255,0.25)',fontSize:10,fontWeight:'500',letterSpacing:0.5}}>LEKHONI KAHINI</T>
+      <T style={{color:'rgba(255,255,255,0.15)',fontSize:9,fontWeight:'500',marginTop:4}}>by XYTEEE</T>
     </View>
   </View>;
 }
