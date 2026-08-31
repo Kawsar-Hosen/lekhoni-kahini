@@ -7,7 +7,7 @@ const TIMEOUT = 6000;
 type RemoteBook = { id:string; title:string; author:string; cover_url:string|null; status:string; views:number|string; likes:number|string; dislikes:number|string; description:string|null; category:string|null; color:string; accent:string; is_new?:boolean; featured?:boolean; home_section?:string|null; views_visible?:boolean; display_status?:string; writer_status?:string; hide_title_on_cover?:boolean; updated_at:string };
 type RemoteChapter = { id:string; book_id:string; title:string; body:string; position:number; sort_order?:number; minutes?:number };
 type RemoteComment = { id:string; book_id:string; display_name:string; body:string; status:string; created_at:string };
-type RemoteNotification = { id:string; title:string; body:string; icon:string|null; url:string|null; created_at:string };
+type RemoteNotification = { id:string; title:string; body:string; icon:string|null; url:string|null; story_cover?:string; created_at:string };
 type RemoteEvent = { device_id:string; book_id:string; event_type:'view'|'like'|'dislike'; created_at:string };
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> {
@@ -109,8 +109,16 @@ export async function submitComment(bookId: string, deviceId: string, name: stri
   return Boolean(result?.ok);
 }
 
-export async function fetchRemoteNotifications(): Promise<RemoteNotification[]> {
-  return (await apiFetch<RemoteNotification[]>('/api/public/notifications')) || [];
+export async function fetchRemoteNotifications(deviceId?: string): Promise<RemoteNotification[]> {
+  const qs = deviceId ? `?device_id=${deviceId}` : '';
+  return (await apiFetch<RemoteNotification[]>(`/api/public/notifications${qs}`)) || [];
+}
+
+export async function registerPushToken(deviceId: string, pushToken: string): Promise<boolean> {
+  const r = await apiFetch<{ ok: boolean }>('/api/public/devices/register', {
+    method: 'POST', body: JSON.stringify({ device_id: deviceId, push_token: pushToken }),
+  });
+  return !!r?.ok;
 }
 
 type RemoteCategory = { id: string; name: string; icon: string; color: string; cover_url: string | null };
@@ -185,6 +193,38 @@ export async function verifyWriterToken(token: string): Promise<Writer | null> {
   return r?.writer || null;
 }
 
+export type UserProfile = { id: string; username: string; display_name: string; avatar_url?: string; bio?: string };
+
+export async function userSignup(username: string, email: string, password: string, displayName?: string): Promise<{ user: UserProfile; token: string } | null> {
+  const r = await apiFetch<{ user?: UserProfile; token?: string; error?: string }>('/api/public/users/signup', {
+    method: 'POST', body: JSON.stringify({ username, email, password, display_name: displayName || username }),
+  });
+  if (r?.user && r?.token) return { user: r.user, token: r.token };
+  return null;
+}
+
+export async function userLogin(emailOrUsername: string, password: string): Promise<{ user: UserProfile; token: string } | null> {
+  const r = await apiFetch<{ user?: UserProfile; token?: string; error?: string }>('/api/public/users/login', {
+    method: 'POST', body: JSON.stringify({ email_or_username: emailOrUsername, password }),
+  });
+  if (r?.user && r?.token) return { user: r.user, token: r.token };
+  return null;
+}
+
+export async function verifyUserToken(token: string): Promise<UserProfile | null> {
+  const r = await apiFetch<{ user?: UserProfile }>('/api/public/users/verify', {
+    method: 'POST', body: JSON.stringify({ token }),
+  });
+  return r?.user || null;
+}
+
+export async function updateUserProfile(token: string, data: { display_name?: string; bio?: string; avatar_url?: string }): Promise<UserProfile | null> {
+  const r = await apiFetch<{ user?: UserProfile }>('/api/public/users/profile', {
+    method: 'PUT', body: JSON.stringify({ token, ...data }),
+  });
+  return r?.user || null;
+}
+
 export async function fetchPublicWriters(): Promise<Writer[]> {
   return (await apiFetch<Writer[]>('/api/public/writers')) || [];
 }
@@ -199,9 +239,9 @@ export async function fetchFollowedWriters(deviceId: string): Promise<Writer[]> 
   return (await apiFetch<Writer[]>(`/api/public/follows?device_id=${deviceId}`)) || [];
 }
 
-export async function followWriter(deviceId: string, writerId: string, followerWriterId?: string): Promise<boolean> {
+export async function followWriter(deviceId: string, writerId: string, followerWriterId?: string, followerUserId?: string): Promise<boolean> {
   const r = await apiFetch<{ ok: boolean }>('/api/public/follows', {
-    method: 'POST', body: JSON.stringify({ device_id: deviceId, writer_id: writerId, follower_writer_id: followerWriterId }),
+    method: 'POST', body: JSON.stringify({ device_id: deviceId, writer_id: writerId, follower_writer_id: followerWriterId, follower_user_id: followerUserId }),
   });
   return Boolean(r?.ok);
 }
@@ -318,7 +358,7 @@ export async function fetchWriterDashboard(token: string): Promise<WriterDashboa
   return writerApiFetch<WriterDashboard>('/api/writer/dashboard', token);
 }
 
-export type WriterNotification = { id: string; title: string; body: string; type: string; story_id?: string; is_read: boolean; url?: string; created_at: string };
+export type WriterNotification = { id: string; title: string; body: string; type: string; story_id?: string; is_read: boolean; url?: string; avatar_url?: string; story_title?: string; story_cover?: string; created_at: string };
 
 export async function fetchWriterNotifications(token: string): Promise<WriterNotification[]> {
   return (await writerApiFetch<WriterNotification[]>('/api/writer/notifications', token)) || [];

@@ -19,6 +19,10 @@ export type LocalState = {
   remoteBooks: Book[]; online: boolean; lastSync: string;
   writer?: { id: string; username: string; writer_name: string; avatar_url?: string; bio?: string } | null;
   writerToken?: string | null;
+  user?: { id: string; username: string; display_name: string; avatar_url?: string; bio?: string } | null;
+  userToken?: string | null;
+  pushToken?: string | null;
+  pushPromptDismissed?: boolean;
   followedWriters: WriterProfile[];
   readingActivity: Record<string, { minutes: number; episodes: number }>;
   ageVerified?: boolean;
