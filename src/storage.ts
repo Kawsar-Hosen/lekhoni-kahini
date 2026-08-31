@@ -12,7 +12,7 @@ function generateDeviceId(): string {
 
 export const initialState: LocalState = {
   name: '', deviceId: generateDeviceId(), favorites: ['megh'], downloads: ['nodi'], history: ['nodi', 'ghori'], positions: { 'nodi-1': 34 },
-  bookmarks: [], searchHistory: [], settings: { dark: false, fontSize: 19, lineHeight: 32, lineSpacing: 1.0, fontFamily: 'default', pageMode: 'scroll', notifications: true, wifiOnly: true, language: 'bn', themeId: 'katagolap', readerTheme: 'default', keepScreenOn: true, autoScroll: false, autoScrollSpeed: 2, volumeScroll: false, eyeComfort: false, brightness: 100 },
+  bookmarks: [], searchHistory: [], settings: { dark: false, fontSize: 19, lineHeight: 32, lineSpacing: 1.0, fontFamily: 'default', pageMode: 'scroll', notifications: true, wifiOnly: true, language: 'bn', themeId: 'katagolap', readerTheme: 'default', keepScreenOn: true, autoScroll: false, autoScrollSpeed: 2, volumeScroll: false, eyeComfort: 0, brightness: 100 },
   readNotifications: [], reactions: {}, remoteBooks: [], online: false, lastSync: '',
   writer: null, writerToken: null, user: null, userToken: null, followedWriters: [],
   readingActivity: {},
@@ -23,7 +23,9 @@ export async function loadState(): Promise<LocalState> {
     const saved = await AsyncStorage.getItem(KEY);
     if (!saved) return initialState;
     const parsed = JSON.parse(saved);
-    return { ...initialState, ...parsed, deviceId: parsed.deviceId || generateDeviceId(), settings: { ...initialState.settings, ...parsed.settings }, remoteBooks: parsed.remoteBooks || [], online: false, writer: parsed.writer || null, writerToken: parsed.writerToken || null, user: parsed.user || null, userToken: parsed.userToken || null, followedWriters: parsed.followedWriters || [], readingActivity: parsed.readingActivity || {} };
+    const loadedSettings = { ...initialState.settings, ...parsed.settings };
+    if (typeof loadedSettings.eyeComfort === 'boolean') loadedSettings.eyeComfort = loadedSettings.eyeComfort ? 50 : 0;
+    return { ...initialState, ...parsed, deviceId: parsed.deviceId || generateDeviceId(), settings: loadedSettings, remoteBooks: parsed.remoteBooks || [], online: false, writer: parsed.writer || null, writerToken: parsed.writerToken || null, user: parsed.user || null, userToken: parsed.userToken || null, followedWriters: parsed.followedWriters || [], readingActivity: parsed.readingActivity || {} };
   } catch { return initialState; }
 }
 export async function saveState(state: LocalState) {
