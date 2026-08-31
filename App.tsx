@@ -92,7 +92,7 @@ function ErrorScreen({type,onRetry,theme}:{type:'offline'|'error';theme:Theme;on
 
 export default function App(){ return <SafeAreaProvider><AppShell/></SafeAreaProvider>; }
 function AppShell(){
- const [fontsLoaded]=useFonts({HindSiliguriMedium:require('./assets/HindSiliguri-Medium.ttf'),OswaldVariableFont:require('./assets/Oswald-VariableFont_wght.ttf')});
+ const [fontsLoaded]=useFonts({HindSiliguriMedium:require('./assets/HindSiliguri-Medium.ttf'),IMFellEnglish:require('./assets/IMFellEnglish.ttf')});
  const [state,setState]=useState<LocalState>(initialState); const [loaded,setLoaded]=useState(false); const [dataLoaded,setDataLoaded]=useState(false); const [screen,setScreen]=useState<Screen>({type:'main'}); const [tab,setTab]=useState<Tab>('home'); const [allBooks,setAllBooks]=useState<Book[]>([]); const [allCategories,setAllCategories]=useState<[string,string,string,string|null][]>([]); const [publicWriters,setPublicWriters]=useState<import('./src/types').WriterProfile[]>([]); const [homeData,setHomeData]=useState<HomeSectionsData|null>(null); const [remoteNotices,setRemoteNotices]=useState<{id:string;title:string;body:string;icon:string;url:string;story_cover:string;time:string}[]>([]); const syncRef=useRef(false); const [showExitModal,setShowExitModal]=useState(false);
  const theme=themeFor(state.settings.themeId,state.settings.dark);
   const [dlBooks,setDlBooks]=useState<Record<string,Book>>({});
@@ -233,7 +233,7 @@ function AppShell(){
 }
 type C={theme:Theme;state:LocalState;update:(p:Partial<LocalState>)=>void;setScreen:(s:Screen)=>void;open:(id:string)=>void;read:(id:string,c:number)=>void;allBooks:Book[];allCategories:[string,string,string,string|null][];publicWriters:import('./src/types').WriterProfile[];homeData:HomeSectionsData|null;remoteNotices:{id:string;title:string;body:string;icon:string;url:string;story_cover:string;time:string}[];dlBooks:Record<string,Book>;downloadBook:(id:string)=>void;removeDownload:(id:string)=>void;dataLoaded:boolean;syncRemote?:()=>void};
 const F_BN='HindSiliguriMedium';
-const F_EN='OswaldVariableFont';
+const F_EN='IMFellEnglish';
 let _curLang:import('./src/types').Language='bn';
 const GF=()=>_curLang==='en'?F_EN:F_BN;
 function T({style,...rest}:React.ComponentProps<typeof Text>){return <Text {...rest} style={[style,{fontFamily:GF(),fontWeight:'500'}]}/>}
