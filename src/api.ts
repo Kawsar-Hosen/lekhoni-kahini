@@ -101,12 +101,17 @@ export async function fetchRemoteComments(bookId: string): Promise<RemoteComment
   return (await apiFetch<RemoteComment[]>(`/api/public/books/${bookId}/comments`)) || [];
 }
 
-export async function submitComment(bookId: string, deviceId: string, name: string, body: string): Promise<boolean> {
-  const result = await apiFetch<{ ok: boolean }>(`/api/public/books/${bookId}/comments`, {
+export async function submitComment(bookId: string, deviceId: string, name: string, body: string): Promise<{ok:boolean;needs_approval?:boolean}> {
+  const result = await apiFetch<{ ok: boolean; needs_approval?: boolean }>(`/api/public/books/${bookId}/comments`, {
     method: 'POST',
     body: JSON.stringify({ device_id: deviceId, name, body }),
   });
-  return Boolean(result?.ok);
+  return { ok: Boolean(result?.ok), needs_approval: result?.needs_approval };
+}
+
+export async function fetchCommentsConfig(): Promise<{comments_approval:boolean}> {
+  const r = await apiFetch<{comments_approval:boolean}>('/api/public/comments-config');
+  return r || { comments_approval: true };
 }
 
 export async function fetchRemoteNotifications(deviceId?: string): Promise<RemoteNotification[]> {

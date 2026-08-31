@@ -13,7 +13,7 @@ import * as Device from 'expo-device';
 import { initialState, loadState, saveState, clearState } from './src/storage';
 import { Book, LocalState, Language } from './src/types';
 import { copy, CopyKey } from './src/i18n';
-import { fetchRemoteBooks, fetchRemoteBook, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, fetchFollowedWriters, writerSignup, writerLogin, writerGoogleAuth, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, updateWriterStory, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchRemoteComments, submitComment, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionsData, fetchWriterFollowers, fetchAbout, deleteWriterAccount, submitReport, userSignup, userLogin, verifyUserToken, registerPushToken, updateUserProfile } from './src/api';
+import { fetchRemoteBooks, fetchRemoteBook, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, fetchFollowedWriters, writerSignup, writerLogin, writerGoogleAuth, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, updateWriterStory, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchRemoteComments, submitComment, fetchCommentsConfig, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionsData, fetchWriterFollowers, fetchAbout, deleteWriterAccount, submitReport, userSignup, userLogin, verifyUserToken, registerPushToken, updateUserProfile } from './src/api';
 import { pickAndResizeImage } from './src/imageUpload';
 
 type Tab = 'home'|'library'|'categories'|'episodes'|'profile';
@@ -409,6 +409,25 @@ function Profile(p:C){
       </View>
     </Animated.View>
 
+    {/* === TOTAL READS (real-time from readingActivity) === */}
+    {(() => {
+      const ra = p.state.readingActivity;
+      const totalMins = Object.values(ra).reduce((s: number, d: any) => s + (d.minutes || 0), 0);
+      const totalEps = Object.values(ra).reduce((s: number, d: any) => s + (d.episodes || 0), 0);
+      const hrs = Math.floor(totalMins / 60);
+      const mins = totalMins % 60;
+      return <View style={{flexDirection:'row',gap:8,marginBottom:12}}>
+        <View style={{flex:1,alignItems:'center',paddingVertical:14,backgroundColor:t.card,borderRadius:14,borderWidth:1,borderColor:t.line}}>
+          <T style={{fontSize:20,fontWeight:'900',color:t.primary}}>{hrs>0?`${hrs}:${String(mins).padStart(2,'0')}`:mins}</T>
+          <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginTop:2}}>{hrs>0?(p.state.settings.language==='bn'?'ঘন্টা পড়া':p.state.settings.language==='hi'?'घंटे पढ़े':'hrs read'):(p.state.settings.language==='bn'?'মিনিট পড়া':p.state.settings.language==='hi'?'मिनट पढ़े':'min read')}</T>
+        </View>
+        <View style={{flex:1,alignItems:'center',paddingVertical:14,backgroundColor:t.card,borderRadius:14,borderWidth:1,borderColor:t.line}}>
+          <T style={{fontSize:20,fontWeight:'900',color:t.primary}}>{totalEps}</T>
+          <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginTop:2}}>{p.state.settings.language==='bn'?'মোট পাঠ':p.state.settings.language==='hi'?'कुल पठन':'Total Reads'}</T>
+        </View>
+      </View>;
+    })()}
+
     <Pressable onPress={()=>p.setScreen({type:'writer'})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:8,borderWidth:1,borderColor:t.line}}>
       {p.state.writer?.avatar_url?<Image source={{uri:p.state.writer.avatar_url}} style={{width:42,height:42,borderRadius:21}}/>:<View style={{width:42,height:42,borderRadius:21,backgroundColor:p.state.writer?t.primary:t.tint,alignItems:'center',justifyContent:'center'}}>
         {p.state.writer?<T style={{fontSize:18,fontWeight:'900',color:'#fff'}}>{p.state.writer.writer_name?.[0]?.toUpperCase()||'?'}</T>:<Feather name="edit-3" size={18} color={t.primary}/>}
@@ -550,11 +569,17 @@ function AllWritersList(p:C){
   const t=p.theme;
   const [q,setQ]=useState('');
   const [showAuth,setShowAuth]=useState(false);
+  const followLog=useRef<Record<string,number[]>>({});
   const followedIds=new Set((p.state.followedWriters||[]).map(f=>f.id));
   const unfollowed=p.publicWriters.filter(w=>!followedIds.has(w.id));
   const filtered=q.trim()?unfollowed.filter(w=>`${w.writer_name} ${w.username}`.toLowerCase().includes(q.trim().toLowerCase())):unfollowed;
   const toggleFollow=async(w:import('./src/types').WriterProfile)=>{
     if(!p.state.writer&&!p.state.user){setShowAuth(true);return;}
+    const now=Date.now();
+    const log=followLog.current[w.id]||[];
+    const recent=log.filter(t=>now-t<60000);
+    if(recent.length>=4){Alert.alert(copy(p.state.settings.language,'reportSpam'),p.state.settings.language==='bn'?'অনুগ্রহ করে ১ মিনিট অপেক্ষা করুন।':p.state.settings.language==='hi'?'कृपया 1 मिनट प्रतीक्षा करें।':'Please wait 1 minute.');return;}
+    followLog.current[w.id]=[...recent,now];
     const isFollowed=p.state.followedWriters.some(x=>x.id===w.id);
     if(isFollowed){
       p.update({followedWriters:p.state.followedWriters.filter(x=>x.id!==w.id)});
@@ -607,8 +632,14 @@ function FollowedWritersList(p:C){
   const t=p.theme;
   const [showAuth,setShowAuth]=useState(false);
   const writers=p.state.followedWriters||[];
+  const followLog=useRef<Record<string,number[]>>({});
   const toggleFollow=async(wid:string)=>{
     if(!p.state.writer){setShowAuth(true);return;}
+    const now=Date.now();
+    const log=followLog.current[wid]||[];
+    const recent=log.filter(t=>now-t<60000);
+    if(recent.length>=4){Alert.alert(copy(p.state.settings.language,'reportSpam'),p.state.settings.language==='bn'?'অনুগ্রহ করে ১ মিনিট অপেক্ষা করুন।':p.state.settings.language==='hi'?'कृपया 1 मिनट प्रतीक्षा करें।':'Please wait 1 minute.');return;}
+    followLog.current[wid]=[...recent,now];
     const fw=p.state.followedWriters||[];
     const isFollowed=fw.some(w=>w.id===wid);
     if(isFollowed){
@@ -635,9 +666,9 @@ function FollowedWritersList(p:C){
       </View>
     :<ScrollView showsVerticalScrollIndicator={false}>
       {writers.map(w=><Pressable key={w.id} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:8,borderWidth:1,borderColor:t.line}}>
-        <View style={{width:44,height:44,borderRadius:22,backgroundColor:t.primary,alignItems:'center',justifyContent:'center'}}>
+        {w.avatar_url?<Image source={{uri:w.avatar_url}} style={{width:44,height:44,borderRadius:22}}/>:<View style={{width:44,height:44,borderRadius:22,backgroundColor:t.primary,alignItems:'center',justifyContent:'center'}}>
           <T style={{fontSize:18,fontWeight:'900',color:'#fff'}}>{w.writer_name[0]?.toUpperCase()||'?'}</T>
-        </View>
+        </View>}
         <View style={{flex:1,marginLeft:12}}>
           <T numberOfLines={1} style={{fontSize:14,fontWeight:'800',color:t.ink}}>{w.writer_name} <BadgeIcon badge={w.badge} size={14}/></T>
           <T style={{fontSize:11,color:t.muted,marginTop:1}}>@{w.username}{w.follower_count?` · ${w.follower_count} ${tr(p,'followers')}`:''}</T>
@@ -655,27 +686,36 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
   const isFollowed=p.state.followedWriters.some(x=>x.id===w.id);
   const writerBooks=p.allBooks.filter(b=>b.author===w.writer_name);
   const published=writerBooks.length;
-  const totalReads=writerBooks.reduce((s,b)=>s+(Math.round(parseFloat(String(b.views).replace(/[^0-9.]/g,''))||0)),0);
+  const [liveTotalReads,setLiveTotalReads]=useState(writerBooks.reduce((s,b)=>s+(Math.round(parseFloat(String(b.views).replace(/[^0-9.]/g,''))||0)),0));
+  useEffect(()=>{const sum=writerBooks.reduce((s,b)=>s+(Math.round(parseFloat(String(b.views).replace(/[^0-9.]/g,''))||0)),0);setLiveTotalReads(sum);},[writerBooks.length]);
+  useEffect(()=>{fetch('https://lekhoni-admin-api.smdkawsar2.workers.dev/api/public/books').then(r=>r.json()).then((books:any)=>{const fresh=books.filter((b:any)=>b.author===w.writer_name);const sum=fresh.reduce((s:number,b:any)=>s+(b.views||0),0);if(sum>0)setLiveTotalReads(sum);}).catch(()=>{});},[]);
   const[phase,setPhase]=useState<'idle'|'spinning'|'followed'>(isFollowed?'followed':'idle');
   const[showAuth,setShowAuth]=useState(false);
   const spin=useRef(new Animated.Value(0)).current;
-  const followers=(w.follower_count||0)+(isFollowed?0:phase==='followed'||phase==='spinning'?1:0);
+  const followLog=useRef<Record<string,number[]>>({});
+  const [liveFollowers,setLiveFollowers]=useState(w.follower_count||0);
+  useEffect(()=>{setLiveFollowers(w.follower_count||0);fetch('https://lekhoni-admin-api.smdkawsar2.workers.dev/api/public/writers').then(r=>r.json()).then((writers:any)=>{const fw=writers.find((x:any)=>x.id===w.id);if(fw)setLiveFollowers(fw.follower_count||0);}).catch(()=>{});},[w.id,w.follower_count]);
   useEffect(()=>{setPhase(isFollowed?'followed':'idle')},[isFollowed]);
   const doFollow=async()=>{
     if(!p.state.writer&&!p.state.user){setShowAuth(true);return;}
+    const now=Date.now();const log=followLog.current[w.id]||[];const recent=log.filter(t=>now-t<60000);
+    if(recent.length>=4){Alert.alert(copy(p.state.settings.language,'reportSpam'),p.state.settings.language==='bn'?'অনুগ্রহ করে ১ মিনিট অপেক্ষা করুন।':p.state.settings.language==='hi'?'कृपया 1 मिनट प्रतीक्षा करें।':'Please wait 1 minute.');return;}
+    followLog.current[w.id]=[...recent,now];
     setPhase('spinning');
+    setLiveFollowers(prev=>prev+1);
     spin.setValue(0);
     Animated.timing(spin,{toValue:1,duration:1500,easing:Easing.linear,useNativeDriver:true}).start();
     p.update({followedWriters:[...p.state.followedWriters,w]});
     const ok=await followWriter(p.state.deviceId,w.id,p.state.writer?.id,p.state.user?.id);
     setTimeout(()=>{spin.stopAnimation();spin.setValue(0);setPhase(ok?'followed':'idle')},1800);
-    if(!ok)p.update({followedWriters:p.state.followedWriters.filter(x=>x.id!==w.id)});
+    if(!ok){p.update({followedWriters:p.state.followedWriters.filter(x=>x.id!==w.id)});setLiveFollowers(prev=>Math.max(0,prev-1));}
   };
   const doUnfollow=async()=>{
+    setLiveFollowers(prev=>Math.max(0,prev-1));
     p.update({followedWriters:p.state.followedWriters.filter(x=>x.id!==w.id)});
     setPhase('idle');
     const ok=await unfollowWriter(p.state.deviceId,w.id);
-    if(!ok){p.update({followedWriters:[...p.state.followedWriters,w]});setPhase('followed');}
+    if(!ok){p.update({followedWriters:[...p.state.followedWriters,w]});setPhase('followed');setLiveFollowers(prev=>prev+1);}
   };
   const spinDeg=spin.interpolate({inputRange:[0,1],outputRange:['0deg','360deg']});
   return <Page theme={t}>
@@ -697,12 +737,12 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
         </View>
         <View style={{width:8}}/>
         <View style={{flex:1,alignItems:'center',paddingVertical:14,backgroundColor:t.card,borderRadius:14,borderWidth:1,borderColor:t.line}}>
-          <T style={{fontSize:20,fontWeight:'900',color:t.primary}}>{totalReads}</T>
+          <T style={{fontSize:20,fontWeight:'900',color:t.primary}}>{liveTotalReads}</T>
           <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginTop:2}}>{tr(p,'totalReads')}</T>
         </View>
         <View style={{width:8}}/>
         <View style={{flex:1,alignItems:'center',paddingVertical:14,backgroundColor:t.card,borderRadius:14,borderWidth:1,borderColor:t.line}}>
-          <T style={{fontSize:20,fontWeight:'900',color:t.primary}}>{followers}</T>
+          <T style={{fontSize:20,fontWeight:'900',color:t.primary}}>{liveFollowers}</T>
           <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginTop:2}}>{tr(p,'followers')}</T>
         </View>
       </View>
@@ -959,10 +999,12 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
       </Pressable>
     </Pressable>}
   </Page>}
-function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x=>x.id===p.bookId)||p.dlBooks[p.bookId];const [items,setItems]=useState<{id:string;display_name:string;body:string;created_at:string}[]>([]);const [draft,setDraft]=useState('');const [posting,setPosting]=useState(false);const [loading,setLoading]=useState(true);
+function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x=>x.id===p.bookId)||p.dlBooks[p.bookId];const [items,setItems]=useState<{id:string;display_name:string;body:string;created_at:string}[]>([]);const [draft,setDraft]=useState('');const [posting,setPosting]=useState(false);const [loading,setLoading]=useState(true);const[showSuccess,setShowSuccess]=useState(false);const[approvalRequired,setApprovalRequired]=useState(true);const spinAnim=useRef(new Animated.Value(0)).current;const scaleAnim=useRef(new Animated.Value(0)).current;const checkAnim=useRef(new Animated.Value(0)).current;
+  const cmtColors=['#E8F5E9','#FFF3E0','#E3F2FD','#F3E5F5','#E0F7FA','#FFF8E1','#FCE4EC','#E8EAF6','#F1F8E9','#FBE9E7'];
   const load=()=>fetchRemoteComments(p.bookId).then(c=>{if(c&&Array.isArray(c))setItems(c as any)}).finally(()=>setLoading(false));
-  useEffect(()=>{load()},[p.bookId]);
-  const post=async()=>{const x=draft.trim();if(!x||posting)return;setPosting(true);Vibration.vibrate(30);const ok=await submitComment(p.bookId,p.state.deviceId,p.state.name||'পাঠক',x);setPosting(false);if(ok){setDraft('');Alert.alert(tr(p,'postComment'),p.state.settings.language==='hi'?'आपकी टिप्पणी समीक्षा के बाद दिखाई देगी':p.state.settings.language==='en'?'Your comment will appear after moderation.':'আপনার মন্তব্যটি যাচাইয়ের পরে প্রকাশিত হবে')}load()};
+  useEffect(()=>{load();fetchCommentsConfig().then(r=>setApprovalRequired(r.comments_approval)).catch(()=>{});},[p.bookId]);
+  useEffect(()=>{if(showSuccess){spinAnim.setValue(0);scaleAnim.setValue(0);checkAnim.setValue(0);Animated.sequence([Animated.parallel([Animated.timing(spinAnim,{toValue:1,duration:800,easing:Easing.out(Easing.cubic),useNativeDriver:true}),Animated.spring(scaleAnim,{toValue:1,friction:5,useNativeDriver:true})]),Animated.timing(checkAnim,{toValue:1,duration:400,useNativeDriver:true})]).start();const timer=setTimeout(()=>setShowSuccess(false),3000);return()=>clearTimeout(timer)}},[showSuccess]);
+  const post=async()=>{const x=draft.trim();if(!x||posting)return;setPosting(true);Vibration.vibrate(30);const res=await submitComment(p.bookId,p.state.deviceId,p.state.name||'পাঠক',x);setPosting(false);if(res.ok){setDraft('');setShowSuccess(true);load()}};
   const insets=useSafeAreaInsets();
   return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={0}>
     <ScrollView style={{flex:1,backgroundColor:t.bg}} contentContainerStyle={{paddingHorizontal:18,paddingTop:insets.top+12,paddingBottom:130}} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -974,10 +1016,34 @@ function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x
         <TextInput value={draft} onChangeText={setDraft} placeholder={tr(p,'writeComment')} placeholderTextColor={t.muted} multiline style={[dStyles.cmtInput,{flex:1,color:t.ink,backgroundColor:t.bg,borderColor:t.line}]}/>
         <Pressable disabled={!draft.trim()||posting} onPress={post} style={[dStyles.postBtn,{backgroundColor:!draft.trim()?'#90A4AE':t.primary,opacity:posting?.6:1,paddingHorizontal:16}]}><T style={{color:'#fff',fontWeight:'900',fontSize:12}}>{posting?'...':tr(p,'postComment')}</T></Pressable>
       </View>
+      {showSuccess&&<Animated.View style={{alignItems:'center',marginVertical:16,overflow:'hidden'}}>
+        <Animated.View style={{width:70,height:70,borderRadius:35,backgroundColor:'#E8F5E9',alignItems:'center',justifyContent:'center',transform:[{scale:scaleAnim}]}}>
+          <Animated.View style={{transform:[{rotate:spinAnim.interpolate({inputRange:[0,1],outputRange:['0deg','360deg']})}]}}>
+            <Svg width={32} height={32} viewBox="0 0 24 24" fill="none">
+              <Circle cx={12} cy={12} r={11} stroke="#4CAF50" strokeWidth={2} strokeDasharray={69} strokeDashoffset={0} strokeLinecap="round"/>
+            </Svg>
+          </Animated.View>
+          <Animated.View style={{position:'absolute',opacity:checkAnim}}>
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+              <Path d="M7 12.5l3 3 7-7" stroke="#4CAF50" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/>
+            </Svg>
+          </Animated.View>
+        </Animated.View>
+        <Animated.View style={{opacity:checkAnim,marginTop:10,alignItems:'center'}}>
+          <T style={{fontSize:14,fontWeight:'800',color:'#4CAF50'}}>{p.state.settings.language==='bn'?'মন্তব্য জমা হয়েছে!':p.state.settings.language==='hi'?'टिप्पणी सबमिट हो गई!':'Comment submitted!'}</T>
+          {approvalRequired&&<T style={{fontSize:12,color:t.muted,marginTop:4,textAlign:'center'}}>{p.state.settings.language==='bn'?'আপনার মন্তব্যটি যাচাইয়ের পরে প্রকাশিত হবে':p.state.settings.language==='hi'?'आपकी टिप्पणी समीक्षा के बाद दिखाई देगी':'Your comment will appear after moderation'}</T>}
+        </Animated.View>
+      </Animated.View>}
       <View style={{marginTop:4}}>
         {loading?<View style={{alignItems:'center',paddingVertical:34}}><ActivityIndicator color={t.primary}/></View>:
         !items.length?<View style={{alignItems:'center',paddingVertical:40}}><Feather name="message-circle" size={30} color={t.muted}/><T style={{color:t.muted,fontSize:13,marginTop:10,textAlign:'center'}}>{tr(p,'noComments')}</T></View>:
-        items.map(c=><View key={c.id} style={[dStyles.cmtItem,{width:'100%',borderBottomWidth:1,borderBottomColor:t.line,paddingVertical:12}]}><View style={[dStyles.avatar,{backgroundColor:t.tint}]}><T style={{color:t.primary,fontWeight:'900'}}>{(c.display_name||'?')[0]}</T></View><View style={{flex:1}}><View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><T style={[styles.rowTitle,{color:t.ink,fontSize:13}]}>{c.display_name}</T><T style={{color:t.line,fontSize:10}}>{new Date(c.created_at).toLocaleDateString()}</T></View><T style={{color:t.ink,fontSize:13,lineHeight:19,marginTop:2}}>{c.body}</T></View></View>)}
+        items.map((c,i)=><View key={c.id} style={{width:'100%',flexDirection:'row',gap:10,backgroundColor:cmtColors[i%cmtColors.length],borderRadius:14,padding:12,marginBottom:8}}>
+          <View style={{width:36,height:36,borderRadius:18,backgroundColor:t.primary,alignItems:'center',justifyContent:'center',flexShrink:0}}><T style={{color:'#fff',fontWeight:'900',fontSize:14}}>{(c.display_name||'?')[0]?.toUpperCase()}</T></View>
+          <View style={{flex:1}}>
+            <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><T style={{fontSize:13,fontWeight:'800',color:t.ink}}>{c.display_name}</T><T style={{color:t.muted,fontSize:10}}>{new Date(c.created_at).toLocaleDateString()}</T></View>
+            <T style={{color:t.ink,fontSize:13,lineHeight:19,marginTop:3}}>{c.body}</T>
+          </View>
+        </View>)}
       </View>
     </ScrollView>
   </KeyboardAvoidingView>
@@ -993,6 +1059,7 @@ const s=p.state.settings;
 useEffect(()=>{const timer=setInterval(()=>{setReadSeconds(prev=>prev+1)},60000);return()=>clearInterval(timer)},[]);
 useEffect(()=>{const today=new Date().toISOString().slice(0,10);const prev=p.state.readingActivity[today]||{minutes:0,episodes:0};p.update({readingActivity:{...p.state.readingActivity,[today]:{minutes:prev.minutes+(c.minutes||5),episodes:prev.episodes+1}}})},[c.id]);
 useEffect(()=>{p.update({positions:{...p.state.positions,[p.book.id+'_lastChapter']:p.chapter}});},[p.chapter]);
+useEffect(()=>{trackEvent(p.state.deviceId,p.book.id,'view').catch(()=>{});},[p.book.id]);
 const change=(patch:Partial<LocalState['settings']>)=>p.update({settings:{...p.state.settings,...patch}});
 useEffect(()=>{if(autoScrollRef.current){clearInterval(autoScrollRef.current);autoScrollRef.current=null}if(s.autoScroll){const ms=Math.max(30,120-s.autoScrollSpeed*20);autoScrollRef.current=setInterval(()=>{autoOffsetRef.current+=2;scrollRef.current?.scrollTo({y:autoOffsetRef.current,animated:true})},ms)}return()=>{if(autoScrollRef.current){clearInterval(autoScrollRef.current);autoScrollRef.current=null}}},[s.autoScroll,s.autoScrollSpeed]);
 const readerBg=s.readerTheme==='sepia'?'#F4ECD8':s.readerTheme==='dark'?'#1A1A1A':s.readerTheme==='amoled'?'#000000':p.theme.reader;
