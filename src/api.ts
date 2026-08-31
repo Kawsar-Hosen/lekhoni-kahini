@@ -101,10 +101,10 @@ export async function fetchRemoteComments(bookId: string): Promise<RemoteComment
   return (await apiFetch<RemoteComment[]>(`/api/public/books/${bookId}/comments`)) || [];
 }
 
-export async function submitComment(bookId: string, deviceId: string, name: string, body: string): Promise<{ok:boolean;needs_approval?:boolean}> {
+export async function submitComment(bookId: string, deviceId: string, name: string, body: string, avatarUrl?: string): Promise<{ok:boolean;needs_approval?:boolean}> {
   const result = await apiFetch<{ ok: boolean; needs_approval?: boolean }>(`/api/public/books/${bookId}/comments`, {
     method: 'POST',
-    body: JSON.stringify({ device_id: deviceId, name, body }),
+    body: JSON.stringify({ device_id: deviceId, name, body, avatar_url: avatarUrl || '' }),
   });
   return { ok: Boolean(result?.ok), needs_approval: result?.needs_approval };
 }

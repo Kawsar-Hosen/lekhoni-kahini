@@ -999,12 +999,16 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
       </Pressable>
     </Pressable>}
   </Page>}
-function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x=>x.id===p.bookId)||p.dlBooks[p.bookId];const [items,setItems]=useState<{id:string;display_name:string;body:string;created_at:string}[]>([]);const [draft,setDraft]=useState('');const [posting,setPosting]=useState(false);const [loading,setLoading]=useState(true);const[showSuccess,setShowSuccess]=useState(false);const[approvalRequired,setApprovalRequired]=useState(true);const spinAnim=useRef(new Animated.Value(0)).current;const scaleAnim=useRef(new Animated.Value(0)).current;const checkAnim=useRef(new Animated.Value(0)).current;
+function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x=>x.id===p.bookId)||p.dlBooks[p.bookId];const [items,setItems]=useState<{id:string;display_name:string;body:string;created_at:string;avatar_url:string}[]>([]);const [draft,setDraft]=useState('');const [posting,setPosting]=useState(false);const [loading,setLoading]=useState(true);const[showSuccess,setShowSuccess]=useState(false);const[approvalRequired,setApprovalRequired]=useState(true);const spinAnim=useRef(new Animated.Value(0)).current;const scaleAnim=useRef(new Animated.Value(0)).current;const checkAnim=useRef(new Animated.Value(0)).current;
   const cmtColors=['#E8F5E9','#FFF3E0','#E3F2FD','#F3E5F5','#E0F7FA','#FFF8E1','#FCE4EC','#E8EAF6','#F1F8E9','#FBE9E7'];
+  const isWriter=Boolean(p.state.writer);
+  const isUser=Boolean(p.state.user);
+  const commenterName=isWriter?p.state.writer!.writer_name:isUser?p.state.user!.display_name:p.state.name||'পাঠক';
+  const commenterAvatar=isWriter?p.state.writer!.avatar_url||'':isUser?p.state.user!.avatar_url||'':'';
   const load=()=>fetchRemoteComments(p.bookId).then(c=>{if(c&&Array.isArray(c))setItems(c as any)}).finally(()=>setLoading(false));
   useEffect(()=>{load();fetchCommentsConfig().then(r=>setApprovalRequired(r.comments_approval)).catch(()=>{});},[p.bookId]);
   useEffect(()=>{if(showSuccess){spinAnim.setValue(0);scaleAnim.setValue(0);checkAnim.setValue(0);Animated.sequence([Animated.parallel([Animated.timing(spinAnim,{toValue:1,duration:800,easing:Easing.out(Easing.cubic),useNativeDriver:true}),Animated.spring(scaleAnim,{toValue:1,friction:5,useNativeDriver:true})]),Animated.timing(checkAnim,{toValue:1,duration:400,useNativeDriver:true})]).start();const timer=setTimeout(()=>setShowSuccess(false),3000);return()=>clearTimeout(timer)}},[showSuccess]);
-  const post=async()=>{const x=draft.trim();if(!x||posting)return;setPosting(true);Vibration.vibrate(30);const res=await submitComment(p.bookId,p.state.deviceId,p.state.name||'পাঠক',x);setPosting(false);if(res.ok){setDraft('');setShowSuccess(true);load()}};
+  const post=async()=>{const x=draft.trim();if(!x||posting)return;setPosting(true);Vibration.vibrate(30);const res=await submitComment(p.bookId,p.state.deviceId,commenterName,x,commenterAvatar);setPosting(false);if(res.ok){setDraft('');setShowSuccess(true);load()}};
   const insets=useSafeAreaInsets();
   return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={0}>
     <ScrollView style={{flex:1,backgroundColor:t.bg}} contentContainerStyle={{paddingHorizontal:18,paddingTop:insets.top+12,paddingBottom:130}} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
@@ -1012,7 +1016,7 @@ function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x
       <Section title={tr(p,'comments')} theme={t}/>
       <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:12}}><Feather name="message-circle" size={16} color={t.primary}/><T style={{color:t.muted,fontSize:13,fontWeight:'800'}}>{items.length} {tr(p,'comments')}</T><Pressable onPress={load} hitSlop={8}><Feather name="refresh-cw" size={14} color={t.primary}/></Pressable></View>
       <View style={[dStyles.composer,{borderColor:t.line,backgroundColor:t.card,elevation:2,shadowColor:'#000',shadowOpacity:.06,shadowRadius:8,shadowOffset:{width:0,height:3}}]}>
-        <View style={[dStyles.avatar2,{backgroundColor:t.tint}]}><T style={{color:t.primary,fontWeight:'900',fontSize:14}}>{(p.state.name||'?')[0]}</T></View>
+        {commenterAvatar?<Image source={{uri:commenterAvatar}} style={[dStyles.avatar2,{backgroundColor:t.tint}]}/>:<View style={[dStyles.avatar2,{backgroundColor:t.tint}]}><T style={{color:t.primary,fontWeight:'900',fontSize:14}}>{(commenterName||'?')[0]}</T></View>}
         <TextInput value={draft} onChangeText={setDraft} placeholder={tr(p,'writeComment')} placeholderTextColor={t.muted} multiline style={[dStyles.cmtInput,{flex:1,color:t.ink,backgroundColor:t.bg,borderColor:t.line}]}/>
         <Pressable disabled={!draft.trim()||posting} onPress={post} style={[dStyles.postBtn,{backgroundColor:!draft.trim()?'#90A4AE':t.primary,opacity:posting?.6:1,paddingHorizontal:16}]}><T style={{color:'#fff',fontWeight:'900',fontSize:12}}>{posting?'...':tr(p,'postComment')}</T></Pressable>
       </View>
@@ -1038,7 +1042,7 @@ function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x
         {loading?<View style={{alignItems:'center',paddingVertical:34}}><ActivityIndicator color={t.primary}/></View>:
         !items.length?<View style={{alignItems:'center',paddingVertical:40}}><Feather name="message-circle" size={30} color={t.muted}/><T style={{color:t.muted,fontSize:13,marginTop:10,textAlign:'center'}}>{tr(p,'noComments')}</T></View>:
         items.map((c,i)=><View key={c.id} style={{width:'100%',flexDirection:'row',gap:10,backgroundColor:cmtColors[i%cmtColors.length],borderRadius:14,padding:12,marginBottom:8}}>
-          <View style={{width:36,height:36,borderRadius:18,backgroundColor:t.primary,alignItems:'center',justifyContent:'center',flexShrink:0}}><T style={{color:'#fff',fontWeight:'900',fontSize:14}}>{(c.display_name||'?')[0]?.toUpperCase()}</T></View>
+          {c.avatar_url?<Image source={{uri:c.avatar_url}} style={{width:36,height:36,borderRadius:18,flexShrink:0}}/>:<View style={{width:36,height:36,borderRadius:18,backgroundColor:t.primary,alignItems:'center',justifyContent:'center',flexShrink:0}}><T style={{color:'#fff',fontWeight:'900',fontSize:14}}>{(c.display_name||'?')[0]?.toUpperCase()}</T></View>}
           <View style={{flex:1}}>
             <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><T style={{fontSize:13,fontWeight:'800',color:t.ink}}>{c.display_name}</T><T style={{color:t.muted,fontSize:10}}>{new Date(c.created_at).toLocaleDateString()}</T></View>
             <T style={{color:t.ink,fontSize:13,lineHeight:19,marginTop:3}}>{c.body}</T>
