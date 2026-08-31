@@ -26,52 +26,53 @@ function SplashScreen({theme}:{theme:Theme}){
   const full='লেখনী কাহিনী';
   const{height}=useWindowDimensions();
   const fadeAnim=useRef(new Animated.Value(0)).current;
-  const scaleAnim=useRef(new Animated.Value(0.8)).current;
-  const glowAnim=useRef(new Animated.Value(0.3)).current;
-  const circle1=useRef(new Animated.Value(0)).current;
-  const circle2=useRef(new Animated.Value(0)).current;
-  const circle3=useRef(new Animated.Value(0)).current;
+  const scaleAnim=useRef(new Animated.Value(0.7)).current;
+  const glowAnim=useRef(new Animated.Value(0.2)).current;
+  const breathe=useRef(new Animated.Value(0)).current;
   useEffect(()=>{
     Animated.parallel([
-      Animated.timing(fadeAnim,{toValue:1,duration:800,useNativeDriver:true}),
-      Animated.spring(scaleAnim,{toValue:1,friction:6,useNativeDriver:true}),
+      Animated.timing(fadeAnim,{toValue:1,duration:1000,useNativeDriver:true}),
+      Animated.spring(scaleAnim,{toValue:1,friction:7,useNativeDriver:true}),
     ]).start();
     Animated.loop(Animated.sequence([
-      Animated.timing(glowAnim,{toValue:0.7,duration:1500,useNativeDriver:true}),
-      Animated.timing(glowAnim,{toValue:0.3,duration:1500,useNativeDriver:true}),
+      Animated.timing(breathe,{toValue:1,duration:2000,easing:Easing.inOut(Easing.sin),useNativeDriver:true}),
+      Animated.timing(breathe,{toValue:0,duration:2000,easing:Easing.inOut(Easing.sin),useNativeDriver:true}),
     ])).start();
     Animated.loop(Animated.sequence([
-      Animated.parallel([
-        Animated.timing(circle1,{toValue:1,duration:3000,easing:Easing.out(Easing.cubic),useNativeDriver:true}),
-        Animated.timing(circle2,{toValue:1,duration:3500,easing:Easing.out(Easing.cubic),useNativeDriver:true}),
-        Animated.timing(circle3,{toValue:1,duration:4000,easing:Easing.out(Easing.cubic),useNativeDriver:true}),
-      ]),
-      Animated.parallel([
-        Animated.timing(circle1,{toValue:0,duration:3000,easing:Easing.in(Easing.cubic),useNativeDriver:true}),
-        Animated.timing(circle2,{toValue:0,duration:3500,easing:Easing.in(Easing.cubic),useNativeDriver:true}),
-        Animated.timing(circle3,{toValue:0,duration:4000,easing:Easing.in(Easing.cubic),useNativeDriver:true}),
-      ]),
+      Animated.timing(glowAnim,{toValue:0.5,duration:1800,useNativeDriver:true}),
+      Animated.timing(glowAnim,{toValue:0.2,duration:1800,useNativeDriver:true}),
     ])).start();
-    let i=0;const iv=setInterval(()=>{i++;setTyped(full.slice(0,i));if(i>=full.length)clearInterval(iv)},70);return()=>clearInterval(iv);
+    let i=0;const iv=setInterval(()=>{i++;setTyped(full.slice(0,i));if(i>=full.length)clearInterval(iv)},80);return()=>clearInterval(iv);
   },[]);
-  return <View style={{flex:1,backgroundColor:'#065D54',alignItems:'center',justifyContent:'center'}}>
+  const circleSize=Math.min(height*0.38,260);
+  return <View style={{flex:1,backgroundColor:'#054D45',alignItems:'center',justifyContent:'center'}}>
     <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,overflow:'hidden'}}>
-      <Animated.View style={{position:'absolute',width:height*0.7,height:height*0.7,borderRadius:height*0.35,backgroundColor:'rgba(255,255,255,0.04)',top:-height*0.15,right:-height*0.2,transform:[{scale:circle1.interpolate({inputRange:[0,1],outputRange:[0.6,1.2]})}],opacity:circle1.interpolate({inputRange:[0,1],outputRange:[0,0.6]})}}/>
-      <Animated.View style={{position:'absolute',width:height*0.55,height:height*0.55,borderRadius:height*0.275,backgroundColor:'rgba(255,255,255,0.03)',bottom:-height*0.1,left:-height*0.15,transform:[{scale:circle2.interpolate({inputRange:[0,1],outputRange:[0.7,1.1]})}],opacity:circle2.interpolate({inputRange:[0,1],outputRange:[0,0.5]})}}/>
-      <Animated.View style={{position:'absolute',width:height*0.4,height:height*0.4,borderRadius:height*0.2,backgroundColor:'rgba(255,255,255,0.025)',top:height*0.3,left:height*0.25,transform:[{scale:circle3.interpolate({inputRange:[0,1],outputRange:[0.8,1.3]})}],opacity:circle3.interpolate({inputRange:[0,1],outputRange:[0,0.4]})}}/>
+      <View style={{position:'absolute',width:height*0.6,height:height*0.6,borderRadius:height*0.3,backgroundColor:'rgba(255,255,255,0.025)',top:-height*0.12,right:-height*0.15}}/>
+      <View style={{position:'absolute',width:height*0.45,height:height*0.45,borderRadius:height*0.225,backgroundColor:'rgba(255,255,255,0.02)',bottom:-height*0.08,left:-height*0.12}}/>
+      <View style={{position:'absolute',width:height*0.3,height:height*0.3,borderRadius:height*0.15,backgroundColor:'rgba(255,255,255,0.018)',top:height*0.55,right:height*0.1}}/>
     </View>
     <Animated.View style={{alignItems:'center',opacity:fadeAnim,transform:[{scale:scaleAnim}]}}>
-      <View style={{width:110,height:110,borderRadius:28,backgroundColor:'rgba(255,255,255,0.12)',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'rgba(255,255,255,0.15)'}}>
-        <Image source={require('./assets/icon.png')} style={{width:90,height:90,borderRadius:22}} resizeMode="contain"/>
-      </View>
-      <Animated.View style={{marginTop:24,alignItems:'center'}}>
-        <T style={{color:'#fff',fontSize:32,fontWeight:'900',letterSpacing:1,fontFamily:'HindSiliguriMedium'}}>{typed}</T>
-        <Animated.View style={{width:40,height:2,backgroundColor:'#fff',borderRadius:1,marginTop:12,opacity:glowAnim}}/>
+      <Animated.View style={{width:circleSize,height:circleSize,borderRadius:circleSize/2,backgroundColor:'rgba(255,255,255,0.08)',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'rgba(255,255,255,0.1)',transform:[{scale:breathe.interpolate({inputRange:[0,1],outputRange:[0.97,1.03]})}],shadowColor:'#fff',shadowOpacity:0.06,shadowRadius:30,shadowOffset:{width:0,height:0},elevation:8}}>
+        <Svg width={circleSize*0.52} height={circleSize*0.52} viewBox="0 0 100 100" fill="none">
+          <G opacity={0.9}>
+            <Path d="M50 25 C50 25, 62 35, 62 48 C62 56, 56 62, 50 62 C44 62, 38 56, 38 48 C38 35, 50 25, 50 25Z" fill="rgba(255,255,255,0.85)"/>
+            <Path d="M50 25 C50 25, 38 20, 30 30 C22 40, 30 52, 38 50" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" fill="none"/>
+            <Path d="M50 25 C50 25, 62 20, 70 30 C78 40, 70 52, 62 50" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" fill="none"/>
+            <Path d="M50 62 C50 62, 50 72, 50 82" stroke="rgba(255,255,255,0.6)" strokeWidth="1.5" strokeLinecap="round"/>
+            <Path d="M50 70 C46 66, 40 66, 38 70" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+            <Path d="M50 74 C54 70, 60 70, 62 74" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
+            <Circle cx="50" cy="42" r="3" fill="rgba(255,255,255,0.4)"/>
+            <Path d="M35 44 C28 48, 22 58, 28 65 C34 72, 42 65, 42 58" stroke="rgba(255,255,255,0.25)" strokeWidth="1" fill="none"/>
+            <Path d="M65 44 C72 48, 78 58, 72 65 C66 72, 58 65, 58 58" stroke="rgba(255,255,255,0.25)" strokeWidth="1" fill="none"/>
+          </G>
+        </Svg>
       </Animated.View>
+      <View style={{marginTop:28,alignItems:'center'}}>
+        <T style={{color:'#fff',fontSize:34,fontWeight:'900',letterSpacing:1,fontFamily:'HindSiliguriMedium'}}>{typed}<Animated.View style={{width:2,height:28,backgroundColor:'#fff',borderRadius:1,marginLeft:2,opacity:glowAnim,alignSelf:'flex-end',marginBottom:4}}/></T>
+      </View>
     </Animated.View>
-    <View style={{position:'absolute',bottom:40,alignItems:'center'}}>
-      <T style={{color:'rgba(255,255,255,0.25)',fontSize:10,fontWeight:'500',letterSpacing:0.5}}>LEKHONI KAHINI</T>
-      <T style={{color:'rgba(255,255,255,0.15)',fontSize:9,fontWeight:'500',marginTop:4}}>by XYTEEE</T>
+    <View style={{position:'absolute',bottom:36,alignItems:'center'}}>
+      <T style={{color:'rgba(255,255,255,0.2)',fontSize:9,fontWeight:'500',letterSpacing:1}}>LEKHONI KAHINI</T>
     </View>
   </View>;
 }
