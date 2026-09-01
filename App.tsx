@@ -18,7 +18,7 @@ import { pickAndResizeImage } from './src/imageUpload';
 import { saveBookOffline, loadBookOffline, removeBookOffline, isBookOffline, getOfflineBookIds } from './src/offlineStorage';
 
 type Tab = 'home'|'library'|'categories'|'episodes'|'profile';
-type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' } | { type:'newStory' } | { type:'editStory', id:string, title:string, desc:string, coverUrl:string|null, writerStatus:string } | { type:'aboutApp' } | { type:'terms' };
+type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' } | { type:'newStory' } | { type:'editStory', id:string, title:string, desc:string, coverUrl:string|null, writerStatus:string } | { type:'aboutApp' } | { type:'terms' } | { type:'guide' };
 type Theme = {dark:boolean;primary:string;bg:string;card:string;ink:string;muted:string;line:string;tint:string;reader:string};
 const I = (name:string) => (Feather.glyphMap as Record<string,unknown>)[name] ? name as keyof typeof Feather.glyphMap : 'bell';
 
@@ -202,6 +202,7 @@ function AppShell(){
   if(screen.type==='editStory')body=<EditStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} storyId={screen.id} initialTitle={screen.title} initialDesc={screen.desc} initialCover={screen.coverUrl} initialWriterStatus={screen.writerStatus} onBack={()=>setScreen({type:'writer'})} onSaved={syncRemote}/>;
   if(screen.type==='aboutApp')body=<AboutAppScreen theme={theme} lang={state.settings.language} onBack={()=>setScreen({type:'main'})}/>;
   if(screen.type==='terms')body=<TermsScreen theme={theme} lang={state.settings.language} onBack={()=>setScreen({type:'main'})}/>;
+  if(screen.type==='guide')body=<GuideScreen theme={theme} lang={state.settings.language} onBack={()=>setScreen({type:'main'})} onWriter={()=>setScreen({type:'writer'})} setScreen={setScreen}/>;
   const isNewTheme=['nilkantha','kashful','mala','meghdoot','bashanti','sona','rong','agun','swapna','prithvi'].includes(state.settings.themeId);
   const themeBg=isNewTheme?themeFor(state.settings.themeId,state.settings.dark).bg:theme.bg;
   return <View style={{flex:1,backgroundColor:themeBg}}>
@@ -632,6 +633,17 @@ function Profile(p:C){
       <View style={{flex:1,marginLeft:12}}>
         <T numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{tr(p,'settings')}</T>
         <T style={{fontSize:11,color:t.muted,marginTop:1}}>{tr(p,'theme')}, {tr(p,'language')}</T>
+      </View>
+      <Feather name="chevron-right" size={18} color={t.muted}/>
+    </Pressable>
+
+    <Pressable onPress={()=>p.setScreen({type:'guide'})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:12,borderWidth:1,borderColor:t.line}}>
+      <View style={{width:42,height:42,borderRadius:21,backgroundColor:'#FEF3C7',alignItems:'center',justifyContent:'center'}}>
+        <Feather name="book-open" size={18} color="#D97706"/>
+      </View>
+      <View style={{flex:1,marginLeft:12}}>
+        <T numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{tr(p,'guideTitle')}</T>
+        <T style={{fontSize:11,color:t.muted,marginTop:1}}>{tr(p,'guideSub')}</T>
       </View>
       <Feather name="chevron-right" size={18} color={t.muted}/>
     </Pressable>
@@ -2172,6 +2184,84 @@ function TermsScreen({theme:t,lang,onBack}:{theme:Theme;lang:Language;onBack:()=
         </View>
         <T style={{fontSize:11,color:t.muted}}>{copy(lang,'contactEmail')}</T>
         <T style={{fontSize:11,color:t.muted,marginTop:4}}>{copy(lang,'contactResponse')}</T>
+      </View>
+    </ScrollView>
+  </View>;
+}
+
+function GuideStep({step,index,isOpen,onToggle,theme:t,langKey,lang,lastStep,onStart}:{step:any;index:number;isOpen:boolean;onToggle:()=>void;theme:Theme;langKey:string;lang:string;lastStep:boolean;onStart:()=>void}){
+  return <View style={{marginBottom:12}}>
+    <Pressable onPress={onToggle} style={{flexDirection:'row',alignItems:'center',gap:12,backgroundColor:isOpen?step.bg:t.card,borderRadius:14,padding:14,borderWidth:1.5,borderColor:isOpen?step.color:t.line}}>
+      <View style={{width:42,height:42,borderRadius:14,backgroundColor:step.color,alignItems:'center',justifyContent:'center'}}>
+        <Feather name={step.icon as any} size={20} color="#fff"/>
+      </View>
+      <View style={{flex:1}}>
+        <T style={{fontSize:15,fontWeight:'800',color:isOpen?step.color:t.ink}}>{step.title[langKey]}</T>
+        {!isOpen&&<T numberOfLines={1} style={{fontSize:12,color:t.muted,marginTop:3}}>{step.desc[langKey]}</T>}
+      </View>
+      <Feather name={isOpen?'chevron-up':'chevron-down'} size={18} color={isOpen?step.color:t.muted}/>
+    </Pressable>
+    {isOpen&&<View style={{backgroundColor:t.card,borderRadius:14,borderTopLeftRadius:0,borderTopRightRadius:0,marginTop:-2,padding:16,borderWidth:1,borderTopWidth:0,borderColor:t.line}}>
+      <T style={{fontSize:13,color:t.muted,marginBottom:14,lineHeight:20}}>{step.desc[langKey]}</T>
+      {step.items[langKey].map((item:string,j:number)=><View key={j} style={{flexDirection:'row',alignItems:'flex-start',gap:12,marginBottom:j<step.items[langKey].length-1?12:0}}>
+        <View style={{width:24,height:24,borderRadius:12,backgroundColor:step.color,alignItems:'center',justifyContent:'center',marginTop:1}}>
+          <T style={{fontSize:12,fontWeight:'800',color:'#fff'}}>{j+1}</T>
+        </View>
+        <T style={{fontSize:14,fontWeight:'600',color:t.ink,flex:1,lineHeight:21}}>{item}</T>
+      </View>)}
+      {lastStep&&<Pressable onPress={onStart} style={{marginTop:16,backgroundColor:step.color,borderRadius:12,paddingVertical:14,alignItems:'center',flexDirection:'row',justifyContent:'center',gap:8}}>
+        <Feather name="edit-3" size={16} color="#fff"/>
+        <T style={{fontSize:14,fontWeight:'800',color:'#fff'}}>{lang==='bn'?'এখনই শুরু করুন':lang==='hi'?'अभी शुरू करें':'Start Now'}</T>
+      </Pressable>}
+    </View>}
+  </View>;
+}
+
+function GuideScreen({theme:t,lang,onBack,onWriter,setScreen}:{theme:Theme;lang:Language;onBack:()=>void;onWriter:()=>void;setScreen:(s:Screen)=>void}){
+  const insets=useSafeAreaInsets();
+  const[expandedStep,setExpandedStep]=useState<number|null>(0);
+  const langKey=lang==='bn'?'bn':lang==='hi'?'hi':'en';
+  const steps=[
+    {icon:'user-plus',color:'#8B5CF6',bg:'#EDE9FE',title:{en:'Step 1: Create Account',bn:'ধাপ ১: অ্যাকাউন্ট তৈরি করুন',hi:'चरण 1: खाता बनाएँ'},desc:{en:'Go to Menu → Writer Studio → Register. Fill in your username, writer name, email and password. You can also sign up with Google.',bn:'মেনু → রাইটার স্টুডিও → নিবন্ধন এ যান। আপনার ইউজারনেম, লেখক নাম, ইমেইল এবং পাসওয়ার্ড দিন। গুগল দিয়েও সাইন আপ করতে পারবেন।',hi:'मेन्यू → राइटर स्टूडियो → रजिस्टर पर जाएँ। अपना यूज़रनेम, लेखक नाम, ईमेल और पासवर्ड भरें। Google से भी साइन अप कर सकते हैं।'},items:{en:['Open Menu from bottom tab','Tap "Writer Studio"','Tap "Register"','Fill username, writer name, email, password','Tap "Create Account"'],bn:['বটম ট্যাব থেকে Menu খুঁজুন','"রাইটার স্টুডিও" এ ট্যাপ করুন','"নিবন্ধন" এ ট্যাপ করুন','ইউজারনেম, লেখক নাম, ইমেইল, পাসওয়ার্ড দিন','"অ্যাকাউন্ট তৈরি করুন" এ ট্যাপ করুন'],hi:['बॉटम टैब से Menu खोजें','"राइटर स्टूडियो" पर टैप करें','"रजिस्टर" पर टैप करें','यूज़रनेम, लेखक नाम, ईमेल, पासवर्ड भरें','"खाता बनाएँ" पर टैप करें']}},
+    {icon:'edit-3',color:'#3B82F6',bg:'#DBEAFE',title:{en:'Step 2: Create a Story',bn:'ধাপ ২: একটি গল্প তৈরি করুন',hi:'चरण 2: एक कहानी बनाएँ'},desc:{en:'From Writer Studio, tap "New Story". Add a title, optional description, select category and cover image.',bn:'রাইটার স্টুডিও থেকে "নতুন গল্প" এ ট্যাপ করুন। শিরোনাম, বিবরণ (ঐচ্ছিক), বিভাগ এবং কভার ছবি যোগ করুন।',hi:'राइटर स्टूडियो से "नई कहानी" पर टैप करें। शीर्षक, विवरण (वैकल्पिक), श्रेणी और कवर छवि जोड़ें।'},items:{en:['Tap "New Story" in Writer Studio','Enter a catchy title','Add a short description (optional)','Select a category','Paste a cover image URL'],bn:['রাইটার স্টুডিওতে "নতুন গল্প" এ ট্যাপ করুন','একটি আকর্ষণীয় শিরোনাম দিন','সংক্ষিপ্ত বিবরণ দিন (ঐচ্ছিক)','একটি বিভাগ নির্বাচন করুন','কভার ছবির URL দিন'],hi:['राइटर स्टूडियो में "नई कहानी" पर टैप करें','एक आकर्षक शीर्षक दर्ज करें','संक्षिप्त विवरण जोड़ें (वैकल्पिक)','एक श्रेणी चुनें','कवर छवि URL पेस्ट करें']}},
+    {icon:'pen-tool',color:'#10B981',bg:'#D1FAE5',title:{en:'Step 3: Write First Chapter',bn:'ধাপ ৩: প্রথম অধ্যায় লিখুন',hi:'चरण 3: पहला अध्याय लिखें'},desc:{en:'Write your story content. Give the chapter a title and write the story body. You can edit or delete chapters later.',bn:'আপনার গল্পের লেখা লিখুন। অধ্যায়ের শিরোনাম দিন এবং গল্প লিখুন। পরে সম্পাদনা বা মুছে ফেলতে পারবেন।',hi:'अपनी कहानी का सामग्री लिखें। अध्याय को शीर्षक दें और कहानी लिखें। बाद में संपादित या हटा सकते हैं।'},items:{en:['Give the chapter a title','Write the story content','Minimum 1 chapter required','You can add more chapters later'],bn:['অধ্যায়ের শিরোনাম দিন','গল্পের লেখা লিখুন','ন্যূনতম ১ অধ্যায় প্রয়োজন','পরে আরও অধ্যায় যোগ করতে পারবেন'],hi:['अध्याय को शीर्षक दें','कहानी का सामग्री लिखें','न्यूनतम 1 अध्याय आवश्यक','बाद में और अध्याय जोड़ सकते हैं']}},
+    {icon:'send',color:'#F59E0B',bg:'#FEF3C7',title:{en:'Step 4: Publish',bn:'ধাপ ৪: প্রকাশ করুন',hi:'चरण 4: प्रकाशित करें'},desc:{en:'Tap "Submit for Review". Our team will review your story. Once approved, it will appear on the home page for everyone to read.',bn:'"পর্যালোচনায় পাঠান" এ ট্যাপ করুন। আমাদের দল আপনার গল্প পর্যালোচনা করবে। অনুমোদনের পর এটি সবার জন্য হোম পেজে দেখাবে।',hi:'"समीक्षा के लिए भेजें" पर टैप करें। हमारी टीम आपकी कहानी की समीक्षा करेगी। अनुमोदन के बाद यह होम पेज पर सभी को दिखेगी।'},items:{en:['Tap "Submit for Review"','Wait for approval (usually 24 hrs)','Story appears on home page','Readers can read and comment'],bn:['"পর্যালোচনায় পাঠান" এ ট্যাপ করুন','অনুমোদনের জন্য অপেক্ষা করুন (সাধারণত ২৪ ঘণ্টা)','গল্প হোম পেজে দেখাবে','পাঠকরা পড়তে ও মন্তব্য করতে পারবেন'],hi:['"समीक्षा के लिए भेजें" पर टैप करें','अनुमोदन की प्रतीक्षा करें (आमतौर पर 24 घंटे)','कहानी होम पेज पर दिखेगी','पाठक पढ़ और टिप्पणी कर सकते हैं']}},
+    {icon:'plus-circle',color:'#EC4899',bg:'#FCE7F3',title:{en:'Step 5: Add More Chapters',bn:'ধাপ ৫: আরও অধ্যায় যোগ করুন',hi:'चरण 5: और अध्याय जोड़ें'},desc:{en:'Go to Writer Studio → My Stories → select your story → Add Chapter. Keep writing and publishing new chapters to grow your audience.',bn:'রাইটার স্টুডিও → আমার গল্প → আপনার গল্প নির্বাচন → অধ্যায় যোগ করুন। নতুন অধ্যায় লিখুন ও প্রকাশ করুন।',hi:'राइटर स्टूडियो → मेरी कहानियाँ → अपनी कहानी चुनें → अध्याय जोड़ें। नए अध्याय लिखें और प्रकाशित करें।'},items:{en:['Open Writer Studio','Tap "My Stories"','Select your story','Tap "Add Chapter"','Write and publish'],bn:['রাইটার স্টুডিও খুঁজুন','"আমার গল্প" এ ট্যাপ করুন','আপনার গল্প নির্বাচন করুন','"অধ্যায় যোগ করুন" এ ট্যাপ করুন','লিখুন ও প্রকাশ করুন'],hi:['राइटर स्टूडियो खोजें','"मेरी कहानियाँ" पर टैप करें','अपनी कहानी चुनें','"अध्याय जोड़ें" पर टैप करें','लिखें और प्रकाशित करें']}},
+    {icon:'trending-up',color:'#EF4444',bg:'#FEE2E2',title:{en:'Step 6: Grow & Earn',bn:'ধাপ ৬: বৃদ্ধি করুন ও আয় করুন',hi:'चरण 6: बढ़ें और कमाएँ'},desc:{en:'Share your stories, get followers, and earn money through monetization when you reach 1K followers + 5K views.',bn:'গল্প শেয়ার করুন, অনুসারী পান এবং ১,০০০ অনুসারী + ৫,০০০ পাঠক পেলে আয়করণের মাধ্যমে আয় করুন।',hi:'कहानियाँ शेयर करें, अनुयायी पाएँ और 1K अनुयायी + 5K दृश्य पर मुद्रीकरण से कमाएँ।'},items:{en:['Share stories on social media','Build your follower base','Reach 1K followers + 5K views','Start earning from ads'],bn:['সোশ্যাল মিডিয়ায় গল্প শেয়ার করুন','অনুসারী তৈরি করুন','১,০০০ অনুসারী + ৫,০০০ পাঠক পান','বিজ্ঞাপন থেকে আয় শুরু করুন'],hi:['सोशल मीडिया पर कहानियाँ शेयर करें','अनुयायी बनाएँ','1K अनुयायी + 5K दृश्य प्राप्त करें','विज्ञापन से कमाना शुरू करें']}}
+  ];
+  return <View style={{flex:1,backgroundColor:t.bg}}>
+    <View style={{flexDirection:'row',alignItems:'center',paddingHorizontal:16,paddingTop:insets.top+10,paddingBottom:12,backgroundColor:t.bg}}>
+      <Pressable onPress={onBack} hitSlop={10} style={{width:36,height:36,borderRadius:12,backgroundColor:t.card,borderWidth:1,borderColor:t.line,alignItems:'center',justifyContent:'center'}}><Feather name="arrow-left" size={18} color={t.ink}/></Pressable>
+      <View style={{flex:1,marginLeft:12}}>
+        <T style={{fontSize:18,fontWeight:'900',color:t.ink}}>{copy(lang,'guideTitle')}</T>
+        <T style={{fontSize:11,color:t.muted,marginTop:1}}>{copy(lang,'guideSub')}</T>
+      </View>
+      <View style={{width:36,height:36,borderRadius:12,backgroundColor:'#FEF3C7',alignItems:'center',justifyContent:'center'}}><Feather name="book-open" size={16} color="#D97706"/></View>
+    </View>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingHorizontal:16,paddingBottom:insets.bottom+40}}>
+      <View style={{backgroundColor:t.card,borderRadius:16,padding:18,marginBottom:16,borderWidth:1,borderColor:t.line}}>
+        <View style={{flexDirection:'row',alignItems:'center',gap:12}}>
+          <View style={{width:44,height:44,borderRadius:22,backgroundColor:'#FEF3C7',alignItems:'center',justifyContent:'center'}}><Feather name="zap" size={20} color="#D97706"/></View>
+          <View style={{flex:1}}>
+            <T style={{fontSize:16,fontWeight:'900',color:t.ink}}>{lang==='bn'?'লেখক হিসেবে শুরু করুন':lang==='hi'?'लेखक के रूप में शुरू करें':'Start as a Writer'}</T>
+            <T style={{fontSize:13,color:t.muted,marginTop:3}}>{lang==='bn'?'৬ টি সহজ ধাপে গল্প লিখুন ও প্রকাশ করুন':lang==='hi'?'६ आसान चरणों में कहानी लिखें और प्रकाशित करें':'Write and publish in 6 easy steps'}</T>
+          </View>
+        </View>
+      </View>
+      {steps.map((step,i)=><GuideStep key={i} step={step} index={i} isOpen={expandedStep===i} onToggle={()=>setExpandedStep(expandedStep===i?null:i)} theme={t} langKey={langKey} lang={lang} lastStep={i===steps.length-1} onStart={()=>setScreen({type:'writer'})}/>)}
+      <View style={{backgroundColor:t.card,borderRadius:16,padding:18,borderWidth:1,borderColor:t.line}}>
+        <View style={{flexDirection:'row',alignItems:'center',gap:10,marginBottom:14}}>
+          <Feather name="help-circle" size={20} color={t.primary}/>
+          <T style={{fontSize:15,fontWeight:'800',color:t.ink}}>{lang==='bn'?'গুরুত্বপূর্ণ তথ্য':lang==='hi'?'महत्वपूर्ण जानकारी':'Important Info'}</T>
+        </View>
+        {[{icon:'check-circle',color:'#10B981',text:{en:'At least 1 chapter required to publish',bn:'প্রকাশ করতে ন্যূনতম ১ অধ্যায় লাগবে',hi:'प्रकाशित करने के लिए कम से कम 1 अध्याय चाहिए'}},
+          {icon:'clock',color:'#F59E0B',text:{en:'Story review usually takes 24 hours',bn:'গল্প পর্যালোচনা সাধারণত ২৪ ঘণ্টা লাগে',hi:'कहानी की समीक्षा में आमतौर पर 24 घंटे लगते हैं'}},
+          {icon:'edit',color:'#3B82F6',text:{en:'You can edit or delete stories anytime',bn:'যেকোনো সময় গল্প এডিট বা ডিলিট করতে পারবেন',hi:'कभी भी कहानी एडिट या डिलीट कर सकते हैं'}},
+          {icon:'dollar-sign',color:'#EF4444',text:{en:'Earn money at 1K followers + 5K views',bn:'১,০০০ ফলোয়ার্স + ৫,০০০ ভিউতে আয় শুরু',hi:'1K फॉलोअर्स + 5K व्यूज पर कमाना शुरू'}}
+        ].map((item,j)=><View key={j} style={{flexDirection:'row',alignItems:'center',gap:12,marginBottom:j<3?12:0,backgroundColor:item.color+'08',borderRadius:10,padding:10}}>
+          <Feather name={item.icon as any} size={18} color={item.color}/>
+          <T style={{fontSize:13,fontWeight:'600',color:t.ink,flex:1}}>{item.text[langKey]}</T>
+        </View>)}
       </View>
     </ScrollView>
   </View>;
