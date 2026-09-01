@@ -6,7 +6,7 @@ export type Book = {
   description: string; updated: string; chapters: Chapter[]; cover_url?: string | null; hide_title_on_cover?: boolean;
 };
 export type Language = 'en' | 'bn' | 'hi';
-export type ThemeId = 'katagolap' | 'sepia' | 'midnight' | 'godhuli' | 'sagar' | 'oronno' | 'lavender' | 'golapi' | 'shapla' | 'golap';
+export type ThemeId = 'katagolap' | 'sepia' | 'midnight' | 'godhuli' | 'sagar' | 'oronno' | 'lavender' | 'golapi' | 'shapla' | 'golap' | 'nilkantha' | 'kashful' | 'mala' | 'meghdoot' | 'bashanti' | 'sona' | 'rong' | 'agun' | 'swapna' | 'prithvi';
 export type FontFamily = 'default' | 'serif' | 'loose';
 export type PageMode = 'scroll' | 'page';
 export type Settings = { dark: boolean; fontSize: number; lineHeight: number; lineSpacing: number; fontFamily: FontFamily; pageMode: PageMode; notifications: boolean; wifiOnly: boolean; language: Language; themeId: ThemeId; readerTheme: 'default' | 'sepia' | 'dark' | 'amoled'; keepScreenOn: boolean; autoScroll: boolean; autoScrollSpeed: number; volumeScroll: boolean; eyeComfort: number; brightness: number };

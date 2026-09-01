@@ -197,7 +197,11 @@ function AppShell(){
   if(screen.type==='editStory')body=<EditStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} storyId={screen.id} initialTitle={screen.title} initialDesc={screen.desc} initialCover={screen.coverUrl} initialWriterStatus={screen.writerStatus} onBack={()=>setScreen({type:'writer'})} onSaved={syncRemote}/>;
   if(screen.type==='aboutApp')body=<AboutAppScreen theme={theme} lang={state.settings.language} onBack={()=>setScreen({type:'main'})}/>;
   if(screen.type==='terms')body=<TermsScreen theme={theme} lang={state.settings.language} onBack={()=>setScreen({type:'main'})}/>;
-  return <View style={{flex:1,backgroundColor:theme.bg}}><StatusBar style={state.settings.dark?'light':'dark'}/>{body}{showExitModal&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',zIndex:999}}><View style={{backgroundColor:theme.card,borderRadius:24,padding:28,marginHorizontal:40,alignItems:'center',borderWidth:1,borderColor:theme.line,shadowColor:'#000',shadowOpacity:0.2,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:10}}>
+  const isNewTheme=['nilkantha','kashful','mala','meghdoot','bashanti','sona','rong','agun','swapna','prithvi'].includes(state.settings.themeId);
+  const themeBg=isNewTheme?themeFor(state.settings.themeId,state.settings.dark).bg:theme.bg;
+  return <View style={{flex:1,backgroundColor:themeBg}}>
+    {isNewTheme&&<ThemeBackground themeId={state.settings.themeId} dark={state.settings.dark}/>}
+    <StatusBar style={state.settings.dark?'light':'dark'}/>{body}{showExitModal&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',zIndex:999}}><View style={{backgroundColor:theme.card,borderRadius:24,padding:28,marginHorizontal:40,alignItems:'center',borderWidth:1,borderColor:theme.line,shadowColor:'#000',shadowOpacity:0.2,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:10}}>
         <View style={{width:72,height:72,borderRadius:20,backgroundColor:theme.primary+'18',alignItems:'center',justifyContent:'center',marginBottom:18}}>
           <Svg width={36} height={36} viewBox="0 0 24 24" fill="none">
             <Path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke={theme.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
@@ -242,7 +246,187 @@ const GF=()=>_curLang==='en'?F_EN:F_BN;
 function T({style,...rest}:React.ComponentProps<typeof Text>){return <Text {...rest} style={[style,{fontFamily:GF(),fontWeight:'500'}]}/>}
 const tr=(p:C,key:CopyKey)=>copy(p.state.settings.language,key);
 function greet(p:C){const h=new Date().getHours();const key=h<12?'morning':h<17?'afternoon':h<21?'evening':'night';return tr(p,key as CopyKey);}
-function Page({children,theme,onRefresh,refreshing}:{children:React.ReactNode;theme:Theme;onRefresh?:()=>void;refreshing?:boolean}){const insets=useSafeAreaInsets();return <ScrollView style={{flex:1,backgroundColor:theme.bg}} contentContainerStyle={{paddingTop:insets.top+12,paddingHorizontal:18,paddingBottom:110}} showsVerticalScrollIndicator={false} refreshControl={onRefresh?<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} colors={[theme.primary]} tintColor={theme.primary}/>:undefined}>{children}</ScrollView>}
+function ThemeBackground({themeId,dark}:{themeId:string;dark:boolean}){
+  const isNew=['nilkantha','kashful','mala','meghdoot','bashanti','sona','rong','agun','swapna','prithvi'].includes(themeId);
+  if(!isNew)return null;
+  const p=themeFor(themeId as any,dark);
+  const pc=p.primary;const bgc=p.bg;
+  const A={position:'absolute' as const,top:0,left:0,right:0,bottom:0,overflow:'hidden' as const};
+  switch(themeId){
+    case 'nilkantha':
+      return <View style={A} pointerEvents="none">
+        <LinearGradient colors={[pc+'40',pc+'15',bgc]} start={{x:0,y:0}} end={{x:0.7,y:1}} style={{flex:1}}/>
+        <Svg width="100%" height="100%" viewBox="0 0 400 800" style={{position:'absolute',top:0,left:0}}>
+          <G opacity={0.12} transform="translate(280,80)">
+            <Circle r="20" fill={pc}/>
+            <Ellipse rx="10" ry="30" fill={pc} transform="translate(0,-25)"/>
+            <Ellipse rx="10" ry="30" fill={pc} transform="rotate(45) translate(0,-25)"/>
+            <Ellipse rx="10" ry="30" fill={pc} transform="rotate(90) translate(0,-25)"/>
+            <Ellipse rx="10" ry="30" fill={pc} transform="rotate(135) translate(0,-25)"/>
+            <Ellipse rx="10" ry="30" fill={pc} transform="rotate(180) translate(0,-25)"/>
+            <Ellipse rx="10" ry="30" fill={pc} transform="rotate(225) translate(0,-25)"/>
+            <Ellipse rx="10" ry="30" fill={pc} transform="rotate(270) translate(0,-25)"/>
+            <Ellipse rx="10" ry="30" fill={pc} transform="rotate(315) translate(0,-25)"/>
+          </G>
+          <Path d="M0 350 Q100 320 200 360 Q300 400 400 350" stroke={pc} strokeWidth="2" fill="none" opacity={0.06}/>
+          <Path d="M0 380 Q100 350 200 390 Q300 430 400 380" stroke={pc} strokeWidth="1.5" fill="none" opacity={0.04}/>
+          <Circle cx="350" cy="600" r="30" fill={pc} opacity={0.06}/>
+          <Circle cx="80" cy="700" r="20" fill={pc} opacity={0.05}/>
+        </Svg>
+      </View>;
+    case 'kashful':
+      return <View style={A} pointerEvents="none">
+        <LinearGradient colors={[pc+'35',pc+'12',bgc]} start={{x:0.3,y:0}} end={{x:0.7,y:1}} style={{flex:1}}/>
+        <Svg width="100%" height="100%" viewBox="0 0 400 800" style={{position:'absolute',top:0,left:0}}>
+          <G opacity={0.10}>
+            <Path d="M60 800 L60 200" stroke={pc} strokeWidth="3" fill="none"/>
+            <Circle cx="60" cy="180" r="18" fill={pc}/>
+            <Circle cx="60" cy="180" r="10" fill={pc} opacity={0.5}/>
+            <Path d="M60 200 Q40 160 50 130 Q55 145 60 200" fill={pc} opacity={0.6}/>
+            <Path d="M60 200 Q80 160 70 130 Q65 145 60 200" fill={pc} opacity={0.6}/>
+          </G>
+          <G opacity={0.07}>
+            <Path d="M300 800 L300 300" stroke={pc} strokeWidth="2" fill="none"/>
+            <Path d="M300 300 Q285 260 290 230 Q295 250 300 300" fill={pc} opacity={0.5}/>
+            <Path d="M300 300 Q315 260 310 230 Q305 250 300 300" fill={pc} opacity={0.5}/>
+            <Path d="M300 340 Q280 310 285 280 Q295 300 300 340" fill={pc} opacity={0.35}/>
+          </G>
+          <Ellipse cx="180" cy="500" rx="50" ry="35" fill={pc} opacity={0.05}/>
+          <Circle cx="350" cy="650" r="25" fill={pc} opacity={0.05}/>
+        </Svg>
+      </View>;
+    case 'mala':
+      return <View style={A} pointerEvents="none">
+        <LinearGradient colors={[pc+'38',pc+'14',bgc]} start={{x:0,y:0}} end={{x:1,y:0.8}} style={{flex:1}}/>
+        <Svg width="100%" height="100%" viewBox="0 0 400 800" style={{position:'absolute',top:0,left:0}}>
+          <G opacity={0.10}>
+            <Circle cx="320" cy="120" r="35" fill={pc}/>
+            <Circle cx="320" cy="120" r="20" fill={pc} opacity={0.5}/>
+            <Ellipse rx="7" ry="16" fill={pc} opacity={0.7} transform="translate(320,100)"/>
+            <Ellipse rx="7" ry="16" fill={pc} opacity={0.7} transform="rotate(72 320 120) translate(0,-20)"/>
+            <Ellipse rx="7" ry="16" fill={pc} opacity={0.7} transform="rotate(144 320 120) translate(0,-20)"/>
+            <Ellipse rx="7" ry="16" fill={pc} opacity={0.7} transform="rotate(216 320 120) translate(0,-20)"/>
+            <Ellipse rx="7" ry="16" fill={pc} opacity={0.7} transform="rotate(288 320 120) translate(0,-20)"/>
+          </G>
+          <G opacity={0.06}>
+            <Circle cx="100" cy="350" r="12" fill={pc}/>
+            <Circle cx="130" cy="380" r="10" fill={pc}/>
+            <Circle cx="110" cy="410" r="8" fill={pc}/>
+            <Circle cx="140" cy="440" r="11" fill={pc}/>
+            <Circle cx="120" cy="470" r="9" fill={pc}/>
+            <Circle cx="150" cy="500" r="7" fill={pc}/>
+          </G>
+          <Circle cx="200" cy="650" r="20" fill={pc} opacity={0.05}/>
+        </Svg>
+      </View>;
+    case 'meghdoot':
+      return <View style={A} pointerEvents="none">
+        <LinearGradient colors={[pc+'36',pc+'12',bgc]} start={{x:0,y:0}} end={{x:0.5,y:1}} style={{flex:1}}/>
+        <Svg width="100%" height="100%" viewBox="0 0 400 800" style={{position:'absolute',top:0,left:0}}>
+          <G opacity={0.11} transform="translate(300,90)">
+            <Circle r="25" fill={pc}/>
+            <Circle r="14" fill={pc} opacity={0.5}/>
+            <Path d="M0,-22 Q12,-50 0,-65 Q-12,-50 0,-22" fill={pc} opacity={0.8}/>
+            <Path d="M22,0 Q50,-12 65,0 Q50,12 22,0" fill={pc} opacity={0.8}/>
+            <Path d="M0,22 Q12,50 0,65 Q-12,50 0,22" fill={pc} opacity={0.8}/>
+            <Path d="M-22,0 Q-50,-12 -65,0 Q-50,12 -22,0" fill={pc} opacity={0.8}/>
+          </G>
+          <G opacity={0.06}>
+            <Ellipse cx="80" cy="300" rx="70" ry="30" fill={pc}/>
+            <Ellipse cx="120" cy="290" rx="50" ry="25" fill={pc}/>
+            <Ellipse cx="50" cy="295" rx="40" ry="20" fill={pc}/>
+          </G>
+          <G opacity={0.05}>
+            <Ellipse cx="320" cy="550" rx="60" ry="25" fill={pc}/>
+            <Ellipse cx="350" cy="540" rx="40" ry="20" fill={pc}/>
+          </G>
+        </Svg>
+      </View>;
+    case 'bashanti':
+      return <View style={A} pointerEvents="none">
+        <LinearGradient colors={[pc+'37',pc+'12',bgc]} start={{x:0.2,y:0}} end={{x:0.8,y:1}} style={{flex:1}}/>
+        <Svg width="100%" height="100%" viewBox="0 0 400 800" style={{position:'absolute',top:0,left:0}}>
+          <G opacity={0.10} transform="translate(320,100)">
+            <Circle r="15" fill={pc}/>
+            <Circle r="8" fill={pc} opacity={0.5}/>
+            <Ellipse rx="5" ry="22" fill={pc} opacity={0.7} transform="translate(0,-18) rotate(-10)"/>
+            <Ellipse rx="5" ry="22" fill={pc} opacity={0.7} transform="rotate(72) translate(0,-18) rotate(-10)"/>
+            <Ellipse rx="5" ry="22" fill={pc} opacity={0.7} transform="rotate(144) translate(0,-18) rotate(-10)"/>
+            <Ellipse rx="5" ry="22" fill={pc} opacity={0.7} transform="rotate(216) translate(0,-18) rotate(-10)"/>
+            <Ellipse rx="5" ry="22" fill={pc} opacity={0.7} transform="rotate(288) translate(0,-18) rotate(-10)"/>
+            <Path d="M0,15 Q5,40 0,55 Q-5,40 0,15" fill={pc} opacity={0.4}/>
+            <Path d="M-8,18 Q-20,35 -15,50 Q-5,40 -8,18" fill={pc} opacity={0.3}/>
+            <Path d="M8,18 Q20,35 15,50 Q5,40 8,18" fill={pc} opacity={0.3}/>
+          </G>
+          <G opacity={0.06}>
+            <Path d="M60 800 Q70 750 65 700 Q60 680 55 650 Q50 620 60 580" stroke={pc} strokeWidth="2" fill="none"/>
+            <Ellipse cx="60" cy="570" rx="12" ry="8" fill={pc} opacity={0.5} transform="rotate(-20 60 570)"/>
+            <Path d="M65 650 Q80 630 90 640 Q80 650 65 650" fill={pc} opacity={0.4}/>
+            <Path d="M58 600 Q40 585 35 595 Q45 605 58 600" fill={pc} opacity={0.35}/>
+          </G>
+          <Circle cx="200" cy="680" r="18" fill={pc} opacity={0.05}/>
+        </Svg>
+      </View>;
+    case 'sona':
+      return <View style={A} pointerEvents="none">
+        <LinearGradient colors={[pc+'3A',pc+'14',bgc]} start={{x:0,y:0}} end={{x:1,y:0.7}} style={{flex:1}}/>
+        <Svg width="100%" height="100%" viewBox="0 0 400 800" style={{position:'absolute',top:0,left:0}}>
+          <Ellipse cx="300" cy="110" rx={110} ry={90} fill={pc} opacity={0.13}/>
+          <Ellipse cx="80" cy="200" rx={90} ry={75} fill={pc} opacity={0.10}/>
+          <Ellipse cx="200" cy="400" rx={130} ry={95} fill={pc} opacity={0.08}/>
+          <Ellipse cx="350" cy="600" rx={75} ry={60} fill={pc} opacity={0.11}/>
+          <Circle cx="130" cy="680" r={55} fill={pc} opacity={0.09}/>
+        </Svg>
+      </View>;
+    case 'rong':
+      return <View style={A} pointerEvents="none">
+        <LinearGradient colors={[pc+'35',pc+'12',bgc]} start={{x:0,y:0}} end={{x:1,y:1}} style={{flex:1}}/>
+        <Svg width="100%" height="100%" viewBox="0 0 400 800" style={{position:'absolute',top:0,left:0}}>
+          <Ellipse cx="330" cy="130" rx={100} ry={85} fill={pc} opacity={0.12}/>
+          <Ellipse cx="70" cy="300" rx={120} ry={95} fill={pc} opacity={0.10}/>
+          <Ellipse cx="250" cy="550" rx={105} ry={80} fill={pc} opacity={0.08}/>
+          <Circle cx="180" cy="70" r={55} fill={pc} opacity={0.11}/>
+          <Circle cx="370" cy="700" r={45} fill={pc} opacity={0.09}/>
+        </Svg>
+      </View>;
+    case 'agun':
+      return <View style={A} pointerEvents="none">
+        <LinearGradient colors={[pc+'38',pc+'14',bgc]} start={{x:0.5,y:0}} end={{x:0.5,y:1}} style={{flex:1}}/>
+        <Svg width="100%" height="100%" viewBox="0 0 400 800" style={{position:'absolute',top:0,left:0}}>
+          <Ellipse cx="300" cy="90" rx={115} ry={100} fill={pc} opacity={0.13}/>
+          <Ellipse cx="80" cy="250" rx={95} ry={85} fill={pc} opacity={0.10}/>
+          <Ellipse cx="200" cy="450" rx={130} ry={90} fill={pc} opacity={0.08}/>
+          <Ellipse cx="350" cy="600" rx={70} ry={60} fill={pc} opacity={0.11}/>
+          <Circle cx="120" cy="700" r={50} fill={pc} opacity={0.09}/>
+        </Svg>
+      </View>;
+    case 'swapna':
+      return <View style={A} pointerEvents="none">
+        <LinearGradient colors={[pc+'36',pc+'12',bgc]} start={{x:0,y:0}} end={{x:1,y:0.8}} style={{flex:1}}/>
+        <Svg width="100%" height="100%" viewBox="0 0 400 800" style={{position:'absolute',top:0,left:0}}>
+          <Ellipse cx="320" cy="110" rx={105} ry={90} fill={pc} opacity={0.12}/>
+          <Ellipse cx="60" cy="320" rx={120} ry={100} fill={pc} opacity={0.10}/>
+          <Ellipse cx="220" cy="580" rx={100} ry={75} fill={pc} opacity={0.08}/>
+          <Circle cx="150" cy="80" r={60} fill={pc} opacity={0.11}/>
+          <Circle cx="360" cy="700" r={50} fill={pc} opacity={0.09}/>
+        </Svg>
+      </View>;
+    case 'prithvi':
+      return <View style={A} pointerEvents="none">
+        <LinearGradient colors={[pc+'37',pc+'12',bgc]} start={{x:0,y:1}} end={{x:1,y:0}} style={{flex:1}}/>
+        <Svg width="100%" height="100%" viewBox="0 0 400 800" style={{position:'absolute',top:0,left:0}}>
+          <Ellipse cx="300" cy="100" rx={100} ry={85} fill={pc} opacity={0.12}/>
+          <Ellipse cx="80" cy="300" rx={115} ry={95} fill={pc} opacity={0.10}/>
+          <Ellipse cx="200" cy="550" rx={130} ry={85} fill={pc} opacity={0.08}/>
+          <Circle cx="350" cy="680" r={60} fill={pc} opacity={0.11}/>
+          <Circle cx="130" cy="70" r={45} fill={pc} opacity={0.09}/>
+        </Svg>
+      </View>;
+    default:return null;
+  }
+}
+
+function Page({children,theme,onRefresh,refreshing}:{children:React.ReactNode;theme:Theme;onRefresh?:()=>void;refreshing?:boolean}){const insets=useSafeAreaInsets();return <ScrollView style={{flex:1}} contentContainerStyle={{paddingTop:insets.top+12,paddingHorizontal:18,paddingBottom:110}} showsVerticalScrollIndicator={false} refreshControl={onRefresh?<RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} colors={[theme.primary]} tintColor={theme.primary}/>:undefined}>{children}</ScrollView>}
 function AgeGate({theme:t,lang,onDone}:{theme:Theme;lang:import('./src/types').Language;onDone:()=>void}){
   const[checked,setChecked]=useState(false);
   const[curLang,setCurLang]=useState<import('./src/types').Language>(lang);
@@ -411,25 +595,6 @@ function Profile(p:C){
         </Animated.View>})}
       </View>
     </Animated.View>
-
-    {/* === TOTAL READS (real-time from readingActivity) === */}
-    {(() => {
-      const ra = p.state.readingActivity;
-      const totalMins = Object.values(ra).reduce((s: number, d: any) => s + (d.minutes || 0), 0);
-      const totalEps = Object.values(ra).reduce((s: number, d: any) => s + (d.episodes || 0), 0);
-      const hrs = Math.floor(totalMins / 60);
-      const mins = totalMins % 60;
-      return <View style={{flexDirection:'row',gap:8,marginBottom:12}}>
-        <View style={{flex:1,alignItems:'center',paddingVertical:14,backgroundColor:t.card,borderRadius:14,borderWidth:1,borderColor:t.line}}>
-          <T style={{fontSize:20,fontWeight:'900',color:t.primary}}>{hrs>0?`${hrs}:${String(mins).padStart(2,'0')}`:mins}</T>
-          <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginTop:2}}>{hrs>0?(p.state.settings.language==='bn'?'ঘন্টা পড়া':p.state.settings.language==='hi'?'घंटे पढ़े':'hrs read'):(p.state.settings.language==='bn'?'মিনিট পড়া':p.state.settings.language==='hi'?'मिनट पढ़े':'min read')}</T>
-        </View>
-        <View style={{flex:1,alignItems:'center',paddingVertical:14,backgroundColor:t.card,borderRadius:14,borderWidth:1,borderColor:t.line}}>
-          <T style={{fontSize:20,fontWeight:'900',color:t.primary}}>{totalEps}</T>
-          <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginTop:2}}>{p.state.settings.language==='bn'?'মোট পাঠ':p.state.settings.language==='hi'?'कुल पठन':'Total Reads'}</T>
-        </View>
-      </View>;
-    })()}
 
     <Pressable onPress={()=>p.setScreen({type:'writer'})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:8,borderWidth:1,borderColor:t.line}}>
       {p.state.writer?.avatar_url?<Image source={{uri:p.state.writer.avatar_url}} style={{width:42,height:42,borderRadius:21}}/>:<View style={{width:42,height:42,borderRadius:21,backgroundColor:p.state.writer?t.primary:t.tint,alignItems:'center',justifyContent:'center'}}>
@@ -1145,6 +1310,16 @@ function Settings(p:C){
   const darkMode=p.state.settings.dark;
 
   const themes:{id:ThemeId;nameBn:string;nameEn:string;colors:string[]}[]=[
+    {id:'nilkantha',nameBn:'নীলকণ্ঠ',nameEn:'Blue Jay',colors:['#2563EB','#1E293B']},
+    {id:'kashful',nameBn:'কাশফুল',nameEn:'Kash',colors:['#78716C','#1C1917']},
+    {id:'mala',nameBn:'মালা',nameEn:'Garland',colors:['#D97706','#78350F']},
+    {id:'meghdoot',nameBn:'মেঘদূত',nameEn:'Cloud',colors:['#0EA5E9','#0C4A6E']},
+    {id:'bashanti',nameBn:'বসন্তী',nameEn:'Spring',colors:['#CA8A04','#713F12']},
+    {id:'sona',nameBn:'সোনা',nameEn:'Gold',colors:['#B45309','#78350F']},
+    {id:'rong',nameBn:'রঙ',nameEn:'Violet',colors:['#7C3AED','#2E1065']},
+    {id:'agun',nameBn:'আগুন',nameEn:'Fire',colors:['#DC2626','#7F1D1D']},
+    {id:'swapna',nameBn:'স্বপ্ন',nameEn:'Dream',colors:['#A855F7','#3B0764']},
+    {id:'prithvi',nameBn:'পৃথিবী',nameEn:'Earth',colors:['#65A30D','#1A2E05']},
     {id:'katagolap',nameBn:'কাঠগোলাপ',nameEn:'Rosewood',colors:['#087A63','#172421']},
     {id:'sepia',nameBn:'সেপিয়া',nameEn:'Sepia',colors:['#8B6914','#2C2416']},
     {id:'midnight',nameBn:'মধ্যরাত',nameEn:'Midnight',colors:['#4A6CF7','#1A1F36']},
@@ -1167,8 +1342,26 @@ function Settings(p:C){
     {/* Themes */}
     <T style={[styles.group,{color:t.muted,marginTop:4,marginBottom:8,fontSize:13,fontWeight:'700'}]}>{copy(language,'settingsThemes')}</T>
     <View style={{borderRadius:16,borderWidth:1,borderColor:t.line,backgroundColor:t.card,padding:10}}>
+      <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:8,marginLeft:2}}>{language==='bn'?'নতুন থিম':language==='hi'?'नई थीम':'New Themes'}</T>
+      <View style={{flexDirection:'row',flexWrap:'wrap',gap:6,marginBottom:12}}>
+        {themes.slice(0,10).map(th=>{
+          const selected=currentThemeId===th.id;
+          const selTheme=themeFor(th.id,false);
+          return <Pressable key={th.id} onPress={()=>set({themeId:th.id})}
+            style={{width:'18.5%',borderRadius:12,overflow:'hidden',borderWidth:2,borderColor:selected?t.primary:selTheme.line,backgroundColor:selTheme.card}}>
+            <View style={{backgroundColor:selTheme.primary,alignItems:'center',justifyContent:'center',paddingVertical:10}}>
+              <ThemeSVGIcon themeId={th.id} s={34} color="#fff"/>
+            </View>
+            <View style={{alignItems:'center',paddingVertical:4}}>
+              <T style={{fontSize:8,fontWeight:'800',color:selTheme.ink}} numberOfLines={1}>{th.nameBn}</T>
+            </View>
+            {selected&&<View style={{position:'absolute',top:3,right:3,width:14,height:14,borderRadius:7,backgroundColor:t.primary,alignItems:'center',justifyContent:'center'}}><Feather name="check" size={8} color="#fff"/></View>}
+          </Pressable>})}
+      </View>
+      <View style={{height:1,backgroundColor:t.line,marginBottom:10}}/>
+      <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:8,marginLeft:2}}>{language==='bn'?'ক্লাসিক থিম':language==='hi'?'क्लासिक थीम':'Classic Themes'}</T>
       <View style={{flexDirection:'row',flexWrap:'wrap',gap:6}}>
-        {themes.map(th=>{
+        {themes.slice(10).map(th=>{
           const selected=currentThemeId===th.id;
           const selTheme=themeFor(th.id,false);
           const flowerKinds=new Set(['shapla','golap']);
@@ -2564,6 +2757,24 @@ function FlowerArt({kind,primary,tint,bg,s=40}:{kind:string;primary:string;tint:
       : <G>{ring(8,12,28,primary)}<G>{ring(6,9,20,tint,0.85,7)}</G><Circle cx={50} cy={50} r={8} fill="#E8C33A"/></G>}
   </Svg>;
 }
+
+function ThemeSVGIcon({themeId,s=34,color='#fff'}:{themeId:string;s?:number;color?:string}){
+  const c=color;
+  const o=(p=0.9)=><G opacity={p}/>;
+  switch(themeId){
+    case 'nilkantha':return <Svg width={s} height={s} viewBox="0 0 100 100"><Circle cx={50} cy={50} r={49} fill="transparent"/><Path d="M25 60 Q50 20 75 60" stroke={c} strokeWidth="3" fill="none" strokeLinecap="round"/><Path d="M30 55 Q50 30 70 55" stroke={c} strokeWidth="2" fill="none" opacity={0.6} strokeLinecap="round"/><Circle cx={50} cy={42} r={4} fill={c}/><Path d="M42 68 L50 62 L58 68" stroke={c} strokeWidth="2" fill="none" strokeLinecap="round"/></Svg>;
+    case 'kashful':return <Svg width={s} height={s} viewBox="0 0 100 100"><Circle cx={50} cy={50} r={49} fill="transparent"/><Path d="M50 80 L50 30" stroke={c} strokeWidth="2.5" strokeLinecap="round"/><Path d="M50 30 Q40 20 35 25 Q30 30 40 35 Q45 37 50 30" fill={c} opacity={0.8}/><Path d="M50 40 Q60 30 65 35 Q70 40 60 45 Q55 47 50 40" fill={c} opacity={0.6}/><Path d="M50 50 Q38 42 33 47 Q28 52 38 55 Q44 56 50 50" fill={c} opacity={0.4}/></Svg>;
+    case 'mala':return <Svg width={s} height={s} viewBox="0 0 100 100"><Circle cx={50} cy={50} r={49} fill="transparent"/><Circle cx={50} cy={25} r={5} fill={c}/><Circle cx={35} cy={32} r={4} fill={c} opacity={0.8}/><Circle cx={65} cy={32} r={4} fill={c} opacity={0.8}/><Circle cx={28} cy={45} r={4.5} fill={c} opacity={0.7}/><Circle cx={72} cy={45} r={4.5} fill={c} opacity={0.7}/><Circle cx={30} cy={60} r={4} fill={c} opacity={0.6}/><Circle cx={70} cy={60} r={4} fill={c} opacity={0.6}/><Circle cx={38} cy={73} r={3.5} fill={c} opacity={0.5}/><Circle cx={62} cy={73} r={3.5} fill={c} opacity={0.5}/><Circle cx={50} cy={80} r={5} fill={c}/></Svg>;
+    case 'meghdoot':return <Svg width={s} height={s} viewBox="0 0 100 100"><Circle cx={50} cy={50} r={49} fill="transparent"/><Ellipse cx={40} cy={45} rx={18} ry={12} fill={c} opacity={0.7}/><Ellipse cx={58} cy={42} rx={15} ry={10} fill={c} opacity={0.5}/><Ellipse cx={48} cy={38} rx={12} ry={8} fill={c} opacity={0.9}/><Path d="M35 65 L35 75" stroke={c} strokeWidth="1.5" opacity={0.4} strokeLinecap="round"/><Path d="M45 62 L45 78" stroke={c} strokeWidth="1.5" opacity={0.3} strokeLinecap="round"/><Path d="M55 64 L55 76" stroke={c} strokeWidth="1.5" opacity={0.4} strokeLinecap="round"/></Svg>;
+    case 'bashanti':return <Svg width={s} height={s} viewBox="0 0 100 100"><Circle cx={50} cy={50} r={49} fill="transparent"/><Path d="M50 75 L50 45" stroke={c} strokeWidth="2.5" strokeLinecap="round"/><Path d="M50 45 Q35 30 40 22 Q45 18 50 30 Q55 18 60 22 Q65 30 50 45" fill={c} opacity={0.8}/><Path d="M50 55 Q38 48 35 42 Q40 40 45 48" fill={c} opacity={0.5}/><Path d="M50 60 Q62 53 65 47 Q60 45 55 53" fill={c} opacity={0.5}/></Svg>;
+    case 'sona':return <Svg width={s} height={s} viewBox="0 0 100 100"><Circle cx={50} cy={50} r={49} fill="transparent"/><Path d="M50 20 L60 40 L80 45 L65 60 L68 80 L50 72 L32 80 L35 60 L20 45 L40 40 Z" stroke={c} strokeWidth="2" fill="none" strokeLinejoin="round"/><Circle cx={50} cy={50} r={8} fill={c} opacity={0.6}/></Svg>;
+    case 'rong':return <Svg width={s} height={s} viewBox="0 0 100 100"><Circle cx={50} cy={50} r={49} fill="transparent"/><Circle cx={42} cy={40} r={12} fill={c} opacity={0.7}/><Circle cx={58} cy={38} r={10} fill={c} opacity={0.5}/><Circle cx={50} cy={55} r={14} fill={c} opacity={0.4}/><Circle cx={38} cy={58} r={8} fill={c} opacity={0.6}/><Circle cx={62} cy={55} r={9} fill={c} opacity={0.3}/></Svg>;
+    case 'agun':return <Svg width={s} height={s} viewBox="0 0 100 100"><Circle cx={50} cy={50} r={49} fill="transparent"/><Path d="M50 20 Q55 35 60 40 Q65 45 60 55 Q70 48 65 38 Q72 42 68 55 Q62 70 50 80 Q38 70 32 55 Q28 42 35 38 Q30 48 40 55 Q35 45 40 40 Q45 35 50 20" fill={c} opacity={0.85}/><Path d="M50 45 Q53 52 55 55 Q58 60 50 68 Q42 60 45 55 Q48 52 50 45" fill={c} opacity={0.5}/></Svg>;
+    case 'swapna':return <Svg width={s} height={s} viewBox="0 0 100 100"><Circle cx={50} cy={50} r={49} fill="transparent"/><Circle cx={50} cy={45} r={20} stroke={c} strokeWidth="2" fill="none" opacity={0.6}/><Circle cx={50} cy={45} r={14} stroke={c} strokeWidth="1.5" fill="none" opacity={0.4}/><Circle cx={50} cy={45} r={8} fill={c} opacity={0.7}/><Circle cx={35} cy={65} r={2} fill={c} opacity={0.4}/><Circle cx={65} cy={68} r={1.5} fill={c} opacity={0.3}/><Circle cx={42} cy={72} r={1} fill={c} opacity={0.5}/></Svg>;
+    case 'prithvi':return <Svg width={s} height={s} viewBox="0 0 100 100"><Circle cx={50} cy={50} r={49} fill="transparent"/><Path d="M20 70 L35 45 L45 55 L55 35 L65 50 L80 40 L80 70 Z" fill={c} opacity={0.6}/><Path d="M15 70 L30 52 L42 60 L55 42 L68 55 L85 45 L85 70 Z" fill={c} opacity={0.35}/><Circle cx={70} cy={30} r={5} fill={c} opacity={0.8}/></Svg>;
+    default:return <Svg width={s} height={s} viewBox="0 0 100 100"><Circle cx={50} cy={50} r={8} fill={c}/></Svg>;
+  }
+}
 type ThemeId = import('./src/types').ThemeId;
 const themePalettes:Record<ThemeId,{light:{dark:boolean;primary:string;bg:string;card:string;ink:string;muted:string;line:string;tint:string;reader:string};dark:{dark:boolean;primary:string;bg:string;card:string;ink:string;muted:string;line:string;tint:string;reader:string}}>={
 katagolap:{light:{dark:false,primary:'#087A63',bg:'#F5FAF8',card:'#FFFFFF',ink:'#172421',muted:'#71817D',line:'#E2ECE8',tint:'#DDF5EC',reader:'#FBFCF7'},dark:{dark:true,primary:'#59C9AA',bg:'#0E1514',card:'#17211F',ink:'#F1F6F4',muted:'#91A39E',line:'#293834',tint:'#203D36',reader:'#111917'}},
@@ -2575,7 +2786,17 @@ oronno:{light:{dark:false,primary:'#2D7A3A',bg:'#F3FAF4',card:'#FFFFFF',ink:'#1A
 lavender:{light:{dark:false,primary:'#7C3AED',bg:'#F8F5FF',card:'#FFFFFF',ink:'#1E1533',muted:'#7C6E94',line:'#DDD4F0',tint:'#ECE6F8',reader:'#FCFAFF'},dark:{dark:true,primary:'#A78BFA',bg:'#120E1E',card:'#1C1530',ink:'#EDE6FF',muted:'#7C6E94',line:'#302848',tint:'#241E3C',reader:'#141020'}},
 golapi:{light:{dark:false,primary:'#D94A7A',bg:'#FFF5F8',card:'#FFFFFF',ink:'#2E1520',muted:'#8C5E72',line:'#F0D0DC',tint:'#F8E2EA',reader:'#FFFAFC'},dark:{dark:true,primary:'#F472B6',bg:'#1A0C12',card:'#281520',ink:'#FFE8F0',muted:'#8C5E72',line:'#3E2430',tint:'#301C28',reader:'#1C0E14'}},
   shapla:{light:{dark:false,primary:'#0E9AA7',bg:'#F0FBFD',card:'#FFFFFF',ink:'#0E2A2E',muted:'#5C848C',line:'#C8E8EC',tint:'#D9F2F5',reader:'#F6FCFD'},dark:{dark:true,primary:'#2EC4C9',bg:'#071A1D',card:'#0F282C',ink:'#DCF5F7',muted:'#5C848C',line:'#1E3E42',tint:'#133235',reader:'#091B1E'}},
-  golap:{light:{dark:false,primary:'#E63946',bg:'#FFF6F7',card:'#FFFFFF',ink:'#3A1520',muted:'#99505C',line:'#F0CCD2',tint:'#F9E3E7',reader:'#FFFBFC'},dark:{dark:true,primary:'#FF6B7A',bg:'#20090F',card:'#33121C',ink:'#FFE7EC',muted:'#99505C',line:'#4A1E28',tint:'#3A1620',reader:'#220B11'}}};
+  golap:{light:{dark:false,primary:'#E63946',bg:'#FFF6F7',card:'#FFFFFF',ink:'#3A1520',muted:'#99505C',line:'#F0CCD2',tint:'#F9E3E7',reader:'#FFFBFC'},dark:{dark:true,primary:'#FF6B7A',bg:'#20090F',card:'#33121C',ink:'#FFE7EC',muted:'#99505C',line:'#4A1E28',tint:'#3A1620',reader:'#220B11'}},
+  nilkantha:{light:{dark:false,primary:'#2563EB',bg:'#F0F4FF',card:'#FFFFFF',ink:'#1E293B',muted:'#64748B',line:'#CBD5E1',tint:'#DBEAFE',reader:'#F8FAFC'},dark:{dark:true,primary:'#60A5FA',bg:'#0C1222',card:'#151D33',ink:'#E2E8F0',muted:'#94A3B8',line:'#1E3A5F',tint:'#172554',reader:'#0F172A'}},
+  kashful:{light:{dark:false,primary:'#78716C',bg:'#FAFAF9',card:'#FFFFFF',ink:'#1C1917',muted:'#A8A29E',line:'#E7E5E4',tint:'#F5F5F4',reader:'#FFFFFF'},dark:{dark:true,primary:'#D6D3D1',bg:'#1C1917',card:'#292524',ink:'#F5F5F4',muted:'#A8A29E',line:'#44403C',tint:'#292524',reader:'#1C1917'}},
+  mala:{light:{dark:false,primary:'#D97706',bg:'#FFFBEB',card:'#FFFFFF',ink:'#78350F',muted:'#92400E',line:'#FDE68A',tint:'#FEF3C7',reader:'#FFFEF5'},dark:{dark:true,primary:'#FBBF24',bg:'#1C1205',card:'#2A1D0A',ink:'#FEF3C7',muted:'#D97706',line:'#78350F',tint:'#3B2506',reader:'#1A1005'}},
+  meghdoot:{light:{dark:false,primary:'#0EA5E9',bg:'#F0F9FF',card:'#FFFFFF',ink:'#0C4A6E',muted:'#0369A1',line:'#BAE6FD',tint:'#E0F2FE',reader:'#F8FBFF'},dark:{dark:true,primary:'#38BDF8',bg:'#082F49',card:'#0C3547',ink:'#E0F2FE',muted:'#0EA5E9',line:'#075985',tint:'#0C4A6E',reader:'#0A1E2E'}},
+  bashanti:{light:{dark:false,primary:'#CA8A04',bg:'#FEFCE8',card:'#FFFFFF',ink:'#713F12',muted:'#A16207',line:'#FDE047',tint:'#FEF9C3',reader:'#FFFEF5'},dark:{dark:true,primary:'#FACC15',bg:'#1A1705',card:'#28230A',ink:'#FEF9C3',muted:'#CA8A04',line:'#854D0E',tint:'#3B3606',reader:'#181405'}},
+  sona:{light:{dark:false,primary:'#B45309',bg:'#FFFBEB',card:'#FFFFFF',ink:'#78350F',muted:'#92400E',line:'#FDE68A',tint:'#FEF3C7',reader:'#FFFEF5'},dark:{dark:true,primary:'#F59E0B',bg:'#1C1205',card:'#2A1D0A',ink:'#FEF3C7',muted:'#B45309',line:'#78350F',tint:'#3B2506',reader:'#1A1005'}},
+  rong:{light:{dark:false,primary:'#7C3AED',bg:'#F5F3FF',card:'#FFFFFF',ink:'#2E1065',muted:'#6D28D9',line:'#DDD6FE',tint:'#EDE9FE',reader:'#FAFAFF'},dark:{dark:true,primary:'#A78BFA',bg:'#130D25',card:'#1E1538',ink:'#EDE9FE',muted:'#7C3AED',line:'#4C1D95',tint:'#231742',reader:'#100B1E'}},
+  agun:{light:{dark:false,primary:'#DC2626',bg:'#FEF2F2',card:'#FFFFFF',ink:'#7F1D1D',muted:'#B91C1C',line:'#FECACA',tint:'#FEE2E2',reader:'#FFFCFC'},dark:{dark:true,primary:'#F87171',bg:'#1C0B0B',card:'#2A1212',ink:'#FEE2E2',muted:'#DC2626',line:'#7F1D1D',tint:'#3B1515',reader:'#1A0A0A'}},
+  swapna:{light:{dark:false,primary:'#A855F7',bg:'#FAF5FF',card:'#FFFFFF',ink:'#3B0764',muted:'#7E22CE',line:'#E9D5FF',tint:'#F3E8FF',reader:'#FDFBFF'},dark:{dark:true,primary:'#C084FC',bg:'#170D25',card:'#221438',ink:'#F3E8FF',muted:'#A855F7',line:'#581C87',tint:'#2A1742',reader:'#130B1E'}},
+  prithvi:{light:{dark:false,primary:'#65A30D',bg:'#F7FEE7',card:'#FFFFFF',ink:'#1A2E05',muted:'#4D7C0F',line:'#BEF264',tint:'#ECFCCB',reader:'#FAFFF5'},dark:{dark:true,primary:'#84CC16',bg:'#0F1A05',card:'#1A2810',ink:'#ECFCCB',muted:'#65A30D',line:'#3F6212',tint:'#1E3208',reader:'#0D1605'}}};
 function themeFor(themeId:ThemeId,dark:boolean){return themePalettes[themeId]?.[dark?'dark':'light']||themePalettes.katagolap[dark?'dark':'light']}
 const styles=StyleSheet.create({center:{flex:1,alignItems:'center',justifyContent:'center'},logo:{width:76,height:76,borderRadius:25,backgroundColor:'#087A63',alignItems:'center',justifyContent:'center',elevation:8},brand:{fontSize:25,fontWeight:'900',marginTop:16},gate:{flex:1},art:{height:'38%',backgroundColor:'#DDF8EF',alignItems:'center',justifyContent:'center'},gateBody:{flex:1,padding:25,justifyContent:'center'},eyebrow:{fontSize:12,fontWeight:'900',letterSpacing:1},gateTitle:{fontSize:30,lineHeight:39,fontWeight:'900',marginTop:8},copy:{fontSize:14,lineHeight:22,marginVertical:14},input:{height:55,borderWidth:1,borderRadius:17,paddingHorizontal:16,fontSize:16,fontFamily:'HindSiliguriMedium'},note:{textAlign:'center',fontSize:11,marginTop:14},header:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:23},title:{fontSize:25,fontWeight:'900'},feature:{height:214,borderRadius:24,padding:18,flexDirection:'row',alignItems:'center',overflow:'hidden'},tag:{color:'#F7D87D',fontSize:11,fontWeight:'900',marginBottom:10},featureTitle:{color:'#fff',fontSize:23,lineHeight:30,fontWeight:'900'},featureAuthor:{color:'#D1E6DF',fontSize:12,marginTop:5},readPill:{backgroundColor:'#F5D578',borderRadius:11,padding:11,alignSelf:'flex-start',marginTop:15},cover:{width:124,height:169,borderRadius:9,padding:11,justifyContent:'flex-end',overflow:'hidden'},coverLarge:{width:137,height:188,transform:[{rotate:'2deg'}]},coverTitle:{color:'#fff',fontWeight:'900',fontSize:14,lineHeight:18},coverAuthor:{fontSize:8,color:'#FFFFFFAA'},featureCard:{height:214,borderRadius:24,padding:18,flexDirection:'row',alignItems:'center',overflow:'hidden'},featTag:{color:'#F7D87D',fontSize:11,fontWeight:'900',marginBottom:8},featTitle:{color:'#fff',fontSize:21,lineHeight:28,fontWeight:'900'},featAuthor:{color:'#D1E6DF',fontSize:12,marginTop:4},featDesc:{color:'#D1E6DF',fontSize:11,lineHeight:16,marginTop:8},featBtn:{backgroundColor:'#F5D578',borderRadius:11,paddingVertical:9,paddingHorizontal:13,alignSelf:'flex-start',marginTop:12},featBtnText:{fontWeight:'900',color:'#173D34',fontSize:12},dot:{height:6,borderRadius:3},statusBadge:{position:'absolute',top:8,left:8,alignSelf:'flex-start',borderRadius:7,paddingVertical:3,paddingHorizontal:7,backgroundColor:'#087A63'},statusBadgeText:{fontSize:9,fontWeight:'900',letterSpacing:0.5,color:'#fff'},rankBadge:{position:'absolute',top:-6,left:-6,minWidth:30,height:30,borderRadius:10,alignItems:'center',justifyContent:'center',paddingHorizontal:5,borderWidth:2.5,borderColor:'#fff'},rankBadgeText:{fontSize:15,fontWeight:'900'},viewBadge:{position:'absolute',bottom:8,right:8,flexDirection:'row',alignItems:'center',gap:3,borderRadius:8,paddingVertical:3,paddingHorizontal:7,backgroundColor:'rgba(0,0,0,0.65)'},viewBadgeText:{color:'#fff',fontSize:10,fontWeight:'800'},secHead:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:28,marginBottom:14},secIcon:{width:34,height:34,borderRadius:17,alignItems:'center',justifyContent:'center'},seeAllPill:{borderRadius:20,paddingVertical:8,paddingHorizontal:16},section:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginTop:28,marginBottom:14},sectionTitle:{fontSize:20,fontWeight:'900'},bookName:{fontSize:14,fontWeight:'800',lineHeight:20,marginTop:10},episode:{minHeight:98,borderRadius:18,borderWidth:1,padding:10,flexDirection:'row',alignItems:'center',gap:12,marginBottom:10},row:{minHeight:100,borderRadius:18,borderWidth:1,padding:10,flexDirection:'row',alignItems:'center',gap:12,marginBottom:10},rowTitle:{fontSize:14,fontWeight:'800'},tabs:{height:76,borderTopWidth:1,flexDirection:'row',paddingTop:9},tab:{flex:1,alignItems:'center',gap:4},grid2:{flexDirection:'row',flexWrap:'wrap',gap:10},link:{width:'48.4%',borderRadius:18,borderWidth:1,padding:13},linkIcon:{width:40,height:40,borderRadius:13,alignItems:'center',justifyContent:'center',marginBottom:12},catGrid:{flexDirection:'row',flexWrap:'wrap',gap:12},catCard:{width:'47%'},catImgWrap:{borderRadius:16,overflow:'hidden',height:140},catImg:{width:'100%',height:140},catImgFallback:{width:'100%',height:140,alignItems:'center',justifyContent:'center'},catImgOverlay:{position:'absolute',bottom:0,left:0,right:0,backgroundColor:'rgba(0,0,0,0.35)',paddingVertical:8,paddingHorizontal:10},catImgName:{color:'#fff',fontSize:14,fontWeight:'700',fontFamily:'HindSiliguriMedium'},catBadge:{alignSelf:'flex-start',marginTop:8,borderRadius:8,paddingVertical:4,paddingHorizontal:10},catBadgeText:{fontSize:11,fontWeight:'700'},profile:{padding:15,borderRadius:20,borderWidth:1,flexDirection:'row',alignItems:'center',gap:12},profileName:{fontSize:18,fontWeight:'900'},group:{fontSize:11,fontWeight:'900',letterSpacing:1,marginTop:15,marginBottom:8},menu:{minHeight:61,borderBottomWidth:1,paddingHorizontal:11,flexDirection:'row',alignItems:'center',gap:11},menuIcon:{width:37,height:37,borderRadius:12,alignItems:'center',justifyContent:'center'},languageBox:{borderWidth:1,borderRadius:18,padding:15},languageRow:{height:52,borderBottomWidth:1,flexDirection:'row',alignItems:'center',gap:12},radio:{width:20,height:20,borderRadius:10,borderWidth:2,alignItems:'center',justifyContent:'center'},radioDot:{width:10,height:10,borderRadius:5},back:{height:48,flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:18},backTitle:{fontSize:19,fontWeight:'900'},search:{height:53,borderWidth:1,borderRadius:17,paddingHorizontal:14,flexDirection:'row',alignItems:'center',gap:10},notifCard:{flexDirection:'row',gap:12,borderRadius:16,borderWidth:1,padding:14,marginBottom:10},notifIconWrap:{width:44,height:44,borderRadius:14,alignItems:'center',justifyContent:'center'},notifTitle:{fontSize:14,fontWeight:'800',flex:1,marginRight:8},notifBody:{fontSize:12,marginTop:4,lineHeight:18},notifTime:{fontSize:10,fontWeight:'700',marginTop:6},notifLiveDot:{width:8,height:8,borderRadius:4},notifLink:{flexDirection:'row',alignItems:'center',gap:3,borderWidth:1,borderRadius:6,paddingHorizontal:6,paddingVertical:2},badge:{position:'absolute',top:-5,right:-7,minWidth:18,height:18,borderRadius:9,alignItems:'center',justifyContent:'center',paddingHorizontal:4},badgeText:{color:'#fff',fontSize:10,fontWeight:'900'},detailTop:{height:245,borderRadius:21,alignItems:'center',justifyContent:'center',marginBottom:20},detailTitle:{fontSize:27,fontWeight:'900',lineHeight:35},meta:{flexDirection:'row',gap:17,marginTop:10},actions:{flexDirection:'row',justifyContent:'space-around',marginVertical:20},action:{width:43,height:43,borderRadius:14,borderWidth:1,alignItems:'center',justifyContent:'center'},button:{height:54,borderRadius:16,backgroundColor:'#087A63',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:10,marginTop:14},buttonText:{color:'#fff',fontWeight:'900',fontSize:15},chapter:{minHeight:66,borderBottomWidth:1,flexDirection:'row',alignItems:'center',gap:12},number:{width:38,height:38,borderRadius:12,alignItems:'center',justifyContent:'center'},comment:{height:56,borderWidth:1,borderRadius:16,marginTop:20,flexDirection:'row',alignItems:'center',gap:10,paddingHorizontal:15},readerHead:{minHeight:68,paddingHorizontal:18,borderBottomWidth:1,flexDirection:'row',alignItems:'center'},readerBody:{padding:28,paddingTop:45,paddingBottom:110},readerTitle:{fontSize:28,fontWeight:'900',textAlign:'center',marginVertical:16},readerTools:{minHeight:68,borderTopWidth:1,paddingHorizontal:18,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},writer:{backgroundColor:'#124D43',borderRadius:20,padding:20},writerTitle:{color:'#fff',fontSize:22,fontWeight:'900',marginTop:12},story:{height:180,borderWidth:1,borderRadius:17,padding:15,textAlignVertical:'top',marginVertical:12},empty:{alignItems:'center',justifyContent:'center',paddingVertical:55},profileCard:{borderRadius:22,padding:20,alignItems:'center'},avatarBig:{width:68,height:68,borderRadius:22,alignItems:'center',justifyContent:'center'},profileNameBig:{fontSize:22,fontWeight:'900',marginTop:12},profileBadge:{fontSize:12,color:'#91A39E',marginTop:2},profileStats:{flexDirection:'row',marginTop:18,backgroundColor:'rgba(0,0,0,0.04)',borderRadius:14,paddingVertical:12},profileStat:{flex:1,alignItems:'center',gap:4},profileStatNum:{fontSize:20,fontWeight:'900'},profileStatLabel:{fontSize:10,fontWeight:'700',letterSpacing:0.5},menuGroup:{borderRadius:18,overflow:'hidden',marginBottom:10},menuGroupTitle:{fontSize:11,fontWeight:'900',letterSpacing:0.8,marginBottom:8,marginLeft:4},menuItem:{minHeight:54,paddingHorizontal:14,flexDirection:'row',alignItems:'center',gap:12},menuIconBig:{width:38,height:38,borderRadius:12,alignItems:'center',justifyContent:'center'},menuSep:{height:StyleSheet.hairlineWidth,marginLeft:62},nameModal:{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24},nameModalBox:{width:'100%',borderRadius:22,padding:24},nameModalTitle:{fontSize:18,fontWeight:'900',marginBottom:4},nameModalHint:{fontSize:12,marginBottom:14},nameInput:{height:52,borderWidth:1.5,borderRadius:14,paddingHorizontal:16,fontSize:16,fontWeight:'700',fontFamily:'HindSiliguriMedium'},nameModalBtns:{flexDirection:'row',gap:10,marginTop:16},nameBtn:{flex:1,height:48,borderRadius:14,alignItems:'center',justifyContent:'center'},nameBtnText:{fontWeight:'900',fontSize:15},gateIcon:{width:120,height:120,borderRadius:30},gateTop:{},langRow2:{flexDirection:'row',gap:8,marginTop:18,justifyContent:'center'},langBtn2:{paddingHorizontal:18,paddingVertical:10,borderRadius:12,borderWidth:1.5}});
 const featStyles=StyleSheet.create({
