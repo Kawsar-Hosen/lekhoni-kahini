@@ -15,6 +15,7 @@ import { Book, LocalState, Language } from './src/types';
 import { copy, CopyKey } from './src/i18n';
 import { fetchRemoteBooks, fetchRemoteBook, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, fetchFollowedWriters, writerSignup, writerLogin, writerGoogleAuth, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, updateWriterStory, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchRemoteComments, submitComment, fetchCommentsConfig, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionsData, fetchWriterFollowers, fetchAbout, deleteWriterAccount, submitReport, userSignup, userLogin, verifyUserToken, registerPushToken, updateUserProfile } from './src/api';
 import { pickAndResizeImage } from './src/imageUpload';
+import { saveBookOffline, loadBookOffline, removeBookOffline, isBookOffline, getOfflineBookIds } from './src/offlineStorage';
 
 type Tab = 'home'|'library'|'categories'|'episodes'|'profile';
 type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' } | { type:'newStory' } | { type:'editStory', id:string, title:string, desc:string, coverUrl:string|null, writerStatus:string } | { type:'aboutApp' } | { type:'terms' };
@@ -135,13 +136,17 @@ function ErrorScreen({type,onRetry,theme}:{type:'offline'|'error';theme:Theme;on
 export default function App(){ return <SafeAreaProvider><AppShell/></SafeAreaProvider>; }
 function AppShell(){
  const [fontsLoaded]=useFonts({HindSiliguriMedium:require('./assets/HindSiliguri-Medium.ttf'),IMFellEnglish:require('./assets/IMFellEnglish.ttf')});
- const [state,setState]=useState<LocalState>(initialState); const [loaded,setLoaded]=useState(false); const [dataLoaded,setDataLoaded]=useState(false); const [screen,setScreen]=useState<Screen>({type:'main'}); const [tab,setTab]=useState<Tab>('home'); const [allBooks,setAllBooks]=useState<Book[]>([]); const [allCategories,setAllCategories]=useState<[string,string,string,string|null][]>([]); const [publicWriters,setPublicWriters]=useState<import('./src/types').WriterProfile[]>([]); const [homeData,setHomeData]=useState<HomeSectionsData|null>(null); const [remoteNotices,setRemoteNotices]=useState<{id:string;title:string;body:string;icon:string;url:string;story_cover:string;time:string}[]>([]); const syncRef=useRef(false); const [showExitModal,setShowExitModal]=useState(false);
+  const [state,setState]=useState<LocalState>(initialState); const [loaded,setLoaded]=useState(false); const [dataLoaded,setDataLoaded]=useState(false); const [screen,setScreen]=useState<Screen>({type:'main'}); const [tab,setTab]=useState<Tab>('home'); const [allBooks,setAllBooks]=useState<Book[]>([]); const [allCategories,setAllCategories]=useState<[string,string,string,string|null][]>([]); const [publicWriters,setPublicWriters]=useState<import('./src/types').WriterProfile[]>([]); const [homeData,setHomeData]=useState<HomeSectionsData|null>(null); const [remoteNotices,setRemoteNotices]=useState<{id:string;title:string;body:string;icon:string;url:string;story_cover:string;time:string}[]>([]); const syncRef=useRef(false); const [showExitModal,setShowExitModal]=useState(false);
+  const [transBook,setTransBook]=useState<{book:Book;fromX:number;fromY:number;fromW:number;fromH:number}|null>(null);
+  const transAnim=useRef(new Animated.Value(0)).current;
+  const {width:screenW,height:screenH}=useWindowDimensions();
+  const openWithAnim=(book:Book,fromX:number,fromY:number,fromW:number,fromH:number)=>{setTransBook({book,fromX,fromY,fromW,fromH});transAnim.setValue(0);Animated.timing(transAnim,{toValue:1,duration:320,easing:Easing.out(Easing.cubic),useNativeDriver:true}).start(()=>{setTransBook(null);open(book.id)})};
  const theme=themeFor(state.settings.themeId,state.settings.dark);
   const [dlBooks,setDlBooks]=useState<Record<string,Book>>({});
-  useEffect(()=>{AsyncStorage.getItem('@lekhoni/downloads/v1').then(x=>{if(x){try{setDlBooks(JSON.parse(x))}catch{}}}).catch(()=>{})},[]);
-  const persistDl=(next:Record<string,Book>)=>{setDlBooks(next);AsyncStorage.setItem('@lekhoni/downloads/v1',JSON.stringify(next)).catch(()=>{})};
-  const downloadBook=(id:string)=>{const b=allBooks.find(x=>x.id===id);if(!b)return;persistDl({...dlBooks,[id]:b});setState(s=>s.downloads.includes(id)?s:{...s,downloads:[...s.downloads,id]})};
-  const removeDownload=(id:string)=>{const n={...dlBooks};delete n[id];persistDl(n);setState(s=>({...s,downloads:s.downloads.filter(x=>x!==id)}))};
+  useEffect(()=>{getOfflineBookIds().then(async ids=>{const loaded:Record<string,Book>={};for(const id of ids){const b=await loadBookOffline(id);if(b)loaded[id]=b}setDlBooks(loaded)}).catch(()=>{})},[]);
+  const persistDl=(next:Record<string,Book>)=>{setDlBooks(next)};
+  const downloadBook=async(id:string)=>{const existing=dlBooks[id];if(existing)return;const full=await fetchRemoteBook(id);if(!full||!full.chapters.length)return;await saveBookOffline(full);persistDl({...dlBooks,[id]:full});setState(s=>s.downloads.includes(id)?s:{...s,downloads:[...s.downloads,id]})};
+  const removeDownload=async(id:string)=>{await removeBookOffline(id);const n={...dlBooks};delete n[id];persistDl(n);setState(s=>({...s,downloads:s.downloads.filter(x=>x!==id)}))};
   const resolveBook=(id:string):Book|undefined=>dlBooks[id]||allBooks.find(b=>b.id===id);
   useEffect(()=>{loadState().then(async v=>{const id=v.deviceId;if(id){try{const r=await fetchUserState(id);if(r&&r.synced&&r.state){const st=r.state;const remoteSettings=st.settings&&typeof st.settings==='object'?(st.settings as any):null;v={...v,settings:remoteSettings?{...v.settings,...remoteSettings}:v.settings,history:Array.isArray(st.history)&&st.history.length?[...new Set([...(v.history||[]),...st.history])].slice(0,20):v.history,positions:st.positions&&typeof st.positions==='object'?{...v.positions,...(st.positions as any)}:v.positions,bookmarks:Array.isArray(st.bookmarks)&&st.bookmarks.length?[...new Set([...v.bookmarks,...(st.bookmarks as any[])])].slice(0,50):v.bookmarks}}}catch{}}if(v.userToken){try{const u=await verifyUserToken(v.userToken);if(u)v.user=u;else{v.user=null;v.userToken=null;}}catch{v.user=null;v.userToken=null;}}if(v.writerToken){try{const wv=await verifyWriterToken(v.writerToken);if(wv)v.writer={id:wv.id,username:wv.username,writer_name:wv.writer_name,avatar_url:wv.avatar_url||undefined,bio:wv.bio||undefined};else{v.writer=null;v.writerToken=null;}}catch{v.writer=null;v.writerToken=null;}}if(v.writer&&!v.writer.id){v.writer=null;v.writerToken=null;}setState(v);setLoaded(true)})},[]); useEffect(()=>{if(loaded)saveState(state)},[state,loaded]);
  useEffect(()=>{const sub=BackHandler.addEventListener('hardwareBackPress',()=>{if(screen.type!=='main'){setScreen({type:'main'});return true}if(tab!=='home'){setTab('home');return true}setShowExitModal(true);return true});return()=>sub.remove()},[screen,tab]);
@@ -165,7 +170,7 @@ function AppShell(){
   },[]);
   const update=(p:Partial<LocalState>)=>setState(s=>({...s,...p})); const open=(id:string)=>{update({history:[id,...state.history.filter(x=>x!==id)].slice(0,20)});setScreen({type:'book',id})}; const read=(id:string,chapter:number)=>setScreen({type:'reader',id,chapter});
   const filteredWriters=React.useMemo(()=>state.writer?publicWriters.filter(w=>w.id!==state.writer!.id):publicWriters,[publicWriters,state.writer]);
-  const common=React.useMemo(()=>({theme,state,update,setScreen,open,read,allBooks,allCategories,publicWriters:filteredWriters,homeData,remoteNotices,dlBooks,downloadBook,removeDownload,dataLoaded,syncRemote}),[theme,state,allBooks,allCategories,filteredWriters,homeData,remoteNotices,dlBooks,dataLoaded,syncRemote]);
+  const common=React.useMemo(()=>({theme,state,update,setScreen,open,read,allBooks,allCategories,publicWriters:filteredWriters,homeData,remoteNotices,dlBooks,downloadBook,removeDownload,dataLoaded,syncRemote,openWithAnim}),[theme,state,allBooks,allCategories,filteredWriters,homeData,remoteNotices,dlBooks,dataLoaded,syncRemote]);
   const [splashPhase,setSplashPhase]=useState<'splash'|'loading'|'done'>('splash');
   const [showNotifPrompt,setShowNotifPrompt]=useState(false);
   const [loadError,setLoadError]=useState<string|null>(null);
@@ -201,7 +206,9 @@ function AppShell(){
   const themeBg=isNewTheme?themeFor(state.settings.themeId,state.settings.dark).bg:theme.bg;
   return <View style={{flex:1,backgroundColor:themeBg}}>
     {isNewTheme&&<ThemeBackground themeId={state.settings.themeId} dark={state.settings.dark}/>}
-    <StatusBar style={state.settings.dark?'light':'dark'}/>{body}{showExitModal&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',zIndex:999}}><View style={{backgroundColor:theme.card,borderRadius:24,padding:28,marginHorizontal:40,alignItems:'center',borderWidth:1,borderColor:theme.line,shadowColor:'#000',shadowOpacity:0.2,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:10}}>
+    <StatusBar style={state.settings.dark?'light':'dark'}/>{body}
+    {transBook&&transBook.book.cover_url&&<Animated.View style={{position:'absolute',left:transAnim.interpolate({inputRange:[0,1],outputRange:[transBook.fromX,16]}),top:transAnim.interpolate({inputRange:[0,1],outputRange:[transBook.fromY,90]}),width:transAnim.interpolate({inputRange:[0,1],outputRange:[transBook.fromW,Dimensions.get('window').width-32]}),height:transAnim.interpolate({inputRange:[0,1],outputRange:[transBook.fromH,240]}),borderRadius:transAnim.interpolate({inputRange:[0,1],outputRange:[10,24]}),overflow:'hidden',elevation:20,shadowColor:'#000',shadowOpacity:0.3,shadowRadius:20,shadowOffset:{width:0,height:10},zIndex:998}}><Image source={{uri:transBook.book.cover_url}} style={{width:'100%',height:'100%'}} resizeMode="cover"/></Animated.View>}
+    {showExitModal&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',zIndex:999}}><View style={{backgroundColor:theme.card,borderRadius:24,padding:28,marginHorizontal:40,alignItems:'center',borderWidth:1,borderColor:theme.line,shadowColor:'#000',shadowOpacity:0.2,shadowRadius:20,shadowOffset:{width:0,height:10},elevation:10}}>
         <View style={{width:72,height:72,borderRadius:20,backgroundColor:theme.primary+'18',alignItems:'center',justifyContent:'center',marginBottom:18}}>
           <Svg width={36} height={36} viewBox="0 0 24 24" fill="none">
             <Path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" stroke={theme.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/>
@@ -238,7 +245,7 @@ function AppShell(){
         </View>
       </View></View>}</View>;
 }
-type C={theme:Theme;state:LocalState;update:(p:Partial<LocalState>)=>void;setScreen:(s:Screen)=>void;open:(id:string)=>void;read:(id:string,c:number)=>void;allBooks:Book[];allCategories:[string,string,string,string|null][];publicWriters:import('./src/types').WriterProfile[];homeData:HomeSectionsData|null;remoteNotices:{id:string;title:string;body:string;icon:string;url:string;story_cover:string;time:string}[];dlBooks:Record<string,Book>;downloadBook:(id:string)=>void;removeDownload:(id:string)=>void;dataLoaded:boolean;syncRemote?:()=>void};
+type C={theme:Theme;state:LocalState;update:(p:Partial<LocalState>)=>void;setScreen:(s:Screen)=>void;open:(id:string)=>void;read:(id:string,c:number)=>void;allBooks:Book[];allCategories:[string,string,string,string|null][];publicWriters:import('./src/types').WriterProfile[];homeData:HomeSectionsData|null;remoteNotices:{id:string;title:string;body:string;icon:string;url:string;story_cover:string;time:string}[];dlBooks:Record<string,Book>;downloadBook:(id:string)=>void;removeDownload:(id:string)=>void;dataLoaded:boolean;syncRemote?:()=>void;openWithAnim:(book:Book,fromX:number,fromY:number,fromW:number,fromH:number)=>void};
 const F_BN='HindSiliguriMedium';
 const F_EN='IMFellEnglish';
 let _curLang:import('./src/types').Language='bn';
@@ -988,7 +995,7 @@ const dStyles=StyleSheet.create({
  readBtn:{height:56,borderRadius:18,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:10,marginTop:2,elevation:3,shadowColor:'#000',shadowOpacity:.22,shadowRadius:8,shadowOffset:{width:0,height:4}},
  readBtnTxt:{color:'#fff',fontWeight:'900',fontSize:16},
  sumCard:{borderRadius:18,padding:16,borderWidth:1},
- chapter:{minHeight:70,borderRadius:16,borderWidth:1,padding:12,marginBottom:10,flexDirection:'row',alignItems:'center',gap:12},
+ chapter:{minHeight:50,borderRadius:12,borderWidth:1,paddingVertical:8,paddingHorizontal:10,marginBottom:6,flexDirection:'row',alignItems:'center',gap:10},
  numGrad:{width:44,height:44,borderRadius:13,alignItems:'center',justifyContent:'center'},
  cmtInput:{flex:1,minHeight:44,maxHeight:90,borderRadius:13,borderWidth:1,paddingHorizontal:12,paddingTop:11,fontSize:13,fontFamily:'HindSiliguriMedium'},
  postBtn:{borderRadius:13,paddingHorizontal:14,height:44,alignItems:'center',justifyContent:'center'},
@@ -1007,7 +1014,7 @@ const dStyles=StyleSheet.create({
  nav:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:14,gap:10},
  navBtn:{width:42,height:42,borderRadius:14,alignItems:'center',justifyContent:'center',borderWidth:1},
  navTitle:{flex:1,fontSize:16,fontWeight:'900'},
- panel:{borderRadius:24,overflow:'hidden',borderWidth:1,marginBottom:16,elevation:5,shadowColor:'#000',shadowOpacity:.22,shadowRadius:12,shadowOffset:{width:0,height:6}},
+ panel:{borderRadius:24,overflow:'hidden',borderWidth:1,marginBottom:16},
  storyCard:{flexDirection:'row',alignItems:'center',gap:16,padding:16,zIndex:2},
  coverBox:{borderRadius:14,elevation:6,shadowColor:'#000',shadowOpacity:.4,shadowRadius:10,shadowOffset:{width:0,height:5}},
  storyInfo:{flex:1},
@@ -1020,7 +1027,7 @@ const dStyles=StyleSheet.create({
  interRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-around',gap:6,borderWidth:1,borderRadius:20,paddingVertical:10,paddingHorizontal:8,marginBottom:14},
  statItem:{flexDirection:'row',alignItems:'center',gap:5},
  statVal:{fontWeight:'900',fontSize:13.5},
-  numBadge:{width:34,height:34,borderRadius:11,alignItems:'center',justifyContent:'center'},
+  numBadge:{width:30,height:30,borderRadius:9,alignItems:'center',justifyContent:'center'},
 
   writerCard:{width:152,borderRadius:20,borderWidth:1,overflow:'visible'},
   writerCardBg:{height:64,borderTopLeftRadius:20,borderTopRightRadius:20},
@@ -1046,7 +1053,7 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
   const rxn=p.state.reactions[b.id];
   const [likes,setLikes]=useState<number>(b.likes||0);const [liked,setLiked]=useState<boolean>(rxn==='like');const [disliked,setDisliked]=useState<boolean>(rxn==='dislike');
   const [cmtCount,setCmtCount]=useState<number|null>(null);
-  const [dlPct,setDlPct]=useState<number|null>(null);const dlTimer=useRef<any>(null);
+  const [dlPct,setDlPct]=useState<number|null>(null);const [dlFailed,setDlFailed]=useState(false);const dlTimer=useRef<any>(null);const dlSpinAnim=useRef(new Animated.Value(0)).current;
   const likeAnim=useRef(new Animated.Value(1)).current;
   const fade=useRef(new Animated.Value(0)).current;
   useEffect(()=>{Animated.timing(fade,{toValue:1,duration:520,useNativeDriver:true}).start();fetchRemoteComments(b.id).then(c=>{if(c&&Array.isArray(c))setCmtCount(c.length)});return()=>{if(dlTimer.current)clearInterval(dlTimer.current)}},[b.id]);
@@ -1055,7 +1062,9 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
   const doLike=()=>{if(liked){setLiked(false);setLikes(l=>Math.max(0,l-1));setRxn(undefined);Vibration.vibrate(30);toggleBookLike(p.state.deviceId,b.id,false).then(r=>{if(r>=0)setLikes(r)});}else{setLiked(true);setDisliked(false);setLikes(l=>l+1);setRxn('like');Vibration.vibrate([0,40,40,80]);bumpLike();toggleBookLike(p.state.deviceId,b.id,true).then(r=>{if(r>=0)setLikes(r)});}};
   const doDislike=()=>{if(disliked){setDisliked(false);setRxn(undefined);}else{setDisliked(true);setLiked(false);setRxn('dislike');Vibration.vibrate([0,40]);}};
   const likeScale=likeAnim.interpolate({inputRange:[0,1],outputRange:[0.5,1]});
-  const doDownload=()=>{if(isOffline){p.removeDownload(b.id);return}if(!haveContent){Alert.alert(tr(p,'details'),p.state.settings.language==='bn'?'এই বইটিতে এখনো পড়ার মতো কোনো অধ্যায় নেই। যুক্ত হলে ডাউনলোড করা যাবে।':p.state.settings.language==='hi'?'इस किताब में अभी पढ़ने लायक कोई अध्याय नहीं है। जोड़ने पर डाउनलोड हो जाएगा।':'This book has no readable chapters yet. It will be downloadable once chapters are added.');return}if(dlPct!==null)return;let pct=0;setDlPct(0);Vibration.vibrate(30);dlTimer.current=setInterval(()=>{pct+=Math.random()*6+5;if(pct>=100){pct=100;clearInterval(dlTimer.current);dlTimer.current=null;setDlPct(100);p.downloadBook(b.id);Vibration.vibrate([0,40,40,80]);setTimeout(()=>setDlPct(null),1600)}else setDlPct(Math.floor(pct))},110)};
+  React.useEffect(()=>{if(dlPct!==null&&dlPct<100){dlSpinAnim.setValue(0);Animated.loop(Animated.timing(dlSpinAnim,{toValue:1,duration:1000,easing:Easing.linear,useNativeDriver:true})).start()}else{dlSpinAnim.setValue(0)}},[dlPct]);
+  const dlSpin=dlSpinAnim.interpolate({inputRange:[0,1],outputRange:['0deg','360deg']});
+  const doDownload=async()=>{if(isOffline){p.removeDownload(b.id);return}if(dlPct!==null)return;setDlFailed(false);Vibration.vibrate(30);setDlPct(0);try{const full=await fetchRemoteBook(b.id);if(!full||!full.chapters.length){setDlPct(null);setDlFailed(true);Alert.alert(tr(p,'details'),p.state.settings.language==='bn'?'এই বইটিতে এখনো পড়ার মতো কোনো অধ্যায় নেই।':p.state.settings.language==='hi'?'इस किताब में अभी पढ़ने लायक कोई अध्याय नहीं है।':'No readable chapters yet.');return}const total=full.chapters.length;for(let i=0;i<total;i++){setDlPct(Math.floor(((i+1)/total)*95))}await saveBookOffline(full);setDlPct(100);Vibration.vibrate([0,40,40,80]);p.downloadBook(b.id);setTimeout(()=>setDlPct(null),2000)}catch{setDlPct(null);setDlFailed(true);setTimeout(()=>setDlFailed(false),3000)}};
   const goComments=()=>p.setScreen({type:'comments',id:b.id});const readAll=()=>p.read(b.id,0);
   const writer=p.publicWriters.find((x:import('./src/types').WriterProfile)=>x.writer_name===b.author);
   const toggleFav=()=>{Vibration.vibrate(20);fav?p.update({favorites:p.state.favorites.filter(x=>x!==b.id)}):p.update({favorites:[...p.state.favorites,b.id]})};
@@ -1077,7 +1086,8 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
         <Pressable onPress={()=>setShowMoreMenu(true)} hitSlop={8} style={[dStyles.navBtn,{backgroundColor:t.card,borderColor:t.line}]}><Feather name="more-vertical" size={17} color={t.ink}/></Pressable>
       </View>
       <View style={[dStyles.panel,{borderColor:'#00000022'}]}>
-        <LinearGradient colors={[base,dark]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
+        {b.cover_url?<Image source={{uri:b.cover_url}} style={{position:'absolute',top:-60,left:-60,right:-60,bottom:-60}} blurRadius={40} resizeMode="cover" fadeDuration={0}/>:null}
+        <LinearGradient colors={b.cover_url?['rgba(0,0,0,0.40)','rgba(0,0,0,0.15)','rgba(0,0,0,0.40)']:[base,dark]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
         <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
           <Circle cx="90%" cy={-10} r={100} fill={accent+'25'}/>
           <Ellipse cx="8%" cy={220} rx={120} ry={70} fill={accent+'18'}/>
@@ -1121,13 +1131,18 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
           </Pressable>
         </View>
       </View>
-      {hasStarted?<Pressable onPress={()=>p.read(b.id,continueIdx)} style={[dStyles.readBtn,{backgroundColor:t.primary,marginBottom:10}]}><Feather name="play" size={18} color="#fff"/><T style={dStyles.readBtnTxt}>{tr(p,'continueReading')}</T></Pressable>:
-      <Pressable onPress={readAll} style={[dStyles.readBtn,{backgroundColor:t.primary,marginBottom:10}]}><Feather name="book-open" size={18} color="#fff"/><T style={dStyles.readBtnTxt}>{tr(p,'startReading')}</T></Pressable>}
-      {isOffline?<Pressable onPress={doDownload} style={[dStyles.dlBtn,{backgroundColor:'#10B981',borderColor:'#10B981'}]}><Feather name="check-circle" size={18} color="#fff"/><T style={{color:'#fff',fontWeight:'900',fontSize:15}}>{tr(p,'readOffline')}</T></Pressable>:
-      dlPct!==null?<View style={[dStyles.dlBtn,{backgroundColor:t.card,borderColor:t.line}]}><Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Path d="M12 3v10m0 0l-4-4m4 4l4-4" stroke={t.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></Svg><T style={{color:t.primary,fontWeight:'900',fontSize:14}}>{tr(p,'downloading')}… {dlPct}%</T></View>:
-      <Pressable onPress={doDownload} style={[dStyles.dlBtn,{backgroundColor:t.card,borderColor:t.line}]}><Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Path d="M12 3v10m0 0l-4-4m4 4l4-4" stroke={t.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/><Path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke={t.primary} strokeWidth={2} strokeLinecap="round"/></Svg><T style={{color:t.primary,fontWeight:'900',fontSize:15}}>{tr(p,'readOffline')}</T></Pressable>}
+      <View style={{flexDirection:'row',gap:10,marginBottom:14}}>
+        {hasStarted?<Pressable onPress={()=>p.read(b.id,continueIdx)} style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,backgroundColor:t.primary,height:52,borderRadius:16,elevation:3,shadowColor:'#000',shadowOpacity:.2,shadowRadius:8,shadowOffset:{width:0,height:4}}}><Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Path d="M8 5v14l11-7L8 5z" fill="#fff"/></Svg><T style={{color:'#fff',fontWeight:'900',fontSize:15}}>{tr(p,'continueReading')}</T></Pressable>:
+        <Pressable onPress={readAll} style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,backgroundColor:t.primary,height:52,borderRadius:16,elevation:3,shadowColor:'#000',shadowOpacity:.2,shadowRadius:8,shadowOffset:{width:0,height:4}}}><Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2V3zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7V3z" fill="#fff"/></Svg><T style={{color:'#fff',fontWeight:'900',fontSize:15}}>{tr(p,'startReading')}</T></Pressable>}
+        {isOffline?<Pressable onPress={doDownload} style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,backgroundColor:'#10B981',height:52,borderRadius:16,elevation:3,shadowColor:'#000',shadowOpacity:.2,shadowRadius:8,shadowOffset:{width:0,height:4}}}><Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Path d="M20 6L9 17l-5-5" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/></Svg><T style={{color:'#fff',fontWeight:'900',fontSize:15}}>{tr(p,'readOffline')}</T></Pressable>:
+        dlPct!==null&&dlPct<100?<View style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,backgroundColor:t.card,height:52,borderRadius:16,borderWidth:1.5,borderColor:t.primary}}><Animated.View style={{transform:[{rotate:dlSpin}]}}><Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Path d="M12 2a10 10 0 0 1 10 10" stroke={t.primary} strokeWidth={2.5} strokeLinecap="round"/></Svg></Animated.View><T style={{color:t.primary,fontWeight:'900',fontSize:14}}>{dlPct}%</T><View style={{flex:1,height:4,backgroundColor:t.line,borderRadius:2,marginLeft:4,overflow:'hidden',maxWidth:80}}><View style={{height:'100%',width:`${dlPct}%`,backgroundColor:t.primary,borderRadius:2}}/></View></View>:
+        dlPct===100?<View style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,backgroundColor:'#10B981',height:52,borderRadius:16}}><Svg width={22} height={22} viewBox="0 0 24 24" fill="none"><Path d="M20 6L9 17l-5-5" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/></Svg><T style={{color:'#fff',fontWeight:'900',fontSize:15}}>{copy(p.state.settings.language,'downloaded')||'ডাউনলোড হয়েছে'}</T></View>:
+        dlFailed?<View style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,backgroundColor:'#FEE2E2',height:52,borderRadius:16,borderWidth:1.5,borderColor:'#FCA5A5'}}><Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Path d="M12 9v4m0 4h.01M12 2l10 18H2L12 2z" stroke="#DC2626" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></Svg><T style={{color:'#DC2626',fontWeight:'900',fontSize:14}}>{p.state.settings.language==='bn'?'ব্যর্থ':p.state.settings.language==='hi'?'विफल':'Failed'}</T></View>:
+        <Pressable onPress={doDownload} style={{flex:1,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,backgroundColor:t.card,height:52,borderRadius:16,borderWidth:1.5,borderColor:t.line}}><Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Path d="M12 3v12m0 0l-4-4m4 4l4-4" stroke={t.primary} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/><Path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke={t.primary} strokeWidth={2} strokeLinecap="round"/></Svg><T style={{color:t.primary,fontWeight:'900',fontSize:15}}>{tr(p,'readOffline')}</T></Pressable>}
+      </View>
       <Section title={`${tr(p,'chapters')} (${b.chapters.length})`} theme={t}/>
-      {b.chapters.length?b.chapters.map((c,i)=>{const isReading=lastChapter===i;return <Pressable key={c.id} onPress={()=>p.read(b.id,i)} style={[dStyles.chapter,{backgroundColor:isReading?accent+'18':t.card,borderColor:isReading?accent:t.line}]}><View style={[dStyles.numBadge,{backgroundColor:isReading?accent:accent+'1F'}]}><T style={{color:isReading?'#fff':accent,fontWeight:'900',fontSize:13}}>{i+1}</T></View><View style={{flex:1}}><T numberOfLines={1} style={[styles.rowTitle,{color:isReading?accent:t.ink}]}>{c.title}</T></View><Feather name="chevron-right" size={18} color={isReading?accent:t.muted}/></Pressable>}):<Empty theme={t}/>}
+      {b.chapters.length?b.chapters.map((c,i)=>{const isReading=lastChapter===i;return <Pressable key={c.id} onPress={()=>p.read(b.id,i)} style={[dStyles.chapter,{backgroundColor:isReading?accent+'18':t.card,borderColor:isReading?accent:t.line}]}><View style={[dStyles.numBadge,{backgroundColor:isReading?accent:accent+'1F'}]}><T style={{color:isReading?'#fff':accent,fontWeight:'900',fontSize:13}}>{i+1}</T></View><View style={{flex:1}}><T style={{color:isReading?accent:t.muted,fontSize:11,fontWeight:'700'}}>Chapter {i+1}</T><T numberOfLines={1} style={{color:isReading?accent:t.ink,fontSize:13,fontWeight:'700',marginTop:1}}>{c.title}</T></View><Feather name="chevron-right" size={16} color={isReading?accent:t.muted}/></Pressable>}):<Empty theme={t}/>}
+      <View style={{alignItems:'center',marginBottom:14}}><T style={{color:t.muted,fontSize:11,fontWeight:'600'}}>{b.chapters.length} {p.state.settings.language==='bn'?'টি অধ্যায়':p.state.settings.language==='hi'?'अध्याय़':'Chapters'}</T></View>
       <Section title={tr(p,'summary')} theme={t}/>
       <View style={[dStyles.sumCard,{backgroundColor:t.card,borderColor:t.line}]}>
         <T style={{color:t.ink,lineHeight:23}}>{b.description||'—'}</T>
@@ -1170,55 +1185,48 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
   </Page>}
 function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x=>x.id===p.bookId)||p.dlBooks[p.bookId];const [items,setItems]=useState<{id:string;display_name:string;body:string;created_at:string;avatar_url:string}[]>([]);const [draft,setDraft]=useState('');const [posting,setPosting]=useState(false);const [loading,setLoading]=useState(true);const[showSuccess,setShowSuccess]=useState(false);const[approvalRequired,setApprovalRequired]=useState(true);const spinAnim=useRef(new Animated.Value(0)).current;const scaleAnim=useRef(new Animated.Value(0)).current;const checkAnim=useRef(new Animated.Value(0)).current;
   const cmtColors=['#E8F5E9','#FFF3E0','#E3F2FD','#F3E5F5','#E0F7FA','#FFF8E1','#FCE4EC','#E8EAF6','#F1F8E9','#FBE9E7'];
-  const isWriter=Boolean(p.state.writer);
-  const isUser=Boolean(p.state.user);
+  const isWriter=Boolean(p.state.writer);const isUser=Boolean(p.state.user);
   const commenterName=isWriter?p.state.writer!.writer_name:isUser?p.state.user!.display_name:p.state.name||'পাঠক';
   const commenterAvatar=isWriter?p.state.writer!.avatar_url||'':isUser?p.state.user!.avatar_url||'':'';
   const load=()=>fetchRemoteComments(p.bookId).then(c=>{if(c&&Array.isArray(c))setItems(c as any)}).finally(()=>setLoading(false));
   useEffect(()=>{load();fetchCommentsConfig().then(r=>setApprovalRequired(r.comments_approval)).catch(()=>{});},[p.bookId]);
-  useEffect(()=>{if(showSuccess){spinAnim.setValue(0);scaleAnim.setValue(0);checkAnim.setValue(0);Animated.sequence([Animated.parallel([Animated.timing(spinAnim,{toValue:1,duration:800,easing:Easing.out(Easing.cubic),useNativeDriver:true}),Animated.spring(scaleAnim,{toValue:1,friction:5,useNativeDriver:true})]),Animated.timing(checkAnim,{toValue:1,duration:400,useNativeDriver:true})]).start();const timer=setTimeout(()=>setShowSuccess(false),3000);return()=>clearTimeout(timer)}},[showSuccess]);
+  useEffect(()=>{if(showSuccess){spinAnim.setValue(0);scaleAnim.setValue(0);checkAnim.setValue(0);Animated.sequence([Animated.parallel([Animated.timing(spinAnim,{toValue:1,duration:800,easing:Easing.out(Easing.cubic),useNativeDriver:true}),Animated.spring(scaleAnim,{toValue:1,friction:5,useNativeDriver:true})]),Animated.timing(checkAnim,{toValue:1,duration:400,useNativeDriver:true})]).start();const timer=setTimeout(()=>setShowSuccess(false),3000);return()=>clearInterval(timer)}},[showSuccess]);
   const post=async()=>{const x=draft.trim();if(!x||posting)return;setPosting(true);Vibration.vibrate(30);const res=await submitComment(p.bookId,p.state.deviceId,commenterName,x,commenterAvatar);setPosting(false);if(res.ok){setDraft('');setShowSuccess(true);load()}};
   const insets=useSafeAreaInsets();
-  return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={0}>
-    <ScrollView style={{flex:1,backgroundColor:t.bg}} contentContainerStyle={{paddingHorizontal:18,paddingTop:insets.top+12,paddingBottom:130}} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-      <Back title={b?.title||tr(p,'comments')} theme={t} onPress={()=>p.setScreen({type:'book',id:p.bookId})}/>
-      <Section title={tr(p,'comments')} theme={t}/>
-      <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:12}}><Feather name="message-circle" size={16} color={t.primary}/><T style={{color:t.muted,fontSize:13,fontWeight:'800'}}>{items.length} {tr(p,'comments')}</T><Pressable onPress={load} hitSlop={8}><Feather name="refresh-cw" size={14} color={t.primary}/></Pressable></View>
-      <View style={[dStyles.composer,{borderColor:t.line,backgroundColor:t.card,elevation:2,shadowColor:'#000',shadowOpacity:.06,shadowRadius:8,shadowOffset:{width:0,height:3}}]}>
-        {commenterAvatar?<Image source={{uri:commenterAvatar}} style={[dStyles.avatar2,{backgroundColor:t.tint}]}/>:<View style={[dStyles.avatar2,{backgroundColor:t.tint}]}><T style={{color:t.primary,fontWeight:'900',fontSize:14}}>{(commenterName||'?')[0]}</T></View>}
-        <TextInput value={draft} onChangeText={setDraft} placeholder={tr(p,'writeComment')} placeholderTextColor={t.muted} multiline style={[dStyles.cmtInput,{flex:1,color:t.ink,backgroundColor:t.bg,borderColor:t.line}]}/>
-        <Pressable disabled={!draft.trim()||posting} onPress={post} style={[dStyles.postBtn,{backgroundColor:!draft.trim()?'#90A4AE':t.primary,opacity:posting?.6:1,paddingHorizontal:16}]}><T style={{color:'#fff',fontWeight:'900',fontSize:12}}>{posting?'...':tr(p,'postComment')}</T></Pressable>
+  return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={Platform.OS==='ios'?0:0}>
+    <View style={{flex:1,backgroundColor:t.bg}}>
+      <View style={{paddingHorizontal:18,paddingTop:insets.top+12,paddingBottom:8}}>
+        <Back title={b?.title||tr(p,'comments')} theme={t} onPress={()=>p.setScreen({type:'book',id:p.bookId})}/>
+        <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:8}}><Feather name="message-circle" size={16} color={t.primary}/><T style={{color:t.muted,fontSize:13,fontWeight:'800'}}>{items.length} {tr(p,'comments')}</T><Pressable onPress={load} hitSlop={8}><Feather name="refresh-cw" size={14} color={t.primary}/></Pressable></View>
       </View>
-      {showSuccess&&<Animated.View style={{alignItems:'center',marginVertical:16,overflow:'hidden'}}>
-        <Animated.View style={{width:70,height:70,borderRadius:35,backgroundColor:'#E8F5E9',alignItems:'center',justifyContent:'center',transform:[{scale:scaleAnim}]}}>
-          <Animated.View style={{transform:[{rotate:spinAnim.interpolate({inputRange:[0,1],outputRange:['0deg','360deg']})}]}}>
-            <Svg width={32} height={32} viewBox="0 0 24 24" fill="none">
-              <Circle cx={12} cy={12} r={11} stroke="#4CAF50" strokeWidth={2} strokeDasharray={69} strokeDashoffset={0} strokeLinecap="round"/>
-            </Svg>
+      <ScrollView style={{flex:1}} contentContainerStyle={{paddingHorizontal:18,paddingBottom:100}} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        {showSuccess&&<Animated.View style={{alignItems:'center',marginVertical:16}}>
+          <Animated.View style={{width:60,height:60,borderRadius:30,backgroundColor:'#E8F5E9',alignItems:'center',justifyContent:'center',transform:[{scale:scaleAnim}]}}>
+            <Animated.View style={{transform:[{rotate:spinAnim.interpolate({inputRange:[0,1],outputRange:['0deg','360deg']})}]}}><Svg width={28} height={28} viewBox="0 0 24 24" fill="none"><Circle cx={12} cy={12} r={11} stroke="#4CAF50" strokeWidth={2} strokeDasharray={69} strokeLinecap="round"/></Svg></Animated.View>
+            <Animated.View style={{position:'absolute',opacity:checkAnim}}><Svg width={20} height={20} viewBox="0 0 24 24" fill="none"><Path d="M7 12.5l3 3 7-7" stroke="#4CAF50" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/></Svg></Animated.View>
           </Animated.View>
-          <Animated.View style={{position:'absolute',opacity:checkAnim}}>
-            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-              <Path d="M7 12.5l3 3 7-7" stroke="#4CAF50" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"/>
-            </Svg>
+          <Animated.View style={{opacity:checkAnim,marginTop:8,alignItems:'center'}}><T style={{fontSize:13,fontWeight:'800',color:'#4CAF50'}}>{p.state.settings.language==='bn'?'মন্তব্য জমা হয়েছে!':p.state.settings.language==='hi'?'टिप्पणी सबमिट हो गई!':'Comment submitted!'}</T>
+          {approvalRequired&&<T style={{fontSize:11,color:t.muted,marginTop:3,textAlign:'center'}}>{p.state.settings.language==='bn'?'যাচাইয়ের পরে প্রকাশিত হবে':p.state.settings.language==='hi'?'समीक्षा के बाद दिखाई देगी':'Appears after moderation'}</T>}
           </Animated.View>
-        </Animated.View>
-        <Animated.View style={{opacity:checkAnim,marginTop:10,alignItems:'center'}}>
-          <T style={{fontSize:14,fontWeight:'800',color:'#4CAF50'}}>{p.state.settings.language==='bn'?'মন্তব্য জমা হয়েছে!':p.state.settings.language==='hi'?'टिप्पणी सबमिट हो गई!':'Comment submitted!'}</T>
-          {approvalRequired&&<T style={{fontSize:12,color:t.muted,marginTop:4,textAlign:'center'}}>{p.state.settings.language==='bn'?'আপনার মন্তব্যটি যাচাইয়ের পরে প্রকাশিত হবে':p.state.settings.language==='hi'?'आपकी टिप्पणी समीक्षा के बाद दिखाई देगी':'Your comment will appear after moderation'}</T>}
-        </Animated.View>
-      </Animated.View>}
-      <View style={{marginTop:4}}>
+        </Animated.View>}
         {loading?<View style={{alignItems:'center',paddingVertical:34}}><ActivityIndicator color={t.primary}/></View>:
         !items.length?<View style={{alignItems:'center',paddingVertical:40}}><Feather name="message-circle" size={30} color={t.muted}/><T style={{color:t.muted,fontSize:13,marginTop:10,textAlign:'center'}}>{tr(p,'noComments')}</T></View>:
         items.map((c,i)=><View key={c.id} style={{width:'100%',flexDirection:'row',gap:10,backgroundColor:cmtColors[i%cmtColors.length],borderRadius:14,padding:12,marginBottom:8}}>
-          {c.avatar_url?<Image source={{uri:c.avatar_url}} style={{width:36,height:36,borderRadius:18,flexShrink:0}}/>:<View style={{width:36,height:36,borderRadius:18,backgroundColor:t.primary,alignItems:'center',justifyContent:'center',flexShrink:0}}><T style={{color:'#fff',fontWeight:'900',fontSize:14}}>{(c.display_name||'?')[0]?.toUpperCase()}</T></View>}
+          {c.avatar_url?<Image source={{uri:c.avatar_url}} style={{width:34,height:34,borderRadius:17,flexShrink:0}}/>:<View style={{width:34,height:34,borderRadius:17,backgroundColor:t.primary,alignItems:'center',justifyContent:'center',flexShrink:0}}><T style={{color:'#fff',fontWeight:'900',fontSize:13}}>{(c.display_name||'?')[0]?.toUpperCase()}</T></View>}
           <View style={{flex:1}}>
-            <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><T style={{fontSize:13,fontWeight:'800',color:t.ink}}>{c.display_name}</T><T style={{color:t.muted,fontSize:10}}>{new Date(c.created_at).toLocaleDateString()}</T></View>
-            <T style={{color:t.ink,fontSize:13,lineHeight:19,marginTop:3}}>{c.body}</T>
+            <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}><T style={{fontSize:12,fontWeight:'800',color:t.ink}}>{c.display_name}</T><T style={{color:t.muted,fontSize:10}}>{new Date(c.created_at).toLocaleDateString()}</T></View>
+            <T style={{color:t.ink,fontSize:13,lineHeight:18,marginTop:2}}>{c.body}</T>
           </View>
         </View>)}
+      </ScrollView>
+      <View style={{position:'absolute',bottom:0,left:0,right:0,paddingHorizontal:14,paddingBottom:insets.bottom+10,paddingTop:10,backgroundColor:t.bg+'E6',borderTopWidth:1,borderTopColor:'rgba(0,0,0,0.06)'}}>
+        <View style={{flexDirection:'row',alignItems:'center',gap:8,backgroundColor:t.card,borderRadius:16,borderWidth:1,borderColor:t.line,padding:6,paddingLeft:12,shadowColor:'#000',shadowOpacity:.05,shadowRadius:8,shadowOffset:{width:0,height:2},elevation:3}}>
+          {commenterAvatar?<Image source={{uri:commenterAvatar}} style={{width:32,height:32,borderRadius:16,backgroundColor:t.tint}}/>:<View style={{width:32,height:32,borderRadius:16,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}><T style={{color:t.primary,fontWeight:'900',fontSize:12}}>{(commenterName||'?')[0]}</T></View>}
+          <TextInput value={draft} onChangeText={setDraft} placeholder={tr(p,'writeComment')} placeholderTextColor={t.muted} multiline style={{flex:1,color:t.ink,fontSize:13,maxHeight:80,paddingVertical:8,fontFamily:GF()}}/>
+          <Pressable disabled={!draft.trim()||posting} onPress={post} style={{width:38,height:38,borderRadius:19,backgroundColor:!draft.trim()?'#90A4AE':t.primary,alignItems:'center',justifyContent:'center',opacity:posting?.6:1}}><Svg width={18} height={18} viewBox="0 0 24 24" fill="none"><Path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></Svg></Pressable>
+        </View>
       </View>
-    </ScrollView>
+    </View>
   </KeyboardAvoidingView>
 }
 function Reader(p:C&{book:Book;chapter:number}){const insets=useSafeAreaInsets();const {width}=useWindowDimensions();const c=p.book.chapters[p.chapter];if(!c)return <View style={{flex:1,backgroundColor:p.theme.reader,alignItems:'center',justifyContent:'center',padding:30}}><Feather name="book-open" size={40} color={p.theme.muted}/><T style={{color:p.theme.ink,fontWeight:'800',fontSize:16,textAlign:'center',marginTop:14}}>এই বইয়ে এখনো কোনো অধ্যায় নেই।</T><Button title="ফিরে যান" icon="arrow-left" onPress={()=>p.setScreen({type:'book',id:p.book.id})}/></View>;const key=c.id,progress=p.state.positions[key]||0;
@@ -2700,7 +2708,7 @@ const MostPopularCarousel=React.memo(function MostPopularCarousel({books,theme,l
   </View>
 })
 
-const BookCard=React.memo(function BookCard({book,theme,lang,rank,accent,onPress,section}:{book:Book;theme:Theme;lang:Language;rank?:number;accent?:string;onPress:()=>void;section?:string}){const hasStatus=Boolean(book.display_status);const showBadge=hasStatus&&(section==='newEpisodes'||section==='mostPopular');return <Pressable onPress={onPress} style={{width:130}}><View style={{position:'relative'}}><Cover book={book}/>{typeof rank==='number'?<View style={[styles.rankBadge,{backgroundColor:rank===0?accent:rank===1?accent:rank<3?(accent||'#888')+'DD':'#555555DD'}]}><T style={[styles.rankBadgeText,{color:rank<2?'#fff':'#fff'}]}>{rank+1}</T></View>:showBadge&&<View style={[styles.statusBadge,{backgroundColor:book.display_status==='new'?'#8B5CF6':'#10B981'}]}><T style={[styles.statusBadgeText,{color:'#fff'}]}>{book.display_status==='new'?copy(lang,'statusNew'):copy(lang,'statusOngoing')}</T></View>}{book.views_visible !== false && <View style={styles.viewBadge}><Feather name="eye" size={10} color="#fff"/><T style={styles.viewBadgeText}>{book.views}</T></View>}</View><T numberOfLines={2} style={[styles.bookName,{color:theme.ink}]}>{book.title}</T><T numberOfLines={1} style={{color:theme.muted,fontSize:11}}>{book.author}</T></Pressable>});
+const BookCard=React.memo(function BookCard({book,theme,lang,rank,accent,onPress,section,openWithAnim}:{book:Book;theme:Theme;lang:Language;rank?:number;accent?:string;onPress:()=>void;section?:string;openWithAnim?:C['openWithAnim']}){const ref=React.useRef<View>(null);const handlePress=()=>{if(openWithAnim&&ref.current){ref.current.measure((_fx:number,_fy:number,w:number,h:number,px:number,py:number)=>{openWithAnim(book,px,py,w,h)})}else{onPress()}};const hasStatus=Boolean(book.display_status);const showBadge=hasStatus&&(section==='newEpisodes'||section==='mostPopular');return <Pressable ref={ref} onPress={handlePress} style={{width:130}}><View style={{position:'relative'}}><Cover book={book}/>{typeof rank==='number'?<View style={[styles.rankBadge,{backgroundColor:rank===0?accent:rank===1?accent:rank<3?(accent||'#888')+'DD':'#555555DD'}]}><T style={[styles.rankBadgeText,{color:rank<2?'#fff':'#fff'}]}>{rank+1}</T></View>:showBadge&&<View style={[styles.statusBadge,{backgroundColor:book.display_status==='new'?'#8B5CF6':'#10B981'}]}><T style={[styles.statusBadgeText,{color:'#fff'}]}>{book.display_status==='new'?copy(lang,'statusNew'):copy(lang,'statusOngoing')}</T></View>}{book.views_visible !== false && <View style={styles.viewBadge}><Feather name="eye" size={10} color="#fff"/><T style={styles.viewBadgeText}>{book.views}</T></View>}</View><T numberOfLines={2} style={[styles.bookName,{color:theme.ink}]}>{book.title}</T><T numberOfLines={1} style={{color:theme.muted,fontSize:11}}>{book.author}</T></Pressable>});
 function GoogleIcon({size}:{size?:number}){
   const s=size||20;
   return <Svg width={s} height={s} viewBox="0 0 48 48">
