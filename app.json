@@ -46,6 +46,13 @@
           "androidPackage": "com.lekhoni.kahini",
           "androidSha1": "BF306ABAE8D1650D973FE3E678A00A270A0BB40F"
         }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "android_app_id": "ca-app-pub-3940256099942544~3347511713",
+          "ios_app_id": "ca-app-pub-3940256099942544~1458002511"
+        }
       ]
     ],
     "extra": {

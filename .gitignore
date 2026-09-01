@@ -4,3 +4,6 @@ dist/
 *.tsbuildinfo
 google-services.json
 google-service-account.json
+
+android/
+ios/

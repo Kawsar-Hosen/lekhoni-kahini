@@ -11,7 +11,7 @@ function generateDeviceId(): string {
 }
 
 export const initialState: LocalState = {
-  name: '', deviceId: generateDeviceId(), favorites: ['megh'], downloads: ['nodi'], history: ['nodi', 'ghori'], positions: { 'nodi-1': 34 },
+  name: '', deviceId: generateDeviceId(), favorites: [], downloads: [], history: [], positions: {},
   bookmarks: [], searchHistory: [], settings: { dark: false, fontSize: 19, lineHeight: 32, lineSpacing: 1.0, fontFamily: 'default', pageMode: 'scroll', notifications: true, wifiOnly: true, language: 'bn', themeId: 'katagolap', readerTheme: 'default', keepScreenOn: true, autoScroll: false, autoScrollSpeed: 2, volumeScroll: false, eyeComfort: 0, brightness: 100 },
   readNotifications: [], reactions: {}, remoteBooks: [], online: false, lastSync: '',
   writer: null, writerToken: null, user: null, userToken: null, followedWriters: [],
