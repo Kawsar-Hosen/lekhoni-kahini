@@ -7,7 +7,7 @@
  * NO Banner or Native ads are used.
  */
 
-import {
+import mobileAds, {
   AppOpenAd,
   InterstitialAd,
   RewardedAd,
@@ -255,9 +255,12 @@ export function initRewardedAd(): void {
  * Initialize all ad systems. Call once when app mounts.
  */
 export function initAllAds(): void {
-  initAppOpenAd();
-  initInterstitialAd();
-  initRewardedAd();
+  try {
+    mobileAds().initialize();
+  } catch {}
+  try { initAppOpenAd(); } catch {}
+  try { initInterstitialAd(); } catch {}
+  try { initRewardedAd(); } catch {}
 }
 
 /**
