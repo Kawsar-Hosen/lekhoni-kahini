@@ -136,18 +136,20 @@ function ErrorScreen({type,onRetry,theme}:{type:'offline'|'error';theme:Theme;on
 }
 
 async function registerForPushNotificationsAsync(handler:(n:any)=>void){
-  if(!Device.isDevice){return}
-  const {status:existingStatus}=await ExpoNotifications.getPermissionsAsync();
-  let finalStatus=existingStatus;
-  if(existingStatus!=='granted'){
-    const {status}=await ExpoNotifications.requestPermissionsAsync();
-    finalStatus=status;
-  }
-  if(finalStatus!=='granted'){return}
-  const token=(await ExpoNotifications.getExpoPushTokenAsync({projectId:'659b4215-d07c-41f8-881b-c3e7cd7e951a'})).data;
-  if(Platform.OS==='android'){ExpoNotifications.setNotificationChannelAsync('default',{name:'default',importance:ExpoNotifications.AndroidImportance.MAX,vibrationPattern:[0,250,250,250],lightColor:'#FF231F7C'});}
-  const sub=ExpoNotifications.addNotificationReceivedListener(handler);
-  return{sub};
+  try{
+    if(!Device.isDevice){return}
+    const {status:existingStatus}=await ExpoNotifications.getPermissionsAsync();
+    let finalStatus=existingStatus;
+    if(existingStatus!=='granted'){
+      const {status}=await ExpoNotifications.requestPermissionsAsync();
+      finalStatus=status;
+    }
+    if(finalStatus!=='granted'){return}
+    const token=(await ExpoNotifications.getExpoPushTokenAsync({projectId:'659b4215-d07c-41f8-881b-c3e7cd7e951a'})).data;
+    if(Platform.OS==='android'){ExpoNotifications.setNotificationChannelAsync('default',{name:'default',importance:ExpoNotifications.AndroidImportance.MAX,vibrationPattern:[0,250,250,250],lightColor:'#FF231F7C'});}
+    const sub=ExpoNotifications.addNotificationReceivedListener(handler);
+    return{sub};
+  }catch{return}
 }
 
 export default function App(){ return <SafeAreaProvider><AppShell/></SafeAreaProvider>; }
