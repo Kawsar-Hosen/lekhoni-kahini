@@ -30,7 +30,6 @@
       }
     },
     "plugins": [
-      "./plugins/withGoogleAdsVersion",
       "expo-font",
       "expo-web-browser",
       [
