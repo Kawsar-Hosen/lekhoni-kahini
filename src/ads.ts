@@ -1,272 +1,172 @@
 /**
  * Lekhoni Kahini - AdMob Service
- * 
+ *
  * Handles App Open, Interstitial, and Rewarded ads.
  * Uses Google test Ad Unit IDs during development.
- * 
- * NO Banner or Native ads are used.
+ * Dynamically imports native module — gracefully no-ops in Expo Go.
  */
 
-import mobileAds, {
-  AppOpenAd,
-  InterstitialAd,
-  RewardedAd,
-  AdEventType,
-  RewardedAdEventType,
-  TestIds,
-} from 'react-native-google-mobile-ads';
+let mobileAds: any = null;
+let AppOpenAd: any = null;
+let InterstitialAd: any = null;
+let RewardedAd: any = null;
+let AdEventType: any = null;
+let RewardedAdEventType: any = null;
+let TestIds: any = null;
+let adsAvailable = false;
 
-// ============================================================
-// CONFIGURATION — Change these when going to production
-// ============================================================
+async function loadAdsModule(): Promise<boolean> {
+  if (adsAvailable) return true;
+  try {
+    const mod = await import('react-native-google-mobile-ads');
+    mobileAds = mod.default;
+    AppOpenAd = mod.AppOpenAd;
+    InterstitialAd = mod.InterstitialAd;
+    RewardedAd = mod.RewardedAd;
+    AdEventType = mod.AdEventType;
+    RewardedAdEventType = mod.RewardedAdEventType;
+    TestIds = mod.TestIds;
+    adsAvailable = true;
+    return true;
+  } catch {
+    adsAvailable = false;
+    return false;
+  }
+}
 
 const AD_CONFIG = {
-  // Test IDs (Google official test ads — safe for development)
-  appOpen: TestIds.APP_OPEN,
-  interstitial: TestIds.INTERSTITIAL,
-  rewarded: TestIds.REWARDED,
-
-  // Cooldowns & frequency
-  appOpenCooldownMs: 120_000,        // 2 min between App Open ads
-  interstitialCooldownMs: 180_000,   // 3 min between Interstitial ads
-  interstitialChapterInterval: 3,    // Show interstitial every N chapters
-  interstitialMaxPerSession: 5,      // Max interstitial ads per session
+  appOpenCooldownMs: 120_000,
+  interstitialCooldownMs: 180_000,
+  interstitialChapterInterval: 3,
+  interstitialMaxPerSession: 5,
 };
 
-// ============================================================
-// APP OPEN AD
-// ============================================================
-
-let appOpenAd: AppOpenAd | null = null;
+let appOpenAd: any = null;
 let lastAppOpenShownAt = 0;
 let appOpenReady = false;
 
 function loadAppOpenAd(): void {
+  if (!adsAvailable || !AppOpenAd || !TestIds) return;
   try {
-    appOpenAd = AppOpenAd.createForAdRequest(AD_CONFIG.appOpen, {
+    appOpenAd = AppOpenAd.createForAdRequest(TestIds.APP_OPEN, {
       requestNonPersonalizedAdsOnly: false,
     });
-
-    appOpenAd.addAdEventListener(AdEventType.LOADED, () => {
-      appOpenReady = true;
-    });
-
+    appOpenAd.addAdEventListener(AdEventType.LOADED, () => { appOpenReady = true; });
     appOpenAd.addAdEventListener(AdEventType.CLOSED, () => {
       appOpenReady = false;
       lastAppOpenShownAt = Date.now();
-      // Pre-load next ad
       setTimeout(loadAppOpenAd, 1000);
     });
-
     appOpenAd.addAdEventListener(AdEventType.ERROR, () => {
       appOpenReady = false;
-      // Retry after delay
       setTimeout(loadAppOpenAd, 5000);
     });
-
     appOpenAd.load();
-  } catch {
-    // Silently fail — app must not crash
-  }
+  } catch {}
 }
 
-/**
- * Show App Open Ad on app launch or resume.
- * Respects cooldown. Never blocks the app.
- */
 export function showAppOpenAd(): void {
+  if (!adsAvailable) return;
   try {
     const now = Date.now();
     if (now - lastAppOpenShownAt < AD_CONFIG.appOpenCooldownMs) return;
     if (!appOpenAd || !appOpenReady) return;
-
     lastAppOpenShownAt = now;
     appOpenAd.show();
-  } catch {
-    // Never block app usage
-  }
+  } catch {}
 }
 
-/**
- * Initialize App Open Ad system. Call once on app mount.
- */
-export function initAppOpenAd(): void {
-  loadAppOpenAd();
-}
-
-// ============================================================
-// INTERSTITIAL AD
-// ============================================================
-
-let interstitialAd: InterstitialAd | null = null;
+let interstitialAd: any = null;
 let lastInterstitialShownAt = 0;
 let interstitialSessionCount = 0;
 let chaptersSinceLastInterstitial = 0;
 let interstitialReady = false;
 
 function loadInterstitialAd(): void {
+  if (!adsAvailable || !InterstitialAd || !TestIds) return;
   try {
-    interstitialAd = InterstitialAd.createForAdRequest(AD_CONFIG.interstitial, {
+    interstitialAd = InterstitialAd.createForAdRequest(TestIds.INTERSTITIAL, {
       requestNonPersonalizedAdsOnly: false,
     });
-
-    interstitialAd.addAdEventListener(AdEventType.LOADED, () => {
-      interstitialReady = true;
-    });
-
+    interstitialAd.addAdEventListener(AdEventType.LOADED, () => { interstitialReady = true; });
     interstitialAd.addAdEventListener(AdEventType.CLOSED, () => {
       interstitialReady = false;
       lastInterstitialShownAt = Date.now();
       interstitialSessionCount++;
-      // Pre-load next
       setTimeout(loadInterstitialAd, 1000);
     });
-
     interstitialAd.addAdEventListener(AdEventType.ERROR, () => {
       interstitialReady = false;
       setTimeout(loadInterstitialAd, 5000);
     });
-
     interstitialAd.load();
-  } catch {
-    // Silently fail
-  }
+  } catch {}
 }
 
-/**
- * Call when user opens a chapter/episode.
- * Returns true if ad was shown (meaning the caller should delay navigation).
- * Returns false if no ad shown (proceed normally).
- */
 export function maybeShowInterstitial(): boolean {
+  if (!adsAvailable) return false;
   try {
     chaptersSinceLastInterstitial++;
-
-    // Don't show if:
-    // - Not enough chapters since last ad
-    // - Cooldown not passed
-    // - Max session limit reached
-    // - Ad not ready
     if (chaptersSinceLastInterstitial < AD_CONFIG.interstitialChapterInterval) return false;
     if (Date.now() - lastInterstitialShownAt < AD_CONFIG.interstitialCooldownMs) return false;
     if (interstitialSessionCount >= AD_CONFIG.interstitialMaxPerSession) return false;
     if (!interstitialAd || !interstitialReady) return false;
-
     chaptersSinceLastInterstitial = 0;
     interstitialAd.show();
     return true;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
-/**
- * Initialize Interstitial Ad system. Call once on app mount.
- */
-export function initInterstitialAd(): void {
-  loadInterstitialAd();
-}
-
-// ============================================================
-// REWARDED AD
-// ============================================================
-
-let rewardedAd: RewardedAd | null = null;
+let rewardedAd: any = null;
 let rewardedReady = false;
 let pendingRewardCallback: (() => void) | null = null;
 
 function loadRewardedAd(): void {
+  if (!adsAvailable || !RewardedAd || !TestIds) return;
   try {
-    rewardedAd = RewardedAd.createForAdRequest(AD_CONFIG.rewarded, {
+    rewardedAd = RewardedAd.createForAdRequest(TestIds.REWARDED, {
       requestNonPersonalizedAdsOnly: false,
     });
-
-    rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
-      rewardedReady = true;
-    });
-
+    rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => { rewardedReady = true; });
     rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
-      // Reward earned — unlock content
-      if (pendingRewardCallback) {
-        pendingRewardCallback();
-        pendingRewardCallback = null;
-      }
+      if (pendingRewardCallback) { pendingRewardCallback(); pendingRewardCallback = null; }
     });
-
     rewardedAd.addAdEventListener(AdEventType.CLOSED, () => {
       rewardedReady = false;
       pendingRewardCallback = null;
-      // Pre-load next
       setTimeout(loadRewardedAd, 1000);
     });
-
     rewardedAd.addAdEventListener(AdEventType.ERROR, () => {
       rewardedReady = false;
       pendingRewardCallback = null;
       setTimeout(loadRewardedAd, 5000);
     });
-
     rewardedAd.load();
-  } catch {
-    // Silently fail
-  }
+  } catch {}
 }
 
-/**
- * Show Rewarded Ad. Returns a promise that resolves to true if reward earned.
- * Use for "Watch Ad to Unlock" feature.
- */
 export function showRewardedAd(): Promise<boolean> {
   return new Promise((resolve) => {
+    if (!adsAvailable || !rewardedAd || !rewardedReady) { resolve(false); return; }
     try {
-      if (!rewardedAd || !rewardedReady) {
-        resolve(false);
-        return;
-      }
-
       pendingRewardCallback = () => resolve(true);
       rewardedAd.show();
-    } catch {
-      pendingRewardCallback = null;
-      resolve(false);
-    }
+    } catch { pendingRewardCallback = null; resolve(false); }
   });
 }
 
-/**
- * Check if Rewarded Ad is available.
- */
-export function isRewardedAdReady(): boolean {
-  return rewardedReady;
-}
+export function isRewardedAdReady(): boolean { return adsAvailable && rewardedReady; }
 
-/**
- * Initialize Rewarded Ad system. Call once on app mount.
- */
-export function initRewardedAd(): void {
-  loadRewardedAd();
-}
-
-// ============================================================
-// GLOBAL INIT
-// ============================================================
-
-/**
- * Initialize all ad systems. Call once when app mounts.
- */
-export function initAllAds(): void {
-  try {
-    mobileAds().initialize();
-  } catch {}
-  try { initAppOpenAd(); } catch {}
-  try { initInterstitialAd(); } catch {}
-  try { initRewardedAd(); } catch {}
-}
-
-/**
- * Reset session counters. Call if needed (e.g., on logout).
- */
 export function resetAdSession(): void {
   interstitialSessionCount = 0;
   chaptersSinceLastInterstitial = 0;
+}
+
+export async function initAllAds(): Promise<void> {
+  const ok = await loadAdsModule();
+  if (!ok) return;
+  try { mobileAds().initialize(); } catch {}
+  try { loadAppOpenAd(); } catch {}
+  try { loadInterstitialAd(); } catch {}
+  try { loadRewardedAd(); } catch {}
 }
