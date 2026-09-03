@@ -590,15 +590,23 @@ function Profile(p:C){
   return <Page theme={t}>
     <Header title={tr(p,'menu')} theme={t} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/>
     <ScrollView showsVerticalScrollIndicator={false}>
-    <Pressable onPress={()=>p.setScreen({type:'profileDetails'})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:12,borderWidth:1,borderColor:t.line}}>
-      {(p.state.writer?.avatar_url||p.state.user?.avatar_url)?<Image source={{uri:p.state.writer?.avatar_url||p.state.user?.avatar_url}} style={{width:42,height:42,borderRadius:21}}/>:<View style={{width:42,height:42,borderRadius:21,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
-        <T style={{fontSize:18,fontWeight:'900',color:t.primary}}>{(p.state.user?.display_name||p.state.writer?.writer_name||p.state.name||'?')[0]?.toUpperCase()}</T>
+    <Pressable onPress={()=>p.setScreen({type:'profileDetails'})} style={{borderRadius:20,overflow:'hidden',backgroundColor:'#7B1E2B',marginBottom:12}}>
+      <LinearGradient colors={['#7B1E2B','#4A1220']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
+      <Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="92%" cy={6} r={60} fill="#C9972B26"/><Circle cx="0%" cy={90} r={50} fill="#ffffff10"/></Svg>
+      <View style={{flexDirection:'row',alignItems:'center',padding:14}}>
+      {(p.state.writer?.avatar_url||p.state.user?.avatar_url)?<Image source={{uri:p.state.writer?.avatar_url||p.state.user?.avatar_url}} style={{width:52,height:52,borderRadius:26,borderWidth:2,borderColor:'#C9972B'}}/>:<View style={{width:52,height:52,borderRadius:26,backgroundColor:'#ffffff1A',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'#C9972B'}}>
+        <T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{(p.state.user?.display_name||p.state.writer?.writer_name||p.state.name||'?')[0]?.toUpperCase()}</T>
       </View>}
       <View style={{flex:1,marginLeft:12}}>
-        <T numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{p.state.user?.display_name||p.state.writer?.writer_name||p.state.name}</T>
-        <T style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.writer?tr(p,'writerStudio'):tr(p,'regularReader')}</T>
+        <T numberOfLines={1} style={{fontSize:17,fontWeight:'900',color:'#fff'}}>{p.state.user?.display_name||p.state.writer?.writer_name||p.state.name}</T>
+        <View style={{alignSelf:'flex-start',backgroundColor:'#C9972B2E',borderRadius:7,paddingHorizontal:8,paddingVertical:2,marginTop:4}}>
+          <T style={{fontSize:10,fontWeight:'800',color:'#EAC97A'}}>{p.state.writer?tr(p,'writerStudio'):tr(p,'regularReader')}</T>
+        </View>
       </View>
-      <Feather name="chevron-right" size={18} color={t.muted}/>
+      <View style={{width:32,height:32,borderRadius:16,backgroundColor:'#ffffff1A',alignItems:'center',justifyContent:'center'}}>
+        <Feather name="chevron-right" size={16} color="#fff"/>
+      </View>
+      </View>
     </Pressable>
 
     {/* === READING STREAK CARD === */}
@@ -657,48 +665,48 @@ function Profile(p:C){
       </View>
     </Animated.View>
 
-    <Pressable onPress={()=>p.setScreen({type:'writer'})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:8,borderWidth:1,borderColor:t.line}}>
-      {p.state.writer?.avatar_url?<Image source={{uri:p.state.writer.avatar_url}} style={{width:42,height:42,borderRadius:21}}/>:<View style={{width:42,height:42,borderRadius:21,backgroundColor:p.state.writer?t.primary:t.tint,alignItems:'center',justifyContent:'center'}}>
+    <Pressable onPress={()=>p.setScreen({type:'writer'})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:8,borderWidth:1,borderColor:t.line,borderLeftWidth:4,borderLeftColor:'#C9972B'}}>
+      {p.state.writer?.avatar_url?<Image source={{uri:p.state.writer.avatar_url}} style={{width:42,height:42,borderRadius:21,borderWidth:2,borderColor:'#C9972B'}}/>:<View style={{width:42,height:42,borderRadius:21,backgroundColor:p.state.writer?t.primary:t.tint,alignItems:'center',justifyContent:'center'}}>
         {p.state.writer?<T style={{fontSize:18,fontWeight:'900',color:'#fff'}}>{p.state.writer.writer_name?.[0]?.toUpperCase()||'?'}</T>:<Feather name="edit-3" size={18} color={t.primary}/>}
       </View>}
       <View style={{flex:1,marginLeft:12}}>
         <T numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{p.state.writer?p.state.writer.writer_name||tr(p,'writer'):tr(p,'writer')}</T>
         <T style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.writer?tr(p,'writerStudio'):tr(p,'writerStudioSub')}</T>
       </View>
-      <Feather name="chevron-right" size={18} color={t.muted}/>
+      <View style={{width:30,height:30,borderRadius:15,backgroundColor:'#C9972B1A',alignItems:'center',justifyContent:'center'}}><Feather name="chevron-right" size={14} color="#C9972B"/></View>
     </Pressable>
 
     <Pressable onPress={()=>p.setScreen({type:'followedWriters'})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:12,borderWidth:1,borderColor:t.line}}>
-      <View style={{width:42,height:42,borderRadius:21,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
-        <Feather name="users" size={18} color={t.primary}/>
+      <View style={{width:42,height:42,borderRadius:14,backgroundColor:'#EDE9FE',alignItems:'center',justifyContent:'center'}}>
+        <Feather name="users" size={18} color="#7C3AED"/>
       </View>
       <View style={{flex:1,marginLeft:12}}>
         <T numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{tr(p,'followedWriters')}</T>
         <T style={{fontSize:11,color:t.muted,marginTop:1}}>{(p.state.followedWriters||[]).length} {tr(p,'writers')}</T>
       </View>
-      <Feather name="chevron-right" size={18} color={t.muted}/>
+      <View style={{width:30,height:30,borderRadius:15,backgroundColor:'#7C3AED14',alignItems:'center',justifyContent:'center'}}><Feather name="chevron-right" size={14} color="#7C3AED"/></View>
     </Pressable>
 
     <Pressable onPress={()=>p.setScreen({type:'settings'})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:12,borderWidth:1,borderColor:t.line}}>
-      <View style={{width:42,height:42,borderRadius:21,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
-        <Feather name="settings" size={18} color={t.primary}/>
+      <View style={{width:42,height:42,borderRadius:14,backgroundColor:'#E0E7FF',alignItems:'center',justifyContent:'center'}}>
+        <Feather name="settings" size={18} color="#1D4ED8"/>
       </View>
       <View style={{flex:1,marginLeft:12}}>
         <T numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{tr(p,'settings')}</T>
         <T style={{fontSize:11,color:t.muted,marginTop:1}}>{tr(p,'theme')}, {tr(p,'language')}</T>
       </View>
-      <Feather name="chevron-right" size={18} color={t.muted}/>
+      <View style={{width:30,height:30,borderRadius:15,backgroundColor:'#1D4ED814',alignItems:'center',justifyContent:'center'}}><Feather name="chevron-right" size={14} color="#1D4ED8"/></View>
     </Pressable>
 
     <Pressable onPress={()=>p.setScreen({type:'guide'})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:12,borderWidth:1,borderColor:t.line}}>
-      <View style={{width:42,height:42,borderRadius:21,backgroundColor:'#FEF3C7',alignItems:'center',justifyContent:'center'}}>
+      <View style={{width:42,height:42,borderRadius:14,backgroundColor:'#FEF3C7',alignItems:'center',justifyContent:'center'}}>
         <Feather name="book-open" size={18} color="#D97706"/>
       </View>
       <View style={{flex:1,marginLeft:12}}>
         <T numberOfLines={1} style={{fontSize:15,fontWeight:'800',color:t.ink}}>{tr(p,'guideTitle')}</T>
         <T style={{fontSize:11,color:t.muted,marginTop:1}}>{tr(p,'guideSub')}</T>
       </View>
-      <Feather name="chevron-right" size={18} color={t.muted}/>
+      <View style={{width:30,height:30,borderRadius:15,backgroundColor:'#D977061A',alignItems:'center',justifyContent:'center'}}><Feather name="chevron-right" size={14} color="#D97706"/></View>
     </Pressable>
 
     <T style={[styles.menuGroupTitle,{color:t.muted}]}>{tr(p,'aboutApp')}</T>
@@ -1579,12 +1587,42 @@ function AnimatedToggle({value,onChange,color,track}:{value:boolean;onChange:(v:
     </Animated.View>
   </Pressable>;
 }
+function ConfirmModal({theme:t,lang,kind,onClose,onConfirm}:{theme:Theme;lang:Language;kind:'search'|'downloads'|'reset'|'syncOk'|'syncFail';onClose:()=>void;onConfirm:()=>void}){
+  const cfg={
+    search:{icon:'search',bg:'#E0E7FF',fg:'#3730A3',title:copy(lang,'settingsClearSearch'),msg:lang==='bn'?'সার্চ ইতিহাস মুছে যাবে। নিশ্চিত?':lang==='hi'?'खोज इतिहास मिट जाएगा। पक्का?':'Search history will be cleared. Sure?',ok:lang==='bn'?'মুছুন':lang==='hi'?'साफ़ करें':'Clear',danger:false,single:false},
+    downloads:{icon:'download-cloud',bg:'#D9F0EA',fg:'#0F766E',title:copy(lang,'settingsClearAll'),msg:lang==='bn'?'সব ডাউনলোড মুছে ফেলা হবে। নিশ্চিত?':lang==='hi'?'सभी डाउनलोड हटा दिए जाएंगे। पक्का?':'All downloads will be cleared. Sure?',ok:lang==='bn'?'মুছুন':lang==='hi'?'हटाएँ':'Clear',danger:true,single:false},
+    reset:{icon:'hard-drive',bg:'#FEE2E2',fg:'#B91C1C',title:copy(lang,'settingsReset'),msg:lang==='bn'?'থিম, বুকমার্ক, ইতিহাস — সব ডেটা মুছে যাবে। নিশ্চিত?':lang==='hi'?'थीम, बुकमार्क, इतिहास — सब डेटा मिटा दिया जाएगा। पक्का?':'Theme, bookmarks, history — all data will be deleted. Sure?',ok:lang==='bn'?'রিসেট':lang==='hi'?'रीसेट':'Reset',danger:true,single:false},
+    syncOk:{icon:'check-circle',bg:'#DEF7EC',fg:'#059669',title:lang==='bn'?'সিঙ্ক সম্পন্ন':lang==='hi'?'सिंक पूर्ण':'Sync completed',msg:lang==='bn'?'সব কনটেন্ট আপডেট আছে।':lang==='hi'?'सब कंटेंट अपडेट है।':'All content is up to date.',ok:lang==='bn'?'ঠিক আছে':lang==='hi'?'ठीक है':'OK',danger:false,single:true},
+    syncFail:{icon:'wifi-off',bg:'#FEE2E2',fg:'#B91C1C',title:lang==='bn'?'সিঙ্ক হয়নি':lang==='hi'?'सिंक नहीं हुआ':'Sync failed',msg:copy(lang,'networkError'),ok:lang==='bn'?'ঠিক আছে':lang==='hi'?'ठीक है':'OK',danger:false,single:true},
+  }[kind];
+  return <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24,zIndex:999,elevation:24}}>
+    <View style={{width:'100%',backgroundColor:t.card,borderRadius:22,padding:24,alignItems:'center',borderWidth:1,borderColor:t.line}}>
+      <View style={{width:60,height:60,borderRadius:30,backgroundColor:cfg.bg,alignItems:'center',justifyContent:'center',marginBottom:14}}>
+        <Feather name={cfg.icon as any} size={26} color={cfg.fg}/>
+      </View>
+      <T style={{fontSize:17,fontWeight:'900',color:t.ink,textAlign:'center',marginBottom:6}}>{cfg.title}</T>
+      <T style={{fontSize:13,color:t.muted,textAlign:'center',lineHeight:20,marginBottom:20}}>{cfg.msg}</T>
+      {cfg.single?<Pressable onPress={onConfirm} style={{width:'100%',height:48,borderRadius:14,backgroundColor:t.primary,alignItems:'center',justifyContent:'center'}}>
+        <T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{cfg.ok}</T>
+      </Pressable>:<View style={{flexDirection:'row',gap:10,width:'100%'}}>
+        <Pressable onPress={onClose} style={{flex:1,height:48,borderRadius:14,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
+          <T style={{color:t.primary,fontWeight:'800',fontSize:14}}>{copy(lang,'cancel')}</T>
+        </Pressable>
+        <Pressable onPress={onConfirm} style={{flex:1,height:48,borderRadius:14,backgroundColor:cfg.danger?'#EF4444':t.primary,alignItems:'center',justifyContent:'center'}}>
+          <T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{cfg.ok}</T>
+        </Pressable>
+      </View>}
+    </View>
+  </View>;
+}
+
 function Settings(p:C){
   const set=(x:Partial<LocalState['settings']>)=>p.update({settings:{...p.state.settings,...x}});
   const language=p.state.settings.language;
   const t=p.theme;
   const currentThemeId=p.state.settings.themeId||'katagolap';
   const darkMode=p.state.settings.dark;
+  const[confirm,setConfirm]=useState<null|{kind:'search'|'downloads'|'reset'|'syncOk'|'syncFail'}>(null);
 
   const themes:{id:ThemeId;nameBn:string;nameEn:string;colors:string[]}[]=[
     {id:'nilkantha',nameBn:'নীলকণ্ঠ',nameEn:'Blue Jay',colors:['#2563EB','#1E293B']},
@@ -1609,11 +1647,11 @@ function Settings(p:C){
     {id:'golap',nameBn:'গোলাপ',nameEn:'Rose',colors:['#E63946','#3A1520']},
   ];
 
-  const Section=({title,children}:{title:string;children:React.ReactNode})=><><T style={[styles.group,{color:t.muted,marginTop:16,marginBottom:8,fontSize:13,fontWeight:'700'}]}>{title}</T><View style={[styles.menuGroup,{borderRadius:16,borderWidth:1,borderColor:t.line,backgroundColor:t.card,overflow:'hidden'}]}>{children}</View></>;
-  const Row=({icon,iconBg,iconColor,children,onPress}:{icon:string;iconBg:string;iconColor:string;children:React.ReactNode;onPress?:()=>void})=><Pressable onPress={onPress} disabled={!onPress} style={[styles.menuItem,{backgroundColor:t.card,opacity:onPress?1:0.9}]}><View style={[styles.menuIconBig,{backgroundColor:iconBg}]}><Feather name={icon as any} size={18} color={iconColor}/></View>{children}</Pressable>;
+  const Section=({title,icon,children}:{title:string;icon:string;children:React.ReactNode})=><><View style={{flexDirection:'row',alignItems:'center',gap:8,marginTop:14,marginBottom:8}}><View style={{width:26,height:26,borderRadius:9,backgroundColor:'#7B1E2B',alignItems:'center',justifyContent:'center'}}><Feather name={icon as any} size={13} color="#EAC97A"/></View><T style={[styles.group,{color:t.muted,fontSize:13,fontWeight:'700'}]}>{title}</T></View><View style={{gap:8}}>{children}</View></>;
+  const Row=({icon,children,onPress}:{icon:string;children:React.ReactNode;onPress?:()=>void})=><Pressable onPress={onPress} disabled={!onPress} style={{borderRadius:14,overflow:'hidden',backgroundColor:t.tint,borderWidth:1,borderColor:t.line}}><Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="92%" cy={4} r={48} fill={t.primary} opacity={0.10}/><Circle cx="2%" cy={54} r={36} fill={t.primary} opacity={0.07}/><Circle cx="72%" cy={52} r={3} fill={t.primary} opacity={0.2}/><Circle cx="82%" cy={8} r={2} fill={t.primary} opacity={0.16}/></Svg><View style={{flexDirection:'row',alignItems:'center',gap:10,padding:10}}><View style={{width:36,height:36,borderRadius:12,backgroundColor:t.card,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:t.line}}><Feather name={icon as any} size={17} color={t.primary}/></View><View style={{flex:1}}>{children}</View></View></Pressable>;
   const Sep=()=><View style={{height:1,backgroundColor:t.line,marginLeft:62}}/>;
 
-  return <Page theme={t}>
+  return <View style={{flex:1}}><Page theme={t}>
     <Back title={tr(p,'settings')} theme={t} onPress={()=>p.goBack()}/>
     {p.isOffline&&<OfflineBanner theme={t} onRetry={()=>p.syncRemote?.()}/>}
 
@@ -1658,16 +1696,15 @@ function Settings(p:C){
     </View>
 
     {/* Appearance */}
-    <Section title={copy(language,'settingsAppearance')}>
-      <Row icon="sun" iconBg={darkMode?'#1E293B':t.tint} iconColor={darkMode?'#FCD34D':t.primary}>
+    <Section title={copy(language,'settingsAppearance')} icon="sun">
+      <Row icon="sun">
         <View style={{flex:1}}>
           <T style={[styles.rowTitle,{color:t.ink}]}>{darkMode?tr(p,'darkMode'):tr(p,'lightMode')}</T>
           <T style={{fontSize:11,color:t.muted,marginTop:1}}>{darkMode?tr(p,'darkModeSub'):tr(p,'lightModeSub')}</T>
         </View>
-        <AnimatedToggle value={darkMode} onChange={(v)=>set({dark:v})} color={t.primary} track={t.line}/>
+        <AnimatedToggle value={darkMode} onChange={(v)=>set({dark:v})} color="#C9972B" track={t.line}/>
       </Row>
-      <Sep/>
-      <Row icon="type" iconBg={t.tint} iconColor={t.primary}>
+      <Row icon="type">
         <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{tr(p,'readerSize')}</T>
         <View style={{alignItems:'center'}}>
           <View style={{flexDirection:'row',alignItems:'center',gap:10}}>
@@ -1687,8 +1724,8 @@ function Settings(p:C){
     </Section>
 
     {/* Reading */}
-    <Section title={copy(language,'settingsReading')}>
-      <Row icon="align-justify" iconBg={t.tint} iconColor={t.primary}>
+    <Section title={copy(language,'settingsReading')} icon="book-open">
+      <Row icon="align-justify">
         <View style={{flex:1}}>
           <T style={[styles.rowTitle,{color:t.ink}]}>{copy(language,'settingsLineSpacing')}</T>
           <T style={{fontSize:11,color:t.muted,marginTop:1}}>{copy(language,'lineSpacingDesc')}</T>
@@ -1699,61 +1736,59 @@ function Settings(p:C){
           <Pressable onPress={()=>set({lineSpacing:Math.round((Math.min(1.8,p.state.settings.lineSpacing+0.1))*10)/10})} style={{width:30,height:30,borderRadius:9,backgroundColor:p.state.settings.lineSpacing>=1.8?t.bg:t.tint,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:t.line}}><Feather name="plus" size={15} color={p.state.settings.lineSpacing>=1.8?t.muted:t.primary}/></Pressable>
         </View>
       </Row>
-      <Sep/>
-      <Row icon="align-left" iconBg={t.tint} iconColor={t.primary}>
+      <Row icon="align-left">
         <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{copy(language,'settingsFont')}</T>
         <View style={{flexDirection:'row',gap:6}}>
           {([['default',copy(language,'fontDefault')],['serif',copy(language,'fontSerif')],['loose',copy(language,'fontLoose')]] as const).map(([k,l])=>{
             const act=p.state.settings.fontFamily===k;
-            return <Pressable key={k} onPress={()=>set({fontFamily:k})} style={{paddingVertical:6,paddingHorizontal:10,borderRadius:9,backgroundColor:act?t.primary:t.bg,borderWidth:1,borderColor:act?t.primary:t.line}}><T style={{fontWeight:'800',fontSize:11,color:act?'#fff':t.muted}}>{l}</T></Pressable>;
+            return <Pressable key={k} onPress={()=>set({fontFamily:k})} style={{paddingVertical:6,paddingHorizontal:10,borderRadius:9,backgroundColor:act?'#C9972B':t.bg,borderWidth:1,borderColor:act?'#C9972B':t.line}}><T style={{fontWeight:'800',fontSize:11,color:act?'#4A1220':t.muted}}>{l}</T></Pressable>;
           })}
         </View>
       </Row>
     </Section>
 
     {/* Language */}
-    <Section title={copy(language,'settingsLanguage')}>
+    <Section title={copy(language,'settingsLanguage')} icon="globe">
       {([['en','english'],['bn','bangla'],['hi','hindi']] as const).map(([code,key],i)=>(
-        <Pressable key={code} onPress={()=>{set({language:code})}} style={[styles.languageRow,{backgroundColor:t.card,paddingHorizontal:14,paddingVertical:12,borderBottomWidth:i===2?0:1,borderBottomColor:t.line}]}>
-          <View style={[styles.radio,{borderColor:language===code?t.primary:t.muted}]}>{language===code&&<View style={[styles.radioDot,{backgroundColor:t.primary}]}/>}</View>
+        <Pressable key={code} onPress={()=>{set({language:code})}} style={[styles.languageRow,{backgroundColor:t.tint,borderWidth:1,borderColor:t.line,borderRadius:14,paddingHorizontal:14,paddingVertical:12,overflow:'hidden'}]}>
+          <Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="90%" cy={6} r={30} fill={t.primary} opacity={0.10}/><Circle cx="5%" cy={44} r={20} fill={t.primary} opacity={0.08}/></Svg>
+          <View style={[styles.radio,{borderColor:language===code?t.primary:'#ffffff44'}]}>{language===code&&<View style={[styles.radioDot,{backgroundColor:t.primary}]}/>}</View>
           <View style={{flex:1}}>
             <T style={{color:t.ink,fontWeight:language===code?'900':'600',fontSize:14}}>{copy(code,key)}</T>
-            <T style={{color:t.muted,fontSize:10}}>{code==='en'?'English':code==='bn'?'বাংলा':'हिन्दी'}</T>
+            <T style={{color:t.muted,fontSize:10}}>{code==='en'?'English':code==='bn'?'বাংলা':'हिन्दी'}</T>
           </View>
           {language===code&&<Feather name="check" size={16} color={t.primary}/>}
         </Pressable>))}
     </Section>
 
     {/* Data & Sync */}
-    <Section title={copy(language,'settingsData')}>
-      <Row icon={p.state.online?'refresh-cw':'cloud-off'} iconBg={p.state.online?t.tint:'#FEEBC8'} iconColor={p.state.online?t.primary:'#B45309'} onPress={()=>{p.syncRemote?.();trackEvent(p.state.deviceId,'all','view');}}>
+    <Section title={copy(language,'settingsData')} icon="database">
+      <Row icon={p.state.online?'refresh-cw':'cloud-off'} onPress={async()=>{try{await p.syncRemote?.();trackEvent(p.state.deviceId,'all','view');setConfirm({kind:'syncOk'})}catch{setConfirm({kind:'syncFail'})}}}>
         <View style={{flex:1}}>
           <T style={[styles.rowTitle,{color:t.ink}]}>{copy(language,'settingsSyncNow')}</T>
           <T style={{fontSize:11,color:t.muted,marginTop:1}}>{p.state.online?(language==='bn'?'সব ঠিক আছে':language==='hi'?'सब ठीक है':'All good'):(language==='bn'?'অফলাইন':language==='hi'?'ऑफ़लाइन':'Offline')}</T>
         </View>
-        <View style={{backgroundColor:t.tint,borderRadius:10,paddingVertical:8,paddingHorizontal:12}}>
+        <View style={{backgroundColor:t.card,borderRadius:10,paddingVertical:8,paddingHorizontal:12,borderWidth:1,borderColor:t.line}}>
           <T style={{color:t.primary,fontWeight:'900',fontSize:12}}>{p.state.online?copy(language,'settingsSynced'):copy(language,'settingsOffline')}</T>
         </View>
       </Row>
-      <Sep/>
-      <Row icon="trash-2" iconBg="#FEEBC8" iconColor="#B45309" onPress={()=>p.update({searchHistory:[]})}>
+      <Row icon="trash-2" onPress={()=>setConfirm({kind:'search'})}>
         <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{copy(language,'settingsClearSearch')}</T>
-        <View style={{backgroundColor:t.bg,borderWidth:1,borderColor:t.line,borderRadius:10,paddingVertical:7,paddingHorizontal:12}}>
+        <View style={{backgroundColor:t.card,borderWidth:1,borderColor:t.line,borderRadius:10,paddingVertical:7,paddingHorizontal:12}}>
           <T style={{color:t.primary,fontWeight:'800',fontSize:12}}>{language==='bn'?'মুছুন':language==='hi'?'साफ़ करें':'Clear'}</T>
         </View>
       </Row>
     </Section>
 
     {/* Downloads */}
-    <Section title={language==='bn'?'ডাউনলোড':language==='hi'?'डाउनलोड':'Downloads'}>
-      <Row icon="download-cloud" iconBg={t.tint} iconColor={t.primary}>
+    <Section title={language==='bn'?'ডাউনলোড':language==='hi'?'डाउनलोड':'Downloads'} icon="download-cloud">
+      <Row icon="download-cloud">
         <View style={{flex:1}}>
           <T style={[styles.rowTitle,{color:t.ink}]}>{p.state.downloads.length} {language==='bn'?'টি ডাউনলোড':language==='hi'?'डाउनलोड':'downloaded'}</T>
           <T style={{fontSize:11,color:t.muted,marginTop:1}}>{language==='bn'?'অফলাইনে পড়ার জন্য সংরক্ষিত':language==='hi'?'ऑफ़लाइन पढ़ने के लिए सहेजा गया':'Saved for offline reading'}</T>
         </View>
       </Row>
-      <Sep/>
-      <Row icon="trash-2" iconBg="#FEEBC8" iconColor="#B45309" onPress={()=>Alert.alert(copy(language,'settingsClearAll'),language==='bn'?'সব ডাউনলোড মুছে ফেলা হবে। নিশ্চিত?':language==='hi'?'सभी डाउनलोड हटा दिए जाएंगे। पक्का?':'All downloads will be cleared. Sure?',[{text:copy(language,'cancel'),style:'cancel'},{text:language==='bn'?'মুছুন':language==='hi'?'हटाएँ':'Clear',style:'destructive',onPress:()=>p.update({downloads:[]})}])}>
+      <Row icon="trash-2" onPress={()=>setConfirm({kind:'downloads'})}>
         <T style={[styles.rowTitle,{color:'#B91C1C',flex:1}]}>{copy(language,'settingsClearAll')}</T>
         <View style={{backgroundColor:'#FEE2E2',borderRadius:10,paddingVertical:8,paddingHorizontal:12}}>
           <T style={{color:'#B91C1C',fontWeight:'900',fontSize:12}}>{language==='bn'?'মুছুন':language==='hi'?'हटाएँ':'Clear'}</T>
@@ -1762,8 +1797,8 @@ function Settings(p:C){
     </Section>
 
     {/* Storage */}
-    <Section title={copy(language,'settingsStorage')}>
-      <Row icon="hard-drive" iconBg="#FEE2E2" iconColor="#B91C1C" onPress={()=>Alert.alert(copy(language,'settingsReset'),language==='bn'?'থিম, বুকমার্ক, ইতিহাস — সব ডেটা মুছে যাবে। নিশ্চিত?':language==='hi'?'थीम, बुकमार्क, इतिहास — सब डेटा मिटा दिया जाएगा। पक्का?':'Theme, bookmarks, history — all data will be deleted. Sure?',[{text:copy(language,'cancel'),style:'cancel'},{text:language==='bn'?'রিসেট':language==='hi'?'रीसेट':'Reset',style:'destructive',onPress:async()=>{p.update(initialState);await clearState();}}])}>
+    <Section title={copy(language,'settingsStorage')} icon="hard-drive">
+      <Row icon="hard-drive" onPress={()=>setConfirm({kind:'reset'})}>
         <View style={{flex:1}}>
           <T style={[styles.rowTitle,{color:'#B91C1C'}]}>{copy(language,'settingsReset')}</T>
           <T style={{fontSize:11,color:t.muted,marginTop:1}}>{copy(language,'settingsResetDesc')}</T>
@@ -1775,32 +1810,27 @@ function Settings(p:C){
     </Section>
 
     {/* About */}
-    <Section title={copy(language,'settingsAbout')}>
-      <Row icon="book-open" iconBg={t.tint} iconColor={t.primary} onPress={()=>p.setScreen({type:'aboutApp'})}>
+    <Section title={copy(language,'settingsAbout')} icon="info">
+      <Row icon="book-open" onPress={()=>p.setScreen({type:'aboutApp'})}>
         <View style={{flex:1}}>
           <T style={[styles.rowTitle,{color:t.ink}]}>Lekhoni Kahini</T>
           <T style={{fontSize:11,color:t.muted,marginTop:1}}>{copy(language,'settingsAppDesc')}</T>
         </View>
-        <Feather name="chevron-right" size={18} color={t.muted}/>
+      <View style={{width:30,height:30,borderRadius:15,backgroundColor:'#7B1E2B',alignItems:'center',justifyContent:'center'}}><Feather name="chevron-right" size={14} color="#EAC97A"/></View>
       </Row>
-      <Sep/>
-      <Row icon="star" iconBg={t.tint} iconColor={t.primary} onPress={()=>{try{Linking.openURL('https://play.google.com/store/apps/details?id=com.lekhoni.kahini')}catch{Share.share({message:'Lekhoni Kahini\nhttps://play.google.com/store/apps/details?id=com.lekhoni.kahini'})}}}>
+      <Row icon="star" onPress={()=>{try{Linking.openURL('https://play.google.com/store/apps/details?id=com.lekhoni.kahini')}catch{Share.share({message:'Lekhoni Kahini\nhttps://play.google.com/store/apps/details?id=com.lekhoni.kahini'})}}}>
         <T style={[styles.rowTitle,{color:t.ink,flex:1}]}>{copy(language,'settingsRate')}</T>
-        <View style={{backgroundColor:t.tint,borderRadius:10,paddingVertical:8,paddingHorizontal:12}}>
-          <T style={{color:t.primary,fontWeight:'900',fontSize:12}}>★</T>
+        <View style={{backgroundColor:'#7B1E2B',borderRadius:10,paddingVertical:8,paddingHorizontal:12}}>
+          <T style={{color:'#EAC97A',fontWeight:'900',fontSize:12}}>★</T>
         </View>
       </Row>
-      <Sep/>
-      <View style={[styles.menuItem,{backgroundColor:t.card}]}>
-        <View style={[styles.menuIconBig,{backgroundColor:t.tint}]}><Feather name="info" size={18} color={t.primary}/></View>
-        <View style={{flex:1}}>
+      <View style={{borderRadius:14,overflow:'hidden',backgroundColor:t.tint,borderWidth:1,borderColor:t.line}}><Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="90%" cy={6} r={34} fill={t.primary} opacity={0.10}/><Circle cx="4%" cy={48} r={24} fill={t.primary} opacity={0.08}/></Svg><View style={{flexDirection:'row',alignItems:'center',gap:10,padding:10}}><View style={{width:36,height:36,borderRadius:12,backgroundColor:t.card,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:t.line}}><Feather name="info" size={17} color={t.primary}/></View><View style={{flex:1}}>
           <T style={[styles.rowTitle,{color:t.ink}]}>Lekhoni Kahini</T>
           <T style={{fontSize:11,color:t.muted,marginTop:1}}>© 2026 Kawsar Hosen</T>
         </View>
-         <T style={{color:t.muted,fontSize:12,fontWeight:'700'}}>v1.1.0</T>
-      </View>
+         <T style={{color:t.primary,fontSize:12,fontWeight:'700'}}>v1.1.0</T></View></View>
     </Section>
-  </Page>}
+  </Page>{confirm&&<ConfirmModal theme={t} lang={language} kind={confirm.kind} onClose={()=>setConfirm(null)} onConfirm={async()=>{const k=confirm.kind;if(k==='search')p.update({searchHistory:[]});else if(k==='downloads')p.update({downloads:[]});else if(k==='reset'){p.update(initialState);await clearState();}setConfirm(null);}}/>}</View>}
 function GoogleSignInButton({onResult,onError,theme:t,lang}:{onResult:(w:any,token:string)=>void;onError:(msg:string)=>void;theme:Theme;lang:Language}){
   const[loading,setLoading]=useState(false);
 
