@@ -1106,7 +1106,7 @@ const dStyles=StyleSheet.create({
   writerAvatarWrap:{alignItems:'center',marginTop:-28,marginBottom:6},
   writerAvatar:{width:50,height:50,borderRadius:25,borderWidth:2,alignItems:'center',justifyContent:'center',overflow:'hidden'},
   writerCardBody:{alignItems:'center',paddingTop:12},
-  writerName:{fontSize:14.5,fontWeight:'900',textAlign:'left'},
+  writerName:{fontSize:13.5,lineHeight:18,fontWeight:'900',textAlign:'left'},
   writerUsername:{fontSize:10.5,fontWeight:'500',marginTop:2,textAlign:'left'},
   writerStatsRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,marginTop:8,paddingTop:8,borderTopWidth:1},
   writerStat:{flexDirection:'row',alignItems:'center',gap:3},
@@ -3218,7 +3218,7 @@ function AuthorCard({writer,theme,lang,onPress,bookCount,isFollowed,onToggleFoll
       </View>
       <View style={dStyles.writerTopInfo}>
         <View style={{flexDirection:'row',alignItems:'center',gap:4}}>
-          <T numberOfLines={1} style={[dStyles.writerName,{color:theme.ink,flexShrink:1}]}>{writer.writer_name}</T>
+          <T numberOfLines={2} style={[dStyles.writerName,{color:theme.ink,flexShrink:1}]}>{writer.writer_name}</T>
           <BadgeIcon badge={writer.badge} size={13}/>
         </View>
         <T numberOfLines={1} style={[dStyles.writerUsername,{color:theme.muted}]}>@{writer.username}</T>
