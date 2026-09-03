@@ -1099,13 +1099,13 @@ const dStyles=StyleSheet.create({
  statVal:{fontWeight:'900',fontSize:13.5},
   numBadge:{width:30,height:30,borderRadius:9,alignItems:'center',justifyContent:'center'},
 
-  writerCard:{width:188,borderRadius:16,borderWidth:1,overflow:'visible',padding:10},
+  writerCard:{width:188,borderRadius:16,borderWidth:1,overflow:'visible',padding:12},
   writerTopRow:{flexDirection:'row',alignItems:'center',gap:9},
   writerTopInfo:{flex:1},
   writerCardBg:{height:52,borderTopLeftRadius:16,borderTopRightRadius:16},
   writerAvatarWrap:{alignItems:'center',marginTop:-28,marginBottom:6},
   writerAvatar:{width:50,height:50,borderRadius:25,borderWidth:2,alignItems:'center',justifyContent:'center',overflow:'hidden'},
-  writerCardBody:{alignItems:'center',paddingTop:9},
+  writerCardBody:{alignItems:'center',paddingTop:12},
   writerName:{fontSize:13,fontWeight:'900',textAlign:'left'},
   writerUsername:{fontSize:10.5,fontWeight:'500',marginTop:2,textAlign:'left'},
   writerStatsRow:{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,marginTop:8,paddingTop:8,borderTopWidth:1},
@@ -3229,7 +3229,7 @@ function AuthorCard({writer,theme,lang,onPress,bookCount,isFollowed,onToggleFoll
       </View>
     </View>
     <View style={dStyles.writerCardBody}>
-      {onToggleFollow&&<Animated.View style={{alignSelf:'stretch',transform:[{scale:fScale}]}}><Pressable onPress={()=>{suppressRef.current=true;fPop();onToggleFollow()}} onPressIn={fIn} onPressOut={fOut} style={{marginTop:9,borderRadius:10,paddingVertical:7,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:5,backgroundColor:isFollowed?'transparent':theme.primary,borderWidth:1.5,borderColor:theme.primary}}>{isFollowed&&<Feather name="check" size={12} color={theme.primary}/>}<T style={{fontSize:11.5,fontWeight:'900',color:isFollowed?theme.primary:'#fff'}}>{isFollowed?'ফলো করা':'ফলো করুন'}</T></Pressable></Animated.View>}
+      {onToggleFollow&&<Animated.View style={{alignSelf:'stretch',transform:[{scale:fScale}]}}><Pressable onPress={()=>{suppressRef.current=true;fPop();onToggleFollow()}} onPressIn={fIn} onPressOut={fOut} style={{marginTop:0,borderRadius:10,paddingVertical:9,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:5,backgroundColor:isFollowed?'transparent':theme.primary,borderWidth:1.5,borderColor:theme.primary}}>{isFollowed&&<Feather name="check" size={12} color={theme.primary}/>}<T style={{fontSize:12,fontWeight:'900',color:isFollowed?theme.primary:'#fff'}}>{isFollowed?'ফলো করা':'ফলো করুন'}</T></Pressable></Animated.View>}
     </View>
   </Pressable>}
 function Row({book,theme,onPress}:{book:Book;theme:Theme;onPress:()=>void}){return <Pressable onPress={onPress} style={[styles.row,{backgroundColor:theme.card,borderColor:theme.line}]}><Cover book={book}/><View style={{flex:1}}><T style={[styles.rowTitle,{color:theme.ink}]}>{book.title}</T><T style={{color:theme.primary,fontSize:12,marginTop:4}}>{book.author}</T><View style={{flexDirection:'row',alignItems:'center',gap:3}}><Feather name="eye" size={12} color={theme.muted}/><T style={{color:theme.muted,fontSize:11}}>{book.views_visible !== false ? `${book.views} • ${book.category}` : book.category}</T></View></View><Feather name="chevron-right" size={18} color={theme.muted}/></Pressable>}
