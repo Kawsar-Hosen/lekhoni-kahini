@@ -3218,7 +3218,7 @@ function AuthorCard({writer,theme,lang,onPress,bookCount,isFollowed,onToggleFoll
       </View>
       <View style={dStyles.writerTopInfo}>
         <View style={{flexDirection:'row',alignItems:'center',gap:4}}>
-          <T numberOfLines={2} style={[dStyles.writerName,{color:theme.ink,flexShrink:1}]}>{writer.writer_name}</T>
+          <T numberOfLines={1} style={[dStyles.writerName,{color:theme.ink,flexShrink:1,fontSize:writer.writer_name.length>16?10.5:writer.writer_name.length>12?12:writer.writer_name.length>9?13:14.5}]}>{writer.writer_name}</T>
           <BadgeIcon badge={writer.badge} size={13}/>
         </View>
         <T numberOfLines={1} style={[dStyles.writerUsername,{color:theme.muted}]}>@{writer.username}</T>
