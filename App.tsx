@@ -185,7 +185,7 @@ function AppShell(){
   const downloadBook=async(id:string)=>{const existing=dlBooks[id];if(existing)return;const full=await fetchRemoteBook(id);if(!full||!full.chapters.length)return;await saveBookOffline(full);persistDl({...dlBooks,[id]:full});setState(s=>s.downloads.includes(id)?s:{...s,downloads:[...s.downloads,id]})};
   const removeDownload=async(id:string)=>{await removeBookOffline(id);const n={...dlBooks};delete n[id];persistDl(n);setState(s=>({...s,downloads:s.downloads.filter(x=>x!==id)}))};
   const resolveBook=(id:string):Book|undefined=>dlBooks[id]||allBooks.find(b=>b.id===id);
-  useEffect(()=>{loadState().then(async v=>{const id=v.deviceId;if(id){try{const r=await fetchUserState(id);if(r&&r.synced&&r.state){const st=r.state;const remoteSettings=st.settings&&typeof st.settings==='object'?(st.settings as any):null;v={...v,settings:remoteSettings?{...v.settings,...remoteSettings}:v.settings,history:Array.isArray(st.history)&&st.history.length?[...new Set([...(v.history||[]),...st.history])].slice(0,20):v.history,positions:st.positions&&typeof st.positions==='object'?{...v.positions,...(st.positions as any)}:v.positions,bookmarks:Array.isArray(st.bookmarks)&&st.bookmarks.length?[...new Set([...v.bookmarks,...(st.bookmarks as any[])])].slice(0,50):v.bookmarks}}}catch{}}if(v.userToken){try{const u=await verifyUserToken(v.userToken);if(u)v.user=u;else{v.user=null;v.userToken=null;}}catch{v.user=null;v.userToken=null;}}if(v.writerToken){try{const wv=await verifyWriterToken(v.writerToken);if(wv)v.writer={id:wv.id,username:wv.username,writer_name:wv.writer_name,avatar_url:wv.avatar_url||undefined,bio:wv.bio||undefined};else{v.writer=null;v.writerToken=null;}}catch{v.writer=null;v.writerToken=null;}}if(v.writer&&!v.writer.id){v.writer=null;v.writerToken=null;}setState(v);setLoaded(true)})},[]); useEffect(()=>{if(loaded)saveState(state)},[state,loaded]);
+  useEffect(()=>{loadState().then(async v=>{const id=v.deviceId;if(id){try{const r=await fetchUserState(id);if(r&&r.synced&&r.state){const st=r.state;const remoteSettings=st.settings&&typeof st.settings==='object'?(st.settings as any):null;v={...v,settings:remoteSettings?{...v.settings,...remoteSettings}:v.settings,history:Array.isArray(st.history)&&st.history.length?[...new Set([...(v.history||[]),...st.history])].slice(0,20):v.history,positions:st.positions&&typeof st.positions==='object'?{...v.positions,...(st.positions as any)}:v.positions,bookmarks:Array.isArray(st.bookmarks)&&st.bookmarks.length?[...new Set([...v.bookmarks,...(st.bookmarks as any[])])].slice(0,50):v.bookmarks}}}catch{}}if(v.userToken){try{const u=await verifyUserToken(v.userToken);if(u.ok)v.user=u.value;else if(u.reason==='invalid'){v.user=null;v.userToken=null;}}catch{}}if(v.writerToken){try{const wv=await verifyWriterToken(v.writerToken);if(wv.ok)v.writer={id:wv.value.id,username:wv.value.username,writer_name:wv.value.writer_name,avatar_url:wv.value.avatar_url||undefined,bio:wv.value.bio||undefined};else if(wv.reason==='invalid'){v.writer=null;v.writerToken=null;}}catch{}}if(v.writer&&!v.writer.id){v.writer=null;v.writerToken=null;}setState(v);setLoaded(true)})},[]); useEffect(()=>{if(loaded)saveState(state)},[state,loaded]);
   useEffect(()=>{const sub=BackHandler.addEventListener('hardwareBackPress',()=>{if(screen.type!=='main'){const prev=screenHistoryRef.current;const last=prev[prev.length-1];if(last){screenHistoryRef.current=prev.slice(0,-1);setScreen(last)}else{setScreen({type:'main'});setTab('home')}return true}if(tab!=='home'){setTab('home');return true}setShowExitModal(true);return true});return()=>sub.remove()},[screen,tab]);
   const syncRemote=useCallback(async()=>{if(syncRef.current)return;syncRef.current=true;try{const[remote,cats,notices,writers,hdata]=await Promise.all([fetchRemoteBooks(),fetchRemoteCategories(),fetchRemoteNotifications(state.deviceId),fetchPublicWriters(),fetchHomeSections()]);if(remote.length){setAllBooks(remote.map(b => b.views_visible !== false && (hdata?.viewsVisible !== false) ? { ...b, views_visible: true } : { ...b, views_visible: false }));if(cats.length)setAllCategories(cats.map(c=>[c.name,c.icon,c.color,c.cover_url||null] as [string,string,string,string|null]));if(notices.length)setRemoteNotices(notices.map(n=>({id:n.id,title:n.title,body:n.body,icon:n.icon||'bell',url:n.url||'',story_cover:n.story_cover||'',time:n.created_at})));if(writers.length)setPublicWriters(writers);if(hdata&&hdata.sections&&hdata.sections.length){setHomeData({...hdata,sections:(hdata.sections||[]).map(x=>({...x,books:(x.books||[]).map((b:any)=>({...b,views_visible:(b.views_visible!==false&&(hdata.viewsVisible!==false))}))}))});if(!writers.length&&hdata.writers&&hdata.writers.length)setPublicWriters(hdata.writers.map(w=>({id:w.id,username:w.username||w.writer_name,writer_name:w.writer_name,bio:w.bio,avatar_url:w.avatar_url,follower_count:w.follower_count,badge:w.badge||'none'})));}setState(s=>({...s,online:true,remoteBooks:remote,lastSync:new Date().toISOString()}));setDataLoaded(true)}else{setState(s=>({...s,online:false}))}}catch{setState(s=>({...s,online:false}));setIsOffline(true)}finally{syncRef.current=false}},[state.deviceId]);
   useEffect(()=>{const id=setInterval(syncRemote,30000);syncRemote();return()=>clearInterval(id)},[syncRemote]);
@@ -2159,30 +2159,18 @@ function DashStat({c,i,t}:{c:{icon:string;label:string;value:number;color:string
   const scale=animVal.interpolate({inputRange:[0,1],outputRange:[0.7,1]});
   const opacity=animVal.interpolate({inputRange:[0,1],outputRange:[0,1]});
   const iconScale=bounce.interpolate({inputRange:[0,1],outputRange:[0.3,1]});
-  const dark=shade(c.color,-40);
-  const darker=shade(c.color,-55);
-  const fp=(x:number,y:number,op:number)=><><Ellipse cx={x} cy={y-4} rx={3} ry={6} fill="#fff" opacity={op}/><Ellipse cx={x-4} cy={y} rx={6} ry={3} fill="#fff" opacity={op}/><Ellipse cx={x+4} cy={y} rx={6} ry={3} fill="#fff" opacity={op}/><Ellipse cx={x} cy={y+4} rx={3} ry={6} fill="#fff" opacity={op}/><Circle cx={x} cy={y} r={2} fill="#fff" opacity={op+0.05}/></>;
-  return <Animated.View style={{width:'47%',height:120,borderRadius:20,overflow:'hidden',position:'relative',transform:[{scale}],opacity,shadowColor:c.color,shadowOpacity:0.3,shadowRadius:12,shadowOffset:{width:0,height:6},elevation:6}}>
-    <View style={{position:'absolute',top:0,left:0,right:0,bottom:0}}>
-      <LinearGradient colors={[dark,darker]} start={{x:0,y:0}} end={{x:1,y:1}} style={{position:'absolute',top:0,left:0,right:0,bottom:0}}/>
-      <Svg style={{position:'absolute',top:0,left:0,right:0,bottom:0}} viewBox="0 0 170 120" preserveAspectRatio="none">
-        <Ellipse cx="155" cy="10" rx="55" ry="45" fill="#fff" opacity="0.08"/>
-        <Ellipse cx="20" cy="110" rx="50" ry="40" fill="#fff" opacity="0.06"/>
-        <Circle cx="85" cy="60" r="70" fill="#fff" opacity="0.04"/>
-        {fp(12,12,0.15)}
-        {fp(158,12,0.12)}
-        {fp(12,108,0.12)}
-        {fp(158,108,0.15)}
-      </Svg>
-    </View>
-    <View style={{position:'relative',zIndex:2,flex:1,alignItems:'center',justifyContent:'center',padding:14}}>
-      <Animated.View style={{transform:[{scale:iconScale}],marginBottom:8}}>
-        <View style={{width:32,height:32,borderRadius:10,backgroundColor:'#ffffff20',alignItems:'center',justifyContent:'center'}}>
-          <Feather name={c.icon as any} size={15} color="#fff"/>
+  return <Animated.View style={{width:'47%',flexGrow:1,borderRadius:16,overflow:'hidden',backgroundColor:t.card,borderWidth:1,borderColor:t.line,transform:[{scale}],opacity,shadowColor:'#000',shadowOpacity:0.05,shadowRadius:8,shadowOffset:{width:0,height:2},elevation:2}}>
+    <View style={{height:3,backgroundColor:c.color}}/>
+    <View style={{flexDirection:'row',alignItems:'center',gap:10,padding:12}}>
+      <Animated.View style={{transform:[{scale:iconScale}]}}>
+        <View style={{width:36,height:36,borderRadius:12,backgroundColor:c.color+'1A',alignItems:'center',justifyContent:'center'}}>
+          <Feather name={c.icon as any} size={17} color={c.color}/>
         </View>
       </Animated.View>
-      <T style={{fontSize:26,fontWeight:'900',color:'#fff',lineHeight:30}}>{c.value}</T>
-      <T style={{fontSize:10,fontWeight:'700',color:'#ffffffBB',marginTop:3}}>{c.label}</T>
+      <View style={{flex:1}}>
+        <T style={{fontSize:20,fontWeight:'900',color:t.ink}}>{Number(c.value||0).toLocaleString('en-US')}</T>
+        <T numberOfLines={1} style={{fontSize:10.5,fontWeight:'700',color:t.muted,marginTop:1}}>{c.label}</T>
+      </View>
     </View>
   </Animated.View>
 }
@@ -2190,16 +2178,37 @@ function DashStat({c,i,t}:{c:{icon:string;label:string;value:number;color:string
 function WriterDashboard({token,theme:t,lang}:{token:string;theme:Theme;lang:Language}){
   const[d,setD]=useState<any>({stories:0,totalViews:0,followers:0,published:0,pending:0,publishedStories:[],todayViews:0,weekViews:0,monthViews:0});
   const[loading,setLoading]=useState(true);
-  useEffect(()=>{fetchWriterDashboard(token).then(s=>{if(s){const ps=s.publishedStories||[];const now=Date.now();const dayMs=86400000;const computedTotal=ps.reduce((sum:number,st:any)=>sum+(st.views||0),0);const computedToday=ps.filter((st:any)=>new Date(st.updated_at).getTime()>now-dayMs).reduce((sum:number,st:any)=>sum+(st.views||0),0);const computedWeek=ps.filter((st:any)=>new Date(st.updated_at).getTime()>now-7*dayMs).reduce((sum:number,st:any)=>sum+(st.views||0),0);const computedMonth=ps.filter((st:any)=>new Date(st.updated_at).getTime()>now-30*dayMs).reduce((sum:number,st:any)=>sum+(st.views||0),0);s.totalViews=Math.max(s.totalViews||0,computedTotal);s.todayViews=Math.max(s.todayViews||0,computedToday);s.weekViews=Math.max(s.weekViews||0,computedWeek);s.monthViews=Math.max(s.monthViews||0,computedMonth);setD(s)}}).finally(()=>setLoading(false))},[token]);
+  useEffect(()=>{fetchWriterDashboard(token).then(s=>{if(s){const ps=s.publishedStories||[];const now=Date.now();const dayMs=86400000;const computedTotal=ps.reduce((sum:number,st:any)=>sum+(st.views||0),0);const computedToday=ps.filter((st:any)=>new Date(st.updated_at).getTime()>now-dayMs).reduce((sum:number,st:any)=>sum+(st.views||0),0);const computedWeek=ps.filter((st:any)=>new Date(st.updated_at).getTime()>now-7*dayMs).reduce((sum:number,st:any)=>sum+(st.views||0),0);const computedMonth=ps.filter((st:any)=>new Date(st.updated_at).getTime()>now-30*dayMs).reduce((sum:number,st:any)=>sum+(st.views||0),0);const computedLikes=ps.reduce((sum:number,st:any)=>sum+(st.likes||0),0);s.totalLikes=computedLikes;s.totalViews=Math.max(s.totalViews||0,computedTotal);s.todayViews=Math.max(s.todayViews||0,computedToday);s.weekViews=Math.max(s.weekViews||0,computedWeek);s.monthViews=Math.max(s.monthViews||0,computedMonth);setD(s)}}).finally(()=>setLoading(false))},[token]);
   if(loading)return <View style={{alignItems:'center',paddingVertical:60}}><ActivityIndicator size="large" color={t.primary}/></View>;
-  const isEligible=d.followers>=1000&&d.totalViews>=5000;
+  const isEligible=d.followers>=500&&d.totalViews>=5000;
+  const bal=Math.floor((d.totalViews||0)/1000*100);
+  const monthBal=Math.floor((d.monthViews||0)/1000*100);
   const statCards=[
     {icon:'book-open',label:copy(lang,'myStories'),value:d.stories,color:'#059669',bg:'linear'},
     {icon:'eye',label:copy(lang,'totalViews'),value:d.totalViews,color:'#4F46E5',bg:'radial'},
     {icon:'users',label:copy(lang,'followers'),value:d.followers,color:'#DB2777',bg:'wave'},
-    {icon:'check-circle',label:copy(lang,'published'),value:d.published,color:'#D97706',bg:'dots'}
+    {icon:'heart',label:copy(lang,'totalLikes'),value:d.totalLikes||0,color:'#EF4444',bg:'dots'}
   ];
   return <ScrollView showsVerticalScrollIndicator={false}>
+    <View style={{borderRadius:20,overflow:'hidden',backgroundColor:'#7B1E2B',marginBottom:14}}>
+      <LinearGradient colors={['#7B1E2B','#4A1220']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
+      <Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="90%" cy={8} r={70} fill="#C9972B26"/><Circle cx="2%" cy={120} r={60} fill="#ffffff10"/></Svg>
+      <View style={{padding:18}}>
+        <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+          <View style={{flexDirection:'row',alignItems:'center',gap:7}}>
+            <Feather name="credit-card" size={15} color="#C9972B"/>
+            <T style={{fontSize:12,fontWeight:'800',color:'#EAC97A'}}>{copy(lang,'estimatedEarnings')}</T>
+          </View>
+          {isEligible?<View style={{flexDirection:'row',alignItems:'center',gap:4,backgroundColor:'#C9972B',borderRadius:8,paddingHorizontal:9,paddingVertical:4}}><Feather name="check-circle" size={11} color="#4A1220"/><T style={{fontSize:10,fontWeight:'900',color:'#4A1220'}}>{lang==='bn'?'সক্রিয়':lang==='hi'?'सक्रिय':'Active'}</T></View>:<View style={{flexDirection:'row',alignItems:'center',gap:4,backgroundColor:'#ffffff22',borderRadius:8,paddingHorizontal:9,paddingVertical:4,borderWidth:1,borderColor:'#ffffff44'}}><Feather name="lock" size={11} color="#fff"/><T style={{fontSize:10,fontWeight:'900',color:'#fff'}}>{lang==='bn'?'লকড':lang==='hi'?'लॉक':'Locked'}</T></View>}
+        </View>
+        <T style={{fontSize:34,fontWeight:'900',color:'#fff'}}>৳{bal.toLocaleString('en-US')}</T>
+        <View style={{flexDirection:'row',gap:16,marginTop:8}}>
+          <View><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A'}}>{copy(lang,'thisMonth')}</T><T style={{fontSize:14,fontWeight:'900',color:'#fff',marginTop:2}}>৳{monthBal.toLocaleString('en-US')}</T></View>
+          <View><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A'}}>{copy(lang,'totalViews')}</T><T style={{fontSize:14,fontWeight:'900',color:'#fff',marginTop:2}}>{(d.totalViews||0).toLocaleString('en-US')}</T></View>
+        </View>
+        {!isEligible&&<T style={{fontSize:11,color:'#F3E4D8',marginTop:10}}>{lang==='bn'?'৫০০ ফলোয়ার ও ৫,০০০ views হলে ব্যালেন্স আনলক হবে':lang==='hi'?'500 फॉलोअर और 5,000 व्यूज पर बैलेंस अनलॉक होगा':'Balance unlocks at 500 followers + 5,000 views'}</T>}
+      </View>
+    </View>
     <View style={{flexDirection:'row',flexWrap:'wrap',gap:10,marginBottom:14}}>
       {statCards.map((c,i)=><DashStat key={i} c={c} i={i} t={t}/>)}
     </View>
@@ -2263,11 +2272,11 @@ function WriterDashboard({token,theme:t,lang}:{token:string;theme:Theme;lang:Lan
       </View>
       {!isEligible&&<View style={{marginBottom:14}}>
         <View style={{flexDirection:'row',justifyContent:'space-between',marginBottom:6}}>
-          <T style={{fontSize:11,fontWeight:'600',color:t.muted}}>{copy(lang,'followers')}: {d.followers}/1,000</T>
-          <T style={{fontSize:11,fontWeight:'700',color:d.followers>=1000?'#10B981':t.muted}}>{Math.min(100,Math.floor(d.followers/10))}%</T>
+          <T style={{fontSize:11,fontWeight:'600',color:t.muted}}>{copy(lang,'followers')}: {d.followers}/500</T>
+          <T style={{fontSize:11,fontWeight:'700',color:d.followers>=500?'#10B981':t.muted}}>{Math.min(100,Math.floor(d.followers/5))}%</T>
         </View>
         <View style={{height:6,backgroundColor:t.line,borderRadius:3,overflow:'hidden'}}>
-          <View style={{height:6,flex:Math.min(100,Math.floor(d.followers/10))/100,maxWidth:'100%',backgroundColor:d.followers>=1000?'#10B981':t.primary,borderRadius:3}}/>
+          <View style={{height:6,flex:Math.min(100,Math.floor(d.followers/5))/100,maxWidth:'100%',backgroundColor:d.followers>=500?'#10B981':t.primary,borderRadius:3}}/>
         </View>
         <View style={{flexDirection:'row',justifyContent:'space-between',marginTop:8,marginBottom:6}}>
           <T style={{fontSize:11,fontWeight:'600',color:t.muted}}>{copy(lang,'totalViews')}: {d.totalViews}/5,000</T>
@@ -2684,7 +2693,7 @@ function GuideScreen({theme:t,lang,onBack,onWriter,setScreen}:{theme:Theme;lang:
     {icon:'pen-tool',color:'#10B981',bg:'#D1FAE5',title:{en:'Step 3: Write First Chapter',bn:'ধাপ ৩: প্রথম অধ্যায় লিখুন',hi:'चरण 3: पहला अध्याय लिखें'},desc:{en:'Write your story content. Give the chapter a title and write the story body. You can edit or delete chapters later.',bn:'আপনার গল্পের লেখা লিখুন। অধ্যায়ের শিরোনাম দিন এবং গল্প লিখুন। পরে সম্পাদনা বা মুছে ফেলতে পারবেন।',hi:'अपनी कहानी का सामग्री लिखें। अध्याय को शीर्षक दें और कहानी लिखें। बाद में संपादित या हटा सकते हैं।'},items:{en:['Give the chapter a title','Write the story content','Minimum 1 chapter required','You can add more chapters later'],bn:['অধ্যায়ের শিরোনাম দিন','গল্পের লেখা লিখুন','ন্যূনতম ১ অধ্যায় প্রয়োজন','পরে আরও অধ্যায় যোগ করতে পারবেন'],hi:['अध्याय को शीर्षक दें','कहानी का सामग्री लिखें','न्यूनतम 1 अध्याय आवश्यक','बाद में और अध्याय जोड़ सकते हैं']}},
     {icon:'send',color:'#F59E0B',bg:'#FEF3C7',title:{en:'Step 4: Publish',bn:'ধাপ ৪: প্রকাশ করুন',hi:'चरण 4: प्रकाशित करें'},desc:{en:'Tap "Submit for Review". Our team will review your story. Once approved, it will appear on the home page for everyone to read.',bn:'"পর্যালোচনায় পাঠান" এ ট্যাপ করুন। আমাদের দল আপনার গল্প পর্যালোচনা করবে। অনুমোদনের পর এটি সবার জন্য হোম পেজে দেখাবে।',hi:'"समीक्षा के लिए भेजें" पर टैप करें। हमारी टीम आपकी कहानी की समीक्षा करेगी। अनुमोदन के बाद यह होम पेज पर सभी को दिखेगी।'},items:{en:['Tap "Submit for Review"','Wait for approval (usually 24 hrs)','Story appears on home page','Readers can read and comment'],bn:['"পর্যালোচনায় পাঠান" এ ট্যাপ করুন','অনুমোদনের জন্য অপেক্ষা করুন (সাধারণত ২৪ ঘণ্টা)','গল্প হোম পেজে দেখাবে','পাঠকরা পড়তে ও মন্তব্য করতে পারবেন'],hi:['"समीक्षा के लिए भेजें" पर टैप करें','अनुमोदन की प्रतीक्षा करें (आमतौर पर 24 घंटे)','कहानी होम पेज पर दिखेगी','पाठक पढ़ और टिप्पणी कर सकते हैं']}},
     {icon:'plus-circle',color:'#EC4899',bg:'#FCE7F3',title:{en:'Step 5: Add More Chapters',bn:'ধাপ ৫: আরও অধ্যায় যোগ করুন',hi:'चरण 5: और अध्याय जोड़ें'},desc:{en:'Go to Writer Studio → My Stories → select your story → Add Chapter. Keep writing and publishing new chapters to grow your audience.',bn:'রাইটার স্টুডিও → আমার গল্প → আপনার গল্প নির্বাচন → অধ্যায় যোগ করুন। নতুন অধ্যায় লিখুন ও প্রকাশ করুন।',hi:'राइटर स्टूडियो → मेरी कहानियाँ → अपनी कहानी चुनें → अध्याय जोड़ें। नए अध्याय लिखें और प्रकाशित करें।'},items:{en:['Open Writer Studio','Tap "My Stories"','Select your story','Tap "Add Chapter"','Write and publish'],bn:['রাইটার স্টুডিও খুঁজুন','"আমার গল্প" এ ট্যাপ করুন','আপনার গল্প নির্বাচন করুন','"অধ্যায় যোগ করুন" এ ট্যাপ করুন','লিখুন ও প্রকাশ করুন'],hi:['राइटर स्टूडियो खोजें','"मेरी कहानियाँ" पर टैप करें','अपनी कहानी चुनें','"अध्याय जोड़ें" पर टैप करें','लिखें और प्रकाशित करें']}},
-    {icon:'trending-up',color:'#EF4444',bg:'#FEE2E2',title:{en:'Step 6: Grow & Earn',bn:'ধাপ ৬: বৃদ্ধি করুন ও আয় করুন',hi:'चरण 6: बढ़ें और कमाएँ'},desc:{en:'Share your stories, get followers, and earn money through monetization when you reach 1K followers + 5K views.',bn:'গল্প শেয়ার করুন, অনুসারী পান এবং ১,০০০ অনুসারী + ৫,০০০ পাঠক পেলে আয়করণের মাধ্যমে আয় করুন।',hi:'कहानियाँ शेयर करें, अनुयायी पाएँ और 1K अनुयायी + 5K दृश्य पर मुद्रीकरण से कमाएँ।'},items:{en:['Share stories on social media','Build your follower base','Reach 1K followers + 5K views','Start earning from ads'],bn:['সোশ্যাল মিডিয়ায় গল্প শেয়ার করুন','অনুসারী তৈরি করুন','১,০০০ অনুসারী + ৫,০০০ পাঠক পান','বিজ্ঞাপন থেকে আয় শুরু করুন'],hi:['सोशल मीडिया पर कहानियाँ शेयर करें','अनुयायी बनाएँ','1K अनुयायी + 5K दृश्य प्राप्त करें','विज्ञापन से कमाना शुरू करें']}}
+    {icon:'trending-up',color:'#EF4444',bg:'#FEE2E2',title:{en:'Step 6: Grow & Earn',bn:'ধাপ ৬: বৃদ্ধি করুন ও আয় করুন',hi:'चरण 6: बढ़ें और कमाएँ'},desc:{en:'Share your stories, get followers, and earn money through monetization when you reach 500 followers + 5K views.',bn:'গল্প শেয়ার করুন, অনুসারী পান এবং ৫০০ অনুসারী + ৫,০০০ পাঠক পেলে আয়করণের মাধ্যমে আয় করুন।',hi:'कहानियाँ शेयर करें, अनुयायी पाएँ और 500 अनुयायी + 5K दृश्य पर मुद्रीकरण से कमाएँ।'},items:{en:['Share stories on social media','Build your follower base','Reach 500 followers + 5K views','Start earning from ads'],bn:['সোশ্যাল মিডিয়ায় গল্প শেয়ার করুন','অনুসারী তৈরি করুন','৫০০ অনুসারী + ৫,০০০ পাঠক পান','বিজ্ঞাপন থেকে আয় শুরু করুন'],hi:['सोशल मीडिया पर कहानियाँ शेयर करें','अनुयायी बनाएँ','500 अनुयायी + 5K दृश्य प्राप्त करें','विज्ञापन से कमाना शुरू करें']}}
   ];
   return <View style={{flex:1,backgroundColor:t.bg}}>
     <View style={{flexDirection:'row',alignItems:'center',paddingHorizontal:16,paddingTop:insets.top+10,paddingBottom:12,backgroundColor:t.bg}}>
@@ -2714,7 +2723,7 @@ function GuideScreen({theme:t,lang,onBack,onWriter,setScreen}:{theme:Theme;lang:
         {[{icon:'check-circle',color:'#10B981',text:{en:'At least 1 chapter required to publish',bn:'প্রকাশ করতে ন্যূনতম ১ অধ্যায় লাগবে',hi:'प्रकाशित करने के लिए कम से कम 1 अध्याय चाहिए'}},
           {icon:'clock',color:'#F59E0B',text:{en:'Story review usually takes 24 hours',bn:'গল্প পর্যালোচনা সাধারণত ২৪ ঘণ্টা লাগে',hi:'कहानी की समीक्षा में आमतौर पर 24 घंटे लगते हैं'}},
           {icon:'edit',color:'#3B82F6',text:{en:'You can edit or delete stories anytime',bn:'যেকোনো সময় গল্প এডিট বা ডিলিট করতে পারবেন',hi:'कभी भी कहानी एडिट या डिलीट कर सकते हैं'}},
-          {icon:'dollar-sign',color:'#EF4444',text:{en:'Earn money at 1K followers + 5K views',bn:'১,০০০ ফলোয়ার্স + ৫,০০০ ভিউতে আয় শুরু',hi:'1K फॉलोअर्स + 5K व्यूज पर कमाना शुरू'}}
+          {icon:'dollar-sign',color:'#EF4444',text:{en:'Earn money at 500 followers + 5K views',bn:'৫০০ ফলোয়ার্স + ৫,০০০ ভিউতে আয় শুরু',hi:'500 फॉलोअर्स + 5K व्यूज पर कमाना शुरू'}}
         ].map((item,j)=><View key={j} style={{flexDirection:'row',alignItems:'center',gap:12,marginBottom:j<3?12:0,backgroundColor:item.color+'08',borderRadius:10,padding:10}}>
           <Feather name={item.icon as any} size={18} color={item.color}/>
           <T style={{fontSize:13,fontWeight:'600',color:t.ink,flex:1}}>{item.text[langKey]}</T>

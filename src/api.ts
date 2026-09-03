@@ -213,7 +213,7 @@ export async function writerSignup(username: string, writerName: string, email: 
 }
 
 export async function verifyWriterCode(email: string, code: string): Promise<{ writer: Writer; token: string } | { error: string; attempts_left?: number } | null> {
-  const r = await apiFetch<{ writer?: Writer; token?: string; error?: string; attempts_left?: number }>('/api/public/writers/verify', {
+  const r = await apiFetch<{ writer?: Writer; token?: string; error?: string; attempts_left?: number }>('/api/public/writers/verify-code', {
     method: 'POST', body: JSON.stringify({ email, code }),
   }, { timeout: 15000, errorBody: true });
   if (!r) return null;
@@ -223,7 +223,7 @@ export async function verifyWriterCode(email: string, code: string): Promise<{ w
 }
 
 export async function resendWriterCode(email: string): Promise<{ ok: boolean; mail_sent?: boolean } | { error: string; retry_after?: number } | null> {
-  const r = await apiFetch<{ ok?: boolean; mail_sent?: boolean; error?: string; retry_after?: number }>('/api/public/writers/resend', {
+  const r = await apiFetch<{ ok?: boolean; mail_sent?: boolean; error?: string; retry_after?: number }>('/api/public/writers/resend-code', {
     method: 'POST', body: JSON.stringify({ email }),
   }, { timeout: 25000, errorBody: true });
   if (!r) return null;
@@ -271,11 +271,15 @@ export async function writerGoogleAuth(credential: string): Promise<{ writer: Wr
   return null;
 }
 
-export async function verifyWriterToken(token: string): Promise<Writer | null> {
-  const r = await apiFetch<{ writer?: Writer }>('/api/public/writers/verify', {
+export type TokenCheck<T> = { ok: true; value: T } | { ok: false; reason: 'invalid' | 'network' };
+
+export async function verifyWriterToken(token: string): Promise<TokenCheck<Writer>> {
+  const r = await apiFetch<{ writer?: Writer; error?: string }>('/api/public/writers/verify', {
     method: 'POST', body: JSON.stringify({ token }),
-  });
-  return r?.writer || null;
+  }, { timeout: 10000, errorBody: true });
+  if (r?.writer) return { ok: true, value: r.writer };
+  if (r?.error) return { ok: false, reason: 'invalid' };
+  return { ok: false, reason: 'network' };
 }
 
 export type UserProfile = { id: string; username: string; display_name: string; avatar_url?: string; bio?: string };
@@ -296,11 +300,13 @@ export async function userLogin(emailOrUsername: string, password: string): Prom
   return null;
 }
 
-export async function verifyUserToken(token: string): Promise<UserProfile | null> {
-  const r = await apiFetch<{ user?: UserProfile }>('/api/public/users/verify', {
+export async function verifyUserToken(token: string): Promise<TokenCheck<UserProfile>> {
+  const r = await apiFetch<{ user?: UserProfile; error?: string }>('/api/public/users/verify', {
     method: 'POST', body: JSON.stringify({ token }),
-  });
-  return r?.user || null;
+  }, { timeout: 10000, errorBody: true });
+  if (r?.user) return { ok: true, value: r.user };
+  if (r?.error) return { ok: false, reason: 'invalid' };
+  return { ok: false, reason: 'network' };
 }
 
 export async function updateUserProfile(token: string, data: { display_name?: string; bio?: string; avatar_url?: string }): Promise<UserProfile | null> {
@@ -449,7 +455,7 @@ export async function deleteWriterAccount(token: string, code?: string): Promise
   return { ok: false, error: r.error || 'Failed', attempts_left: r.attempts_left };
 }
 
-export type WriterDashboard = { stories: number; totalViews: number; followers: number; published: number; pending: number; publishedStories: { id: string; title: string; views: number; cover_url?: string; created_at: string; updated_at: string }[]; todayViews: number; weekViews: number; monthViews: number };
+export type WriterDashboard = { stories: number; totalViews: number; followers: number; published: number; pending: number; totalLikes?: number; publishedStories: { id: string; title: string; views: number; likes?: number; cover_url?: string; created_at: string; updated_at: string }[]; todayViews: number; weekViews: number; monthViews: number };
 
 export async function fetchWriterDashboard(token: string): Promise<WriterDashboard | null> {
   return writerApiFetch<WriterDashboard>('/api/writer/dashboard', token);
