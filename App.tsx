@@ -17,7 +17,7 @@ import { WebView } from 'react-native-webview';
 import { initialState, loadState, saveState, clearState } from './src/storage';
 import { Book, LocalState, Language } from './src/types';
 import { copy, CopyKey } from './src/i18n';
-import { fetchRemoteBooks, fetchRemoteBook, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, fetchFollowedWriters, writerSignup, writerLogin, writerGoogleAuth, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, updateWriterStory, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchRemoteComments, submitComment, fetchCommentsConfig, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionsData, fetchWriterFollowers, fetchAbout, deleteWriterAccount, submitReport, userSignup, userLogin, verifyUserToken, registerPushToken, updateUserProfile, uploadWriterPdf } from './src/api';
+import { fetchRemoteBooks, fetchRemoteBook, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, fetchFollowedWriters, writerSignup, writerLogin, writerGoogleAuth, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, updateWriterStory, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchRemoteComments, submitComment, fetchCommentsConfig, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionsData, fetchWriterFollowers, fetchAbout, deleteWriterAccount, submitReport, userSignup, userLogin, verifyUserToken, registerPushToken, updateUserProfile, uploadWriterPdf, validateWriterSignup, verifyWriterCode, resendWriterCode, forgotWriterPassword, resetWriterPassword, requestDeleteCode } from './src/api';
 import { pickAndResizeImage } from './src/imageUpload';
 import { saveBookOffline, loadBookOffline, removeBookOffline, isBookOffline, getOfflineBookIds } from './src/offlineStorage';
 import { initAllAds, showAppOpenAd, maybeShowInterstitial, showRewardedAd, isRewardedAdReady, resetAdSession } from './src/ads';
@@ -536,7 +536,7 @@ function Main(p:C&{tab:Tab;setTab:(t:Tab)=>void}){
  return <View style={{flex:1}}>{content}<View style={{position:'absolute',bottom:24,left:20,right:20,backgroundColor:theme.card,borderRadius:24,flexDirection:'row',paddingVertical:10,paddingHorizontal:6,shadowColor:'#000',shadowOpacity:0.08,shadowRadius:20,shadowOffset:{width:0,height:8},elevation:8,borderWidth:1,borderColor:theme.line,overflow:'hidden'}}><Animated.View style={{position:'absolute',top:10,bottom:10,left:6,width:itemW,backgroundColor:theme.tint,borderRadius:16,transform:[{translateX:slideAnim.interpolate({inputRange:[0,1,2,3,4],outputRange:[0,itemW,itemW*2,itemW*3,itemW*4]})}]}}/>{tabs.map((x,i)=><Pressable key={x[0]} onPress={()=>setTab(x[0])} style={{flex:1,alignItems:'center',gap:4,paddingVertical:6,zIndex:1}}><Feather name={I(x[1])} size={20} color={tab===x[0]?theme.primary:theme.muted}/><T allowFontScaling={false} numberOfLines={1} style={{fontSize:9,fontWeight:'800',color:tab===x[0]?theme.primary:theme.muted}}>{tr(p,x[2])}</T></Pressable>)}</View></View>
 }
 function Header({title,sub,theme,action,onNotif,unreadCount}:{title:string;sub?:string;theme:Theme;action?:React.ReactNode;onNotif?:()=>void;unreadCount?:number}){return <View style={styles.header}><View style={{flex:1,marginRight:12}}><T numberOfLines={1} style={[styles.title,{color:theme.ink}]}>{title}</T>{sub&&<T numberOfLines={1} style={{color:theme.muted,marginTop:4}}>{sub}</T>}</View><View style={{flexDirection:'row',alignItems:'center',gap:18}}>{action}<Pressable onPress={()=>onNotif?onNotif():null} style={{position:'relative'}}><Feather name="bell" size={20} color={theme.ink}/>{!!unreadCount&&<View style={[styles.badge,{backgroundColor:'#EF4444'}]}><T style={styles.badgeText}>{unreadCount}</T></View>}</Pressable></View></View>}
-function HomeInner(p:C){const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const books=p.allBooks;const hd=p.homeData;const[refreshing,setRefreshing]=useState(false);const[showAuthId,setShowAuthId]=useState<string|null>(null);const doRefresh=async()=>{if(!p.syncRemote)return;setRefreshing(true);try{await p.syncRemote()}catch{}finally{setRefreshing(false)}};const toBook=(b:any):Book=>({id:b.id,title:b.title,author:b.author,views:`${b.views}`,rating:4.5,color:b.color,accent:b.accent,category:b.category||'',categoryIcon:'book-open',description:b.description||'',updated:'',chapters:[],isNew:Boolean(b.is_new),featured:Boolean(b.featured),views_visible:b.views_visible!==false,cover_url:b.cover_url||null,display_status:b.display_status||undefined,writer_status:b.writer_status||undefined,hide_title_on_cover:b.hide_title_on_cover||false,pdf_url:b.pdf_url||'',dedication:b.dedication||'',author_name:b.author_name||'',show_ads:b.show_ads!==false,pdf_reward_ad:b.pdf_reward_ad!==false});const hlist=(k:string):Book[]=>{if(hd){const s=hd.sections.find((x:any)=>x.key===k);if(s&&s.books&&s.books.length)return s.books.slice(0,12).map((b:any)=>toBook(b) as Book).filter((b:any)=>b&&b.id);}return[];};const hdtitle=(k:string)=>hd?(hd.sections.find((x:any)=>x.key===k)?.title||''):'';const byViews=(a:Book,b:Book)=>+b.views-(+a.views);const G='#2AA876',AU='#D9A407',BL='#3B82F6',PU='#8B5CF6';const section=(title:string,icon:string,accent:string,list:Book[],sectionKey?:string)=>!list.length?null:<View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade(accent,-30)}]}><Feather name={I(icon)} size={13} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{title}</T></View><Pressable onPress={()=>p.setScreen({type:'list',title,ids:list.map(x=>x.id)})} style={[styles.seeAllPill,{backgroundColor:shade(accent,-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:12,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b,i)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={accent} section={sectionKey} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>;const followedIds=new Set(p.state.followedWriters.map(f=>f.id));const unfollowedWriters=p.publicWriters.filter(w=>!followedIds.has(w.id));const toggleFollowAuthor=async(w:import('./src/types').WriterProfile)=>{if(!p.state.writer&&!p.state.user){setShowAuthId(w.id);return;}const followed=p.state.followedWriters.some(f=>f.id===w.id);if(followed){p.update({followedWriters:p.state.followedWriters.filter(f=>f.id!==w.id)});const ok=await unfollowWriter(p.state.deviceId,w.id);if(!ok)p.update({followedWriters:[...p.state.followedWriters,w]})}else{p.update({followedWriters:[...p.state.followedWriters,w]});const ok=await followWriter(p.state.deviceId,w.id,p.state.writer?.id,p.state.user?.id);if(!ok)p.update({followedWriters:p.state.followedWriters.filter(f=>f.id!==w.id)})}};const authors=()=>unfollowedWriters.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{unfollowedWriters.map(w=><AuthorCard key={w.id} writer={w} theme={p.theme} lang={p.state.settings.language} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} bookCount={p.allBooks.filter(b=>b.author===w.writer_name).length} isFollowed={p.state.followedWriters.some(f=>f.id===w.id)} onToggleFollow={()=>toggleFollowAuthor(w)}/>)}</ScrollView>:<Empty theme={p.theme}/>;const sections=hd?hd.sections:[];const isFixed=(k:string)=>['featured','mostPopular','newEpisodes','popularAuthors','weeklyPopular','monthlyPopular'].includes(k);const fixedSecs=sections.filter((s:any)=>isFixed(s.key));const catSecs=sections.filter((s:any)=>!isFixed(s.key));const renderFixed=(k:string)=>{if(k==='featured'){const fl=hlist('featured');return <Featured {...p} list={fl}/>;}if(k==='popularAuthors')return <View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade('#EC4899',-30)}]}><Feather name="users" size={13} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{hdtitle('popularAuthors')||tr(p,'popularAuthors')}</T></View><Pressable onPress={()=>p.setScreen({type:'allWriters'})} style={[styles.seeAllPill,{backgroundColor:shade('#EC4899',-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:12,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View>{authors()}</View>;if(k==='newEpisodes'){const l=hlist('newEpisodes');return section(hdtitle('newEpisodes')||tr(p,'newEpisodes'),'zap',G,l.length?l:books,'newEpisodes');}if(k==='weeklyPopular'){const l=hlist('weeklyPopular');return section(hdtitle('weeklyPopular')||tr(p,'weeklyPopular'),'calendar',BL,l.length?l:(books.length?[...books].sort(byViews):[]),'weeklyPopular');}if(k==='monthlyPopular'){const l=hlist('monthlyPopular');return section(hdtitle('monthlyPopular')||tr(p,'monthlyPopular'),'star',PU,l.length?l:(books.length?[...books].sort(byViews):[]),'monthlyPopular');}if(k==='mostPopular'){const l=hlist('mostPopular');const list=l.length?l:(books.length?[...books].sort(byViews):[]);if(!list.length)return null;return <MostPopularCarousel books={list.slice(0,10)} theme={p.theme} lang={p.state.settings.language} accent={AU} onOpen={(id)=>p.open(id)} title={hdtitle('mostPopular')||'সর্বাধিক জনপ্রিয়'} onSeeAll={()=>p.setScreen({type:'list',title:'সর্বাধিক জনপ্রিয়',ids:list.map(x=>x.id)})} bookmarks={p.state.bookmarks} onUpdate={(ids)=>p.update({bookmarks:ids})} />;}return null;};return <Page theme={p.theme} onRefresh={doRefresh} refreshing={refreshing}><Header title={`${greet(p)}, ${p.state.name}`} sub={tr(p,'choose')} theme={p.theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/><Pressable onPress={()=>p.setScreen({type:'search'})} style={{backgroundColor:p.theme.card,borderRadius:14,borderWidth:1,borderColor:p.theme.line,flexDirection:'row',alignItems:'center',paddingHorizontal:14,paddingVertical:13,marginBottom:20,gap:10}}><Feather name="search" size={18} color={p.theme.muted}/><T style={{color:p.theme.muted,fontSize:14,fontWeight:'500',flex:1}}>বই, লেখক বা বিভাগ খুঁজুন</T></Pressable>{p.isOffline&&<OfflineBanner theme={p.theme} onRetry={()=>p.syncRemote?.()}/>}{!p.dataLoaded&&!books.length?<><View><View style={styles.secHead}><SkeletonPulse width={120} height={16} borderRadius={4}/></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{[1,2,3].map(i=><View key={i} style={{width:130}}><SkeletonPulse width={130} height={170} borderRadius={14}/><SkeletonPulse width={100} height={14} borderRadius={4} style={{marginTop:8}}/><SkeletonPulse width={80} height={11} borderRadius={3} style={{marginTop:6}}/></View>)}</ScrollView></View><View><View style={styles.secHead}><SkeletonPulse width={140} height={16} borderRadius={4}/></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{[1,2,3].map(i=><View key={i} style={{width:130}}><SkeletonPulse width={130} height={170} borderRadius={14}/><SkeletonPulse width={100} height={14} borderRadius={4} style={{marginTop:8}}/><SkeletonPulse width={80} height={11} borderRadius={3} style={{marginTop:6}}/></View>)}</ScrollView></View></>:<>{fixedSecs.map((s:any)=><React.Fragment key={s.key}>{renderFixed(s.key)}</React.Fragment>)}{catSecs.length>0&&catSecs.map((s:any)=>{const list=hlist(s.key);if(!list.length)return null;const c=s.color||'#4A1220';return <View key={s.key}><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade(c,-30)}]}><Feather name={I(s.icon||'book-open')} size={13} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{s.title}</T></View><Pressable onPress={()=>p.setScreen({type:'list',title:s.title,ids:list.map((x:any)=>x.id)})} style={[styles.seeAllPill,{backgroundColor:shade(c,-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:12,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b:Book,i:number)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={c} section={s.key} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>})}{showAuthId&&<AuthModal theme={p.theme} lang={p.state.settings.language} onClose={()=>setShowAuthId(null)} onGoto={()=>{setShowAuthId(null);p.setScreen({type:'writer'})}}/>}</>}</Page>}
+function HomeInner(p:C){const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const books=p.allBooks;const hd=p.homeData;const[refreshing,setRefreshing]=useState(false);const[showAuthId,setShowAuthId]=useState<string|null>(null);const doRefresh=async()=>{if(!p.syncRemote)return;setRefreshing(true);try{await p.syncRemote()}catch{}finally{setRefreshing(false)}};const toBook=(b:any):Book=>({id:b.id,title:b.title,author:b.author,views:`${b.views}`,rating:4.5,color:b.color,accent:b.accent,category:b.category||'',categoryIcon:'book-open',description:b.description||'',updated:'',chapters:[],isNew:Boolean(b.is_new),featured:Boolean(b.featured),views_visible:b.views_visible!==false,cover_url:b.cover_url||null,display_status:b.display_status||undefined,writer_status:b.writer_status||undefined,hide_title_on_cover:b.hide_title_on_cover||false,pdf_url:b.pdf_url||'',dedication:b.dedication||'',author_name:b.author_name||'',show_ads:b.show_ads!==false,pdf_reward_ad:b.pdf_reward_ad!==false});const hlist=(k:string):Book[]=>{if(hd){const s=hd.sections.find((x:any)=>x.key===k);if(s&&s.books&&s.books.length)return s.books.slice(0,12).map((b:any)=>toBook(b) as Book).filter((b:any)=>b&&b.id);}return[];};const hdtitle=(k:string)=>hd?(hd.sections.find((x:any)=>x.key===k)?.title||''):'';const byViews=(a:Book,b:Book)=>+b.views-(+a.views);const G='#2AA876',AU='#D9A407',BL='#3B82F6',PU='#8B5CF6';const section=(title:string,icon:string,accent:string,list:Book[],sectionKey?:string)=>!list.length?null:<View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade(accent,-30)}]}><Feather name={I(icon)} size={13} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{title}</T></View><Pressable onPress={()=>p.setScreen({type:'list',title,ids:list.map(x=>x.id)})} style={[styles.seeAllPill,{backgroundColor:shade(accent,-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:12,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b,i)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={accent} section={sectionKey} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>;const followedIds=new Set(p.state.followedWriters.map(f=>f.id));const unfollowedWriters=p.publicWriters.filter(w=>!followedIds.has(w.id));const toggleFollowAuthor=async(w:import('./src/types').WriterProfile)=>{if(!p.state.writer&&!p.state.user){setShowAuthId(w.id);return;}const followed=p.state.followedWriters.some(f=>f.id===w.id);if(followed){p.update({followedWriters:p.state.followedWriters.filter(f=>f.id!==w.id)});const ok=await unfollowWriter(p.state.deviceId,w.id);if(!ok)p.update({followedWriters:[...p.state.followedWriters,w]})}else{p.update({followedWriters:[...p.state.followedWriters,w]});const ok=await followWriter(p.state.deviceId,w.id,p.state.writer?.id,p.state.user?.id);if(!ok)p.update({followedWriters:p.state.followedWriters.filter(f=>f.id!==w.id)})}};const authors=()=>unfollowedWriters.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{unfollowedWriters.map(w=><AuthorCard key={w.id} writer={w} theme={p.theme} lang={p.state.settings.language} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} bookCount={p.allBooks.filter(b=>b.author===w.writer_name).length} isFollowed={p.state.followedWriters.some(f=>f.id===w.id)} onToggleFollow={()=>toggleFollowAuthor(w)}/>)}</ScrollView>:<Empty theme={p.theme}/>;const sections=hd?hd.sections:[];const isFixed=(k:string)=>['featured','mostPopular','newEpisodes','popularAuthors','weeklyPopular','monthlyPopular'].includes(k);const fixedSecs=sections.filter((s:any)=>isFixed(s.key));const catSecs=sections.filter((s:any)=>!isFixed(s.key));const renderFixed=(k:string)=>{if(k==='featured'){const fl=hlist('featured');return <Featured {...p} list={fl}/>;}if(k==='popularAuthors')return <View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade('#EC4899',-30)}]}><Feather name="users" size={13} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{hdtitle('popularAuthors')||tr(p,'popularAuthors')}</T></View><Pressable onPress={()=>p.setScreen({type:'allWriters'})} style={[styles.seeAllPill,{backgroundColor:shade('#EC4899',-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:12,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View>{authors()}</View>;if(k==='newEpisodes'){const l=hlist('newEpisodes');return section(hdtitle('newEpisodes')||tr(p,'newEpisodes'),'zap',G,l.length?l:books,'newEpisodes');}if(k==='weeklyPopular'){const l=hlist('weeklyPopular');return section(hdtitle('weeklyPopular')||tr(p,'weeklyPopular'),'calendar',BL,l.length?l:(books.length?[...books].sort(byViews):[]),'weeklyPopular');}if(k==='monthlyPopular'){const l=hlist('monthlyPopular');return section(hdtitle('monthlyPopular')||tr(p,'monthlyPopular'),'star',PU,l.length?l:(books.length?[...books].sort(byViews):[]),'monthlyPopular');}if(k==='mostPopular'){const l=hlist('mostPopular');const list=l.length?l:(books.length?[...books].sort(byViews):[]);if(!list.length)return null;return <MostPopularCarousel books={list.slice(0,10)} theme={p.theme} lang={p.state.settings.language} accent={AU} onOpen={(id)=>p.open(id)} title={hdtitle('mostPopular')||'সর্বাধিক জনপ্রিয়'} onSeeAll={()=>p.setScreen({type:'list',title:'সর্বাধিক জনপ্রিয়',ids:list.map(x=>x.id)})} bookmarks={p.state.bookmarks} onUpdate={(ids)=>p.update({bookmarks:ids})} />;}return null;};return <View style={{flex:1}}><Page theme={p.theme} onRefresh={doRefresh} refreshing={refreshing}><Header title={`${greet(p)}, ${p.state.name}`} sub={tr(p,'choose')} theme={p.theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/><Pressable onPress={()=>p.setScreen({type:'search'})} style={{backgroundColor:p.theme.card,borderRadius:14,borderWidth:1,borderColor:p.theme.line,flexDirection:'row',alignItems:'center',paddingHorizontal:14,paddingVertical:13,marginBottom:20,gap:10}}><Feather name="search" size={18} color={p.theme.muted}/><T style={{color:p.theme.muted,fontSize:14,fontWeight:'500',flex:1}}>বই, লেখক বা বিভাগ খুঁজুন</T></Pressable>{p.isOffline&&<OfflineBanner theme={p.theme} onRetry={()=>p.syncRemote?.()}/>}{!p.dataLoaded&&!books.length?<><View><View style={styles.secHead}><SkeletonPulse width={120} height={16} borderRadius={4}/></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{[1,2,3].map(i=><View key={i} style={{width:130}}><SkeletonPulse width={130} height={170} borderRadius={14}/><SkeletonPulse width={100} height={14} borderRadius={4} style={{marginTop:8}}/><SkeletonPulse width={80} height={11} borderRadius={3} style={{marginTop:6}}/></View>)}</ScrollView></View><View><View style={styles.secHead}><SkeletonPulse width={140} height={16} borderRadius={4}/></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{[1,2,3].map(i=><View key={i} style={{width:130}}><SkeletonPulse width={130} height={170} borderRadius={14}/><SkeletonPulse width={100} height={14} borderRadius={4} style={{marginTop:8}}/><SkeletonPulse width={80} height={11} borderRadius={3} style={{marginTop:6}}/></View>)}</ScrollView></View></>:<>{fixedSecs.map((s:any)=><React.Fragment key={s.key}>{renderFixed(s.key)}</React.Fragment>)}{catSecs.length>0&&catSecs.map((s:any)=>{const list=hlist(s.key);if(!list.length)return null;const c=s.color||'#4A1220';return <View key={s.key}><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade(c,-30)}]}><Feather name={I(s.icon||'book-open')} size={13} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{s.title}</T></View><Pressable onPress={()=>p.setScreen({type:'list',title:s.title,ids:list.map((x:any)=>x.id)})} style={[styles.seeAllPill,{backgroundColor:shade(c,-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:12,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b:Book,i:number)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={c} section={s.key} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>})}</>}</Page>{showAuthId&&<AuthModal theme={p.theme} lang={p.state.settings.language} onClose={()=>setShowAuthId(null)} onGoto={()=>{setShowAuthId(null);p.setScreen({type:'writer'})}}/>}</View>}
 const Home=React.memo(HomeInner);
 function LibraryLink({title,icon,n,theme,onPress}:{title:string;icon:string;n:number;theme:Theme;onPress:()=>void}){const scale=React.useRef(new Animated.Value(1)).current;const pressIn=()=>{Animated.spring(scale,{toValue:0.96,useNativeDriver:true}).start()};const pressOut=()=>{Animated.spring(scale,{toValue:1,friction:3,tension:40,useNativeDriver:true}).start()};return <Animated.View style={{transform:[{scale}],width:'48.5%'}}><Pressable onPress={onPress} onPressIn={pressIn} onPressOut={pressOut} style={{backgroundColor:theme.card,borderRadius:20,borderWidth:1,borderColor:theme.line,paddingVertical:20,paddingHorizontal:16,shadowColor:'#000',shadowOpacity:0.04,shadowRadius:10,shadowOffset:{width:0,height:2},elevation:2}}><View style={{width:44,height:44,borderRadius:14,backgroundColor:theme.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}><Feather name={I(icon)} size={20} color={theme.primary}/></View><T style={{fontSize:14,fontWeight:'800',color:theme.ink,marginBottom:4}}>{title}</T><T style={{color:theme.muted,fontSize:11,fontWeight:'600'}}>{n}টি</T></Pressable></Animated.View>}
 function LibBookCard({book,theme,onPress}:{book:Book;theme:Theme;onPress:()=>void}){const hideAll=book.hide_title_on_cover&&book.cover_url;return <Pressable onPress={onPress} style={{backgroundColor:theme.card,borderRadius:18,borderWidth:1,borderColor:theme.line,flexDirection:'row',alignItems:'center',padding:12,marginBottom:12,shadowColor:'#000',shadowOpacity:0.03,shadowRadius:8,shadowOffset:{width:0,height:2},elevation:2,gap:14}}><View style={{width:72,height:96,borderRadius:12,backgroundColor:book.color,overflow:'hidden',justifyContent:'flex-end',padding:hideAll?0:8}}>{book.cover_url?<Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12}} resizeMode="cover"/>:null}{!hideAll&&book.cover_url&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12,backgroundColor:'rgba(0,0,0,0.15)'}}/>}{!hideAll&&<T numberOfLines={2} style={{color:'#fff',fontWeight:'900',fontSize:10,lineHeight:13}}>{book.title}</T>}</View><View style={{flex:1}}><T numberOfLines={2} style={{fontSize:15,fontWeight:'800',color:theme.ink,lineHeight:20}}>{book.title}</T><T numberOfLines={1} style={{fontSize:12,fontWeight:'600',color:theme.primary,marginTop:5}}>{book.author}</T><View style={{flexDirection:'row',alignItems:'center',gap:6,marginTop:8}}><View style={{flexDirection:'row',alignItems:'center',gap:3}}><Feather name="eye" size={11} color={theme.muted}/><T style={{color:theme.muted,fontSize:11}}>{book.views_visible !== false ? book.views : ''}</T></View><View style={{width:3,height:3,borderRadius:1.5,backgroundColor:theme.muted,opacity:0.4}}/><T style={{color:theme.muted,fontSize:11}}>{book.category}</T></View></View><Feather name="chevron-right" size={18} color={theme.muted} style={{opacity:0.5}}/></Pressable>}
@@ -791,7 +791,7 @@ function AuthModal({theme,lang,onClose,onGoto}:{theme:Theme;lang:import('./src/t
   const bd=lang==='hi'?'आपका खाता अभी तक नहीं बना है। आप किसी को फ़ॉलो नहीं कर सकते और कोई आपको फ़ॉलो नहीं कर सकता।':lang==='en'?'Your account is not created yet. You cannot follow anyone or be followed by anyone.':'আপনার অ্যাকাউন্ট এখনো খোলা হয়নি। আপনি কাউকে ফলো করতে বা কেউ আপনাকে ফলো করতে পারবে না।';
   const bt=lang==='hi'?'लेखक पैनल में जाएं':lang==='en'?'Go to Writer Panel':'লেখক প্যানেলে যান';
   const cn=lang==='hi'?'रद्द करें':lang==='en'?'Cancel':'বাতিল';
-  return <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24}}>
+  return <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24,zIndex:999,elevation:24}}>
     <View style={{width:'100%',backgroundColor:theme.card,borderRadius:22,padding:24,alignItems:'center'}}>
       <View style={{width:56,height:56,borderRadius:28,backgroundColor:theme.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}><Feather name="user-plus" size={24} color={theme.primary}/></View>
       <T style={{fontSize:17,fontWeight:'900',color:theme.ink,marginBottom:6,textAlign:'center'}}>{tl}</T>
@@ -806,6 +806,11 @@ function AuthModal({theme,lang,onClose,onGoto}:{theme:Theme;lang:import('./src/t
   </View>;
 }
 
+function StaggerIn({children,delay,style}:{children:React.ReactNode;delay?:number;style?:any}){
+  const a=useRef(new Animated.Value(0)).current;
+  useEffect(()=>{const t=setTimeout(()=>{Animated.timing(a,{toValue:1,duration:450,useNativeDriver:true}).start()},delay||0);return()=>clearTimeout(t)},[]);
+  return <Animated.View style={[style,{opacity:a,transform:[{translateY:a.interpolate({inputRange:[0,1],outputRange:[12,0]})}]}]}>{children}</Animated.View>;
+}
 function AllWritersList(p:C){
   const t=p.theme;
   const [q,setQ]=useState('');
@@ -832,6 +837,7 @@ function AllWritersList(p:C){
       if(!ok)p.update({followedWriters:p.state.followedWriters.filter(x=>x.id!==w.id)});
     }
   };
+  const top5=filtered.slice(0,3);const rest=filtered.slice(3);const colW=(Dimensions.get('window').width-36-10)/2;
   return <Page theme={t}>
     <Back title={tr(p,'popularAuthors')} theme={t} onPress={()=>p.goBack()}/>
     {p.isOffline&&<OfflineBanner theme={t} onRetry={()=>p.syncRemote?.()}/>}
@@ -848,9 +854,9 @@ function AllWritersList(p:C){
           </View>
           <T style={{fontSize:14,fontWeight:'700',color:t.muted,textAlign:'center'}}>{tr(p,'noFollowedWriters')}</T>
         </View>
-      :filtered.map(w=>{
+      :top5.map((w,i)=>{
         const isFollowed=p.state.followedWriters.some(x=>x.id===w.id);
-        return <Pressable key={w.id} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:8,borderWidth:1,borderColor:t.line}}>
+        return <StaggerIn key={w.id} delay={i*70}><Pressable onPress={()=>p.setScreen({type:'writerProfile',writer:w})} style={{flexDirection:'row',alignItems:'center',backgroundColor:t.card,borderRadius:14,padding:12,marginBottom:8,borderWidth:1,borderColor:t.line}}>
           <View style={{width:48,height:48,borderRadius:24,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
             {w.avatar_url?<Image source={{uri:w.avatar_url}} style={{width:48,height:48,borderRadius:24}}/>:<T style={{fontSize:20,fontWeight:'900',color:t.primary}}>{w.writer_name[0]?.toUpperCase()||'?'}</T>}
           </View>
@@ -864,7 +870,8 @@ function AllWritersList(p:C){
           <Pressable onPress={(e)=>{e.stopPropagation();toggleFollow(w)}} hitSlop={8} style={{paddingHorizontal:14,paddingVertical:8,borderRadius:10,backgroundColor:isFollowed?'transparent':t.primary,borderWidth:isFollowed?1.5:0,borderColor:t.line}}>
             <T style={{fontSize:12,fontWeight:'700',color:isFollowed?t.ink:'#fff'}}>{isFollowed?'ফলো করছেন':'ফলো করুন'}</T>
           </Pressable>
-        </Pressable>})}
+        </Pressable></StaggerIn>})}
+      {rest.length>0&&<View style={{flexDirection:'row',flexWrap:'wrap',gap:10,marginTop:4}}>{rest.map((w,i)=><StaggerIn key={w.id} delay={80+i*60}><AuthorCard key={w.id} writer={w} theme={t} lang={p.state.settings.language} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} bookCount={p.allBooks.filter(b=>b.author===w.writer_name).length} isFollowed={p.state.followedWriters.some(f=>f.id===w.id)} onToggleFollow={()=>toggleFollow(w)} cardStyle={{width:colW}}/></StaggerIn>)}</View>}
     </ScrollView>
     {showAuth&&<AuthModal theme={t} lang={p.state.settings.language} onClose={()=>setShowAuth(false)} onGoto={()=>p.setScreen({type:'writer'})}/>}
   </Page>
@@ -1833,6 +1840,15 @@ function Writer(p:C){
   const[privacyConsent,setPrivacyConsent]=useState(false);
   const[authErr,setAuthErr]=useState('');
   const[loading,setLoading]=useState(false);
+  const[authPhase,setAuthPhase]=useState<'form'|'verify'|'forgot'|'reset'>('form');
+  const[verifyEmail,setVerifyEmail]=useState('');
+  const[forgotEmail,setForgotEmail]=useState('');
+  const[newPassword,setNewPassword]=useState('');
+  const[digits,setDigits]=useState(['','','','','','']);
+  const[verifyErr,setVerifyErr]=useState('');
+  const[verifying,setVerifying]=useState(false);
+  const[resendIn,setResendIn]=useState(0);
+  const digitRefs=useRef<any[]>([]);
 
   const handleGoogleResult=(w:any,token:string)=>{
     const wr=w.writer||w;
@@ -1843,13 +1859,23 @@ function Writer(p:C){
   const[unreadCount,setUnreadCount]=useState(0);
   const[showLogoutConfirm,setShowLogoutConfirm]=useState(false);
   const[showDeleteConfirm,setShowDeleteConfirm]=useState(false);
-  const[deletingAccount,setDeletingAccount]=useState(false);
   const[isOnline,setIsOnline]=useState(true);
   const[checkingNet,setCheckingNet]=useState(true);
   const t=p.theme;
   const isLoggedIn=Boolean(p.state.writer);
   const token=p.state.writerToken||'';
   const lang=p.state.settings.language;
+  useEffect(()=>{if(authPhase!=='verify'||resendIn<=0)return;const t=setTimeout(()=>setResendIn(s=>s-1),1000);return()=>clearTimeout(t)},[authPhase,resendIn]);
+  const verifyErrKey=(e?:string):CopyKey=>{switch(e){case 'invalid_username':return 'invalidUsername';case 'invalid_writer_name':return 'invalidWriterName';case 'invalid_email':return 'invalidEmail';case 'weak_password':return 'weakPassword';case 'temp_mail':return 'tempMailBlocked';case 'username_taken':return 'usernameTaken';case 'email_taken':return 'accountExists';case 'too_many_attempts':return 'tooManyAttempts';case 'email_unverified':return 'emailUnverified';case 'code_invalid':return 'codeInvalid';case 'code_expired':return 'codeExpired';case 'code_blocked':return 'codeBlocked';case 'resend_cooldown':return 'resendCooldown';case 'already_verified':return 'accountExists';case 'not_found':return 'noAccountFound';default:return 'accountExists';}};
+  const onDigit=(i:number,v:string)=>{
+    const clean=v.replace(/[^0-9]/g,'');
+    if(clean.length>1){const nd=[...digits];for(let k=0;k<clean.length&&i+k<6;k++)nd[i+k]=clean[k];setDigits(nd);if(nd.every(Boolean))digitRefs.current[5]?.blur();else digitRefs.current[Math.min(i+clean.length,5)]?.focus();return}
+    const c=clean.slice(-1);const nd=[...digits];nd[i]=c;setDigits(nd);if(c&&i<5)digitRefs.current[i+1]?.focus();
+  };
+  const doVerify=async()=>{const code=digits.join('');if(code.length<6){setVerifyErr(tr(p,'codeInvalid'));return}setVerifying(true);setVerifyErr('');try{const r=await verifyWriterCode(verifyEmail,code);if(!r)setVerifyErr(tr(p,'networkError'));else if('writer'in r&&r.token){p.update({writer:{id:r.writer.id,username:r.writer.username,writer_name:r.writer.writer_name,avatar_url:r.writer.avatar_url||undefined,bio:r.writer.bio||undefined},writerToken:r.token});setForm({username:'',writerName:'',email:'',password:''});setDigits(['','','','','','']);setAuthPhase('form');fetchFollowedWriters(p.state.deviceId).then(fw=>p.update({followedWriters:fw as any})).catch(()=>{});}else if('error'in r)setVerifyErr(tr(p,verifyErrKey(r.error)));else setVerifyErr(tr(p,'networkError'))}catch{setVerifyErr(tr(p,'networkError'))}finally{setVerifying(false)}};
+  const doResend=async()=>{if(resendIn>0||verifying)return;setVerifying(true);setVerifyErr('');try{const r=await resendWriterCode(verifyEmail);if(!r)setVerifyErr(tr(p,'networkError'));else if('ok'in r){setResendIn(60)}else if('error'in r){if(r.error==='resend_cooldown')setResendIn(r.retry_after||60);setVerifyErr(tr(p,verifyErrKey(r.error)))}}catch{setVerifyErr(tr(p,'networkError'))}finally{setVerifying(false)}};
+  const doForgot=async()=>{const em=forgotEmail.trim();if(!em||em.length>254||!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)){setVerifyErr(tr(p,'invalidEmail'));return}setVerifying(true);setVerifyErr('');try{const r=await forgotWriterPassword(em);if(!r)setVerifyErr(tr(p,'networkError'));else if('ok'in r){setVerifyEmail(em);setDigits(['','','','','','']);setNewPassword('');setResendIn(60);setAuthPhase('reset');if(!r.mail_sent)setVerifyErr(tr(p,'mailSendFailed'));}else if('error'in r){if(r.error==='resend_cooldown')setResendIn(r.retry_after||60);setVerifyErr(tr(p,verifyErrKey(r.error)))}}catch{setVerifyErr(tr(p,'networkError'))}finally{setVerifying(false)}};
+  const doReset=async()=>{const code=digits.join('');if(code.length<6){setVerifyErr(tr(p,'codeInvalid'));return}if(newPassword.length<8||!/[A-Za-z]/.test(newPassword)||!/[0-9]/.test(newPassword)){setVerifyErr(tr(p,'weakPassword'));return}setVerifying(true);setVerifyErr('');try{const r=await resetWriterPassword(verifyEmail,code,newPassword);if(!r)setVerifyErr(tr(p,'networkError'));else if('writer'in r&&r.token){p.update({writer:{id:r.writer.id,username:r.writer.username,writer_name:r.writer.writer_name,avatar_url:r.writer.avatar_url||undefined,bio:r.writer.bio||undefined},writerToken:r.token});setForm({username:'',writerName:'',email:'',password:''});setDigits(['','','','','','']);setNewPassword('');setAuthPhase('form');fetchFollowedWriters(p.state.deviceId).then(fw=>p.update({followedWriters:fw as any})).catch(()=>{});}else if('error'in r)setVerifyErr(tr(p,verifyErrKey(r.error)));else setVerifyErr(tr(p,'networkError'))}catch{setVerifyErr(tr(p,'networkError'))}finally{setVerifying(false)}};
 
   useEffect(()=>{
     if(!isLoggedIn||!token)return;
@@ -1876,6 +1902,8 @@ function Writer(p:C){
     if(!form.password){setAuthErr(tr(p,'allFieldsRequired'));return}
     if(authTab==='register'){
       if(!form.username.trim()||!form.writerName.trim()||!form.email.trim()){setAuthErr(tr(p,'allFieldsRequired'));return}
+      const vErr=validateWriterSignup(form.username,form.writerName,form.email,form.password);
+      if(vErr){setAuthErr(tr(p,vErr));return}
       if(!privacyConsent){setAuthErr(lang==='bn'?'গোপনীয়তা নীতি মেনে নিন':lang==='hi'?'गोपनीयता नीति स्वीकार करें':'Please agree to Privacy Policy');return}
     }else{
       if(!form.email.trim()){setAuthErr(tr(p,'allFieldsRequired'));return}
@@ -1883,19 +1911,92 @@ function Writer(p:C){
     setLoading(true);setAuthErr('');
     try{
       if(authTab==='register'){
-        const w=await writerSignup(form.username.trim(),form.writerName.trim(),form.email.trim(),form.password);
-        if(w){p.update({writer:{id:w.writer.id,username:w.writer.username,writer_name:w.writer.writer_name,avatar_url:w.writer.avatar_url||undefined,bio:w.writer.bio||undefined},writerToken:w.token});setForm({username:'',writerName:'',email:'',password:''});
+        const r=await writerSignup(form.username.trim(),form.writerName.trim(),form.email.trim(),form.password);
+        if(!r){setAuthErr(tr(p,'networkError'))}
+        else if('writer'in r&&r.token){p.update({writer:{id:r.writer.id,username:r.writer.username,writer_name:r.writer.writer_name,avatar_url:r.writer.avatar_url||undefined,bio:r.writer.bio||undefined},writerToken:r.token});setForm({username:'',writerName:'',email:'',password:''});
           fetchFollowedWriters(p.state.deviceId).then(fw=>p.update({followedWriters:fw as any})).catch(()=>{});}
+        else if('needs_verification'in r){setVerifyEmail(r.email);setDigits(['','','','','','']);setVerifyErr('');setResendIn(60);setAuthPhase('verify');if(!r.mail_sent)setVerifyErr(tr(p,'mailSendFailed'));}
+        else if('error'in r){setAuthErr(tr(p,verifyErrKey(r.error)))}
         else{setAuthErr(tr(p,'accountExists'))}
       }else{
         const w=await writerLogin(form.email.trim(),form.password);
-        if(w){p.update({writer:{id:w.writer.id,username:w.writer.username,writer_name:w.writer.writer_name,avatar_url:w.writer.avatar_url||undefined,bio:w.writer.bio||undefined},writerToken:w.token});setForm({username:'',writerName:'',email:'',password:''});
+        if(!w)setAuthErr(tr(p,'networkError'));
+        else if('writer'in w&&w.token){p.update({writer:{id:w.writer.id,username:w.writer.username,writer_name:w.writer.writer_name,avatar_url:w.writer.avatar_url||undefined,bio:w.writer.bio||undefined},writerToken:w.token});setForm({username:'',writerName:'',email:'',password:''});
           fetchFollowedWriters(p.state.deviceId).then(fw=>p.update({followedWriters:fw as any})).catch(()=>{});}
+        else if('unverified'in w){setVerifyEmail(w.email);setDigits(['','','','','','']);setVerifyErr(tr(p,'emailUnverified'));setResendIn(0);setAuthPhase('verify');}
         else setAuthErr(tr(p,'wrongCredentials'))
       }
     }catch{setAuthErr(tr(p,'networkError'))}finally{setLoading(false)}
   };
 
+  if(!isLoggedIn&&authPhase==='verify')return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'}>
+    <ScrollView contentContainerStyle={{flexGrow:1,padding:22,paddingTop:60}} keyboardShouldPersistTaps="handled">
+      <View style={{alignItems:'center',marginBottom:20}}>
+        <View style={{width:64,height:64,borderRadius:32,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}><Feather name="mail" size={26} color={t.primary}/></View>
+        <T style={{color:t.ink,fontSize:19,fontWeight:'900',textAlign:'center'}}>{tr(p,'verifyTitle')}</T>
+        <T style={{color:t.muted,fontSize:13,marginTop:6,textAlign:'center',lineHeight:20}}>{tr(p,'verifyHint')}{'\n'}{verifyEmail}</T>
+      </View>
+      <View style={{flexDirection:'row',gap:8,marginBottom:14}}>
+        {digits.map((d,i)=><TextInput key={i} ref={(r)=>{digitRefs.current[i]=r}} value={d} onChangeText={(v)=>onDigit(i,v)} onKeyPress={({nativeEvent})=>{if(nativeEvent.key==='Backspace'&&!digits[i]&&i>0)digitRefs.current[i-1]?.focus()}} keyboardType="number-pad" selectTextOnFocus autoComplete="sms-otp" textContentType="oneTimeCode" style={{flex:1,height:56,borderRadius:12,borderWidth:1.5,borderColor:d?t.primary:t.line,backgroundColor:t.card,color:t.ink,fontSize:22,fontWeight:'900',textAlign:'center',fontFamily:GF()}}/>)}
+      </View>
+      {!!verifyErr&&<T style={{color:'#EF4444',fontSize:13,fontWeight:'700',textAlign:'center',marginBottom:12}}>{verifyErr}</T>}
+      <Pressable disabled={verifying||digits.join('').length<6} onPress={doVerify} style={{backgroundColor:t.primary,borderRadius:14,height:52,alignItems:'center',justifyContent:'center',opacity:verifying||digits.join('').length<6?0.5:1,marginBottom:10}}>
+        {verifying?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontSize:15,fontWeight:'900'}}>{tr(p,'verifyBtn')}</T>}
+      </Pressable>
+      <Pressable disabled={resendIn>0||verifying} onPress={doResend} style={{alignItems:'center',paddingVertical:10,opacity:resendIn>0||verifying?0.5:1}}>
+        <T style={{color:t.primary,fontSize:13,fontWeight:'800'}}>{resendIn>0?`${tr(p,'resendBtn')} (${resendIn}s)`:tr(p,'resendBtn')}</T>
+      </Pressable>
+      <Pressable onPress={()=>{setAuthPhase('form');setVerifyErr('')}} style={{alignItems:'center',paddingVertical:8}}>
+        <T style={{color:t.muted,fontSize:12,fontWeight:'700'}}>{tr(p,'editEmail')}</T>
+      </Pressable>
+    </ScrollView>
+  </KeyboardAvoidingView>;
+  if(!isLoggedIn&&authPhase==='forgot')return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'}>
+    <ScrollView contentContainerStyle={{flexGrow:1,padding:22,paddingTop:60}} keyboardShouldPersistTaps="handled">
+      <View style={{alignItems:'center',marginBottom:20}}>
+        <View style={{width:64,height:64,borderRadius:32,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}><Feather name="key" size={26} color={t.primary}/></View>
+        <T style={{color:t.ink,fontSize:19,fontWeight:'900',textAlign:'center'}}>{tr(p,'forgotTitle')}</T>
+        <T style={{color:t.muted,fontSize:13,marginTop:6,textAlign:'center',lineHeight:20}}>{tr(p,'forgotHint')}</T>
+      </View>
+      <View style={{backgroundColor:t.card,borderRadius:14,borderWidth:1,borderColor:t.line,flexDirection:'row',alignItems:'center',paddingHorizontal:14,marginBottom:14}}>
+        <Feather name="mail" size={16} color={t.muted} style={{marginRight:8}}/>
+        <TextInput value={forgotEmail} onChangeText={setForgotEmail} placeholder={tr(p,'email')} placeholderTextColor={t.muted+'88'} keyboardType="email-address" autoCapitalize="none" style={{flex:1,color:t.ink,fontSize:14,height:50,fontFamily:GF()}}/>
+      </View>
+      {!!verifyErr&&<T style={{color:'#EF4444',fontSize:13,fontWeight:'700',textAlign:'center',marginBottom:12}}>{verifyErr}</T>}
+      <Pressable disabled={verifying||!forgotEmail.trim()} onPress={doForgot} style={{backgroundColor:t.primary,borderRadius:14,height:52,alignItems:'center',justifyContent:'center',opacity:verifying||!forgotEmail.trim()?0.5:1,marginBottom:10}}>
+        {verifying?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontSize:15,fontWeight:'900'}}>{tr(p,'sendCode')}</T>}
+      </Pressable>
+      <Pressable onPress={()=>{setAuthPhase('form');setVerifyErr('')}} style={{alignItems:'center',paddingVertical:8}}>
+        <T style={{color:t.muted,fontSize:12,fontWeight:'700'}}>{tr(p,'backToLogin')}</T>
+      </Pressable>
+    </ScrollView>
+  </KeyboardAvoidingView>;
+  if(!isLoggedIn&&authPhase==='reset')return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'}>
+    <ScrollView contentContainerStyle={{flexGrow:1,padding:22,paddingTop:60}} keyboardShouldPersistTaps="handled">
+      <View style={{alignItems:'center',marginBottom:20}}>
+        <View style={{width:64,height:64,borderRadius:32,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}><Feather name="lock" size={26} color={t.primary}/></View>
+        <T style={{color:t.ink,fontSize:19,fontWeight:'900',textAlign:'center'}}>{tr(p,'verifyTitle')}</T>
+        <T style={{color:t.muted,fontSize:13,marginTop:6,textAlign:'center',lineHeight:20}}>{tr(p,'verifyHint')}{'\n'}{verifyEmail}</T>
+      </View>
+      <View style={{flexDirection:'row',gap:8,marginBottom:14}}>
+        {digits.map((d,i)=><TextInput key={i} ref={(r)=>{digitRefs.current[i]=r}} value={d} onChangeText={(v)=>onDigit(i,v)} onKeyPress={({nativeEvent})=>{if(nativeEvent.key==='Backspace'&&!digits[i]&&i>0)digitRefs.current[i-1]?.focus()}} keyboardType="number-pad" selectTextOnFocus autoComplete="sms-otp" textContentType="oneTimeCode" style={{flex:1,height:56,borderRadius:12,borderWidth:1.5,borderColor:d?t.primary:t.line,backgroundColor:t.card,color:t.ink,fontSize:22,fontWeight:'900',textAlign:'center',fontFamily:GF()}}/>)}
+      </View>
+      <View style={{backgroundColor:t.card,borderRadius:14,borderWidth:1,borderColor:t.line,flexDirection:'row',alignItems:'center',paddingHorizontal:14,marginBottom:14}}>
+        <Feather name="lock" size={16} color={t.muted} style={{marginRight:8}}/>
+        <TextInput value={newPassword} onChangeText={setNewPassword} placeholder={tr(p,'newPassword')} placeholderTextColor={t.muted+'88'} secureTextEntry style={{flex:1,color:t.ink,fontSize:14,height:50,fontFamily:GF()}}/>
+      </View>
+      {!!verifyErr&&<T style={{color:'#EF4444',fontSize:13,fontWeight:'700',textAlign:'center',marginBottom:12}}>{verifyErr}</T>}
+      <Pressable disabled={verifying||digits.join('').length<6||!newPassword} onPress={doReset} style={{backgroundColor:t.primary,borderRadius:14,height:52,alignItems:'center',justifyContent:'center',opacity:verifying||digits.join('').length<6||!newPassword?0.5:1,marginBottom:10}}>
+        {verifying?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontSize:15,fontWeight:'900'}}>{tr(p,'resetBtn')}</T>}
+      </Pressable>
+      <Pressable disabled={resendIn>0||verifying} onPress={doForgot} style={{alignItems:'center',paddingVertical:10,opacity:resendIn>0||verifying?0.5:1}}>
+        <T style={{color:t.primary,fontSize:13,fontWeight:'800'}}>{resendIn>0?`${tr(p,'resendBtn')} (${resendIn}s)`:tr(p,'resendBtn')}</T>
+      </Pressable>
+      <Pressable onPress={()=>{setAuthPhase('form');setVerifyErr('')}} style={{alignItems:'center',paddingVertical:8}}>
+        <T style={{color:t.muted,fontSize:12,fontWeight:'700'}}>{tr(p,'backToLogin')}</T>
+      </Pressable>
+    </ScrollView>
+  </KeyboardAvoidingView>;
   if(!isLoggedIn)return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'}>
     <ScrollView contentContainerStyle={{flexGrow:1,padding:22,paddingTop:50}} keyboardShouldPersistTaps="handled">
     <View style={{alignItems:'center',marginBottom:24}}>
@@ -1950,6 +2051,7 @@ function Writer(p:C){
       <Pressable disabled={loading} onPress={handleAuth} style={{backgroundColor:t.primary,borderRadius:12,height:46,alignItems:'center',justifyContent:'center',opacity:loading?0.6:1}}>
         {loading?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'600',fontSize:14}}>{authTab==='register'?tr(p,'createAccount'):tr(p,'login')}</T>}
       </Pressable>
+      {authTab==='login'&&<Pressable onPress={()=>{setForgotEmail(form.email);setVerifyErr('');setAuthPhase('forgot')}} style={{alignItems:'flex-end',marginTop:10}}><T style={{color:t.primary,fontSize:12,fontWeight:'700'}}>{tr(p,'forgotTitle')}</T></Pressable>}
       <View style={{flexDirection:'row',alignItems:'center',marginVertical:16}}>
         <View style={{flex:1,height:1,backgroundColor:t.line}}/>
         <T style={{color:t.muted,fontSize:12,marginHorizontal:12}}>{tr(p,'or')}</T>
@@ -2047,27 +2149,7 @@ function Writer(p:C){
         </View>
       </View>
     </View>}
-    {showDeleteConfirm&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24,zIndex:999}}>
-      <View style={{width:'100%',backgroundColor:t.card,borderRadius:22,padding:24,alignItems:'center',borderWidth:1,borderColor:t.line}}>
-        <View style={{width:56,height:56,borderRadius:28,backgroundColor:'#FEE2E2',alignItems:'center',justifyContent:'center',marginBottom:16}}>
-          <Feather name="trash-2" size={28} color="#EF4444"/>
-        </View>
-        <T style={{fontSize:18,fontWeight:'900',color:t.ink,textAlign:'center',marginBottom:8}}>{lang==='bn'?'অ্যাকাউন্ট মুছে ফেলবেন?':lang==='hi'?'खाता हटाएँ?':'Delete Account?'}</T>
-        <T style={{fontSize:13,color:t.muted,textAlign:'center',lineHeight:20,marginBottom:20}}>
-          {lang==='bn'?'এটি অপরিবর্তনীয়! আপনার সমস্ত গল্প, অনুসারক এবং অ্যাকাউন্ট তথ্য মুছে ফেলা হবে।':
-          lang==='hi'?'यह अपरिवर्तनीय है! आपकी सभी कहानियाँ, अनुयायी और खाता जानकारी हटा दी जाएगी।':
-          'This is irreversible! All your stories, followers and account data will be deleted.'}
-        </T>
-        <View style={{flexDirection:'row',gap:10,width:'100%'}}>
-          <Pressable onPress={()=>setShowDeleteConfirm(false)} style={{flex:1,height:48,borderRadius:14,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
-            <T style={{color:t.primary,fontWeight:'800',fontSize:14}}>{lang==='bn'?'বাতিল':lang==='hi'?'रद्द करें':'Cancel'}</T>
-          </Pressable>
-          <Pressable onPress={async()=>{setDeletingAccount(true);const r=await deleteWriterAccount(token);setDeletingAccount(false);if(r.ok){setShowDeleteConfirm(false);p.update({writer:null,writerToken:null,followedWriters:[]})}else{Alert.alert('',r.error||'Failed')}}} disabled={deletingAccount} style={{flex:1,height:48,borderRadius:14,backgroundColor:'#EF4444',alignItems:'center',justifyContent:'center',opacity:deletingAccount?0.6:1}}>
-            {deletingAccount?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{lang==='bn'?'হ্যাঁ, মুছুন':lang==='hi'?'हाँ, हटाएँ':'Yes, Delete'}</T>}
-          </Pressable>
-        </View>
-      </View>
-    </View>}
+    {showDeleteConfirm&&<DeleteAccountModal token={token} theme={t} lang={lang} onClose={()=>setShowDeleteConfirm(false)} onDeleted={()=>{setShowDeleteConfirm(false);p.update({writer:null,writerToken:null,followedWriters:[]})}}/>}
   </Page>}
 
 function DashStat({c,i,t}:{c:{icon:string;label:string;value:number;color:string;bg:string};i:number;t:Theme}){
@@ -2906,6 +2988,63 @@ function WriterStories({token,theme:t,lang,categories,setScreen,onRefresh}:{toke
   </View>}
   </View>}
 
+function DeleteAccountModal({token,theme:t,lang,onClose,onDeleted}:{token:string;theme:Theme;lang:Language;onClose:()=>void;onDeleted:()=>void}){
+  const[step,setStep]=useState<'warn'|'code'>('warn');
+  const[digits,setDigits]=useState(['','','','','','']);
+  const[err,setErr]=useState('');
+  const[busy,setBusy]=useState(false);
+  const[resendIn,setResendIn]=useState(0);
+  const refs=useRef<any[]>([]);
+  useEffect(()=>{if(step!=='code'||resendIn<=0)return;const x=setTimeout(()=>setResendIn(s=>s-1),1000);return()=>clearTimeout(x)},[step,resendIn]);
+  const errKey=(e?:string):CopyKey=>{switch(e){case 'code_invalid':return 'codeInvalid';case 'code_expired':return 'codeExpired';case 'code_blocked':return 'codeBlocked';case 'resend_cooldown':return 'resendCooldown';case 'too_many_attempts':return 'tooManyAttempts';default:return 'networkError';}};
+  const onDigit=(i:number,v:string)=>{const clean=v.replace(/[^0-9]/g,'');if(clean.length>1){const nd=[...digits];for(let k=0;k<clean.length&&i+k<6;k++)nd[i+k]=clean[k];setDigits(nd);if(nd.every(Boolean))refs.current[5]?.blur();else refs.current[Math.min(i+clean.length,5)]?.focus();return}const c=clean.slice(-1);const nd=[...digits];nd[i]=c;setDigits(nd);if(c&&i<5)refs.current[i+1]?.focus();};
+  const send=async()=>{setBusy(true);setErr('');try{const r=await requestDeleteCode(token);if(!r)setErr(copy(lang,'networkError'));else if('ok'in r){setStep('code');setDigits(['','','','','','']);setResendIn(60);if(!r.mail_sent)setErr(copy(lang,'mailSendFailed'));}else{if(r.error==='resend_cooldown')setResendIn(r.retry_after||60);setErr(copy(lang,r.error==='too_many_attempts'?'tooManyAttempts':r.error==='resend_cooldown'?'resendCooldown':'networkError'))}}catch{setErr(copy(lang,'networkError'))}finally{setBusy(false)}};
+  const confirm=async()=>{const code=digits.join('');if(code.length<6){setErr(copy(lang,'codeInvalid'));return}setBusy(true);setErr('');try{const r=await deleteWriterAccount(token,code);if(r.ok)onDeleted();else setErr(copy(lang,errKey(r.error)))}catch{setErr(copy(lang,'networkError'))}finally{setBusy(false)}};
+  const cancelLabel=lang==='bn'?'বাতিল':lang==='hi'?'रद्द करें':'Cancel';
+  return <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24,zIndex:999}}>
+    <View style={{width:'100%',backgroundColor:t.card,borderRadius:22,padding:24,alignItems:'center',borderWidth:1,borderColor:t.line}}>
+      <View style={{width:56,height:56,borderRadius:28,backgroundColor:'#FEE2E2',alignItems:'center',justifyContent:'center',marginBottom:16}}>
+        <Feather name="trash-2" size={28} color="#EF4444"/>
+      </View>
+      {step==='warn'?<>
+        <T style={{fontSize:18,fontWeight:'900',color:t.ink,textAlign:'center',marginBottom:8}}>{lang==='bn'?'অ্যাকাউন্ট মুছে ফেলবেন?':lang==='hi'?'खाता हटाएँ?':'Delete Account?'}</T>
+        <T style={{fontSize:13,color:t.muted,textAlign:'center',lineHeight:20,marginBottom:20}}>
+          {lang==='bn'?'এটি অপরিবর্তনীয়! আপনার সমস্ত গল্প, অনুসারক এবং অ্যাকাউন্ট তথ্য মুছে ফেলা হবে।':
+          lang==='hi'?'यह अपरिवर्तनीय है! आपकी सभी कहानियाँ, अनुयायी और खाता जानकारी हटा दी जाएगी।':
+          'This is irreversible! All your stories, followers and account data will be deleted.'}
+        </T>
+        {!!err&&<T style={{color:'#EF4444',fontSize:13,fontWeight:'700',textAlign:'center',marginBottom:12}}>{err}</T>}
+        <View style={{flexDirection:'row',gap:10,width:'100%'}}>
+          <Pressable onPress={onClose} style={{flex:1,height:48,borderRadius:14,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
+            <T style={{color:t.primary,fontWeight:'800',fontSize:14}}>{cancelLabel}</T>
+          </Pressable>
+          <Pressable disabled={busy} onPress={send} style={{flex:1,height:48,borderRadius:14,backgroundColor:'#EF4444',alignItems:'center',justifyContent:'center',opacity:busy?0.6:1}}>
+            {busy?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{copy(lang,'sendCode')}</T>}
+          </Pressable>
+        </View>
+      </>:<>
+        <T style={{fontSize:18,fontWeight:'900',color:t.ink,textAlign:'center',marginBottom:6}}>{copy(lang,'delCodeTitle')}</T>
+        <T style={{fontSize:13,color:t.muted,textAlign:'center',lineHeight:20,marginBottom:16}}>{copy(lang,'delCodeHint')}</T>
+        <View style={{flexDirection:'row',gap:8,marginBottom:14,width:'100%'}}>
+          {digits.map((d,i)=><TextInput key={i} ref={(r)=>{refs.current[i]=r}} value={d} onChangeText={(v)=>onDigit(i,v)} onKeyPress={({nativeEvent})=>{if(nativeEvent.key==='Backspace'&&!digits[i]&&i>0)refs.current[i-1]?.focus()}} keyboardType="number-pad" selectTextOnFocus autoComplete="sms-otp" textContentType="oneTimeCode" style={{flex:1,height:52,borderRadius:12,borderWidth:1.5,borderColor:d?t.primary:t.line,backgroundColor:t.bg,color:t.ink,fontSize:20,fontWeight:'900',textAlign:'center',fontFamily:GF()}}/>)}
+        </View>
+        {!!err&&<T style={{color:'#EF4444',fontSize:13,fontWeight:'700',textAlign:'center',marginBottom:12}}>{err}</T>}
+        <Pressable disabled={busy||digits.join('').length<6} onPress={confirm} style={{width:'100%',height:48,borderRadius:14,backgroundColor:'#EF4444',alignItems:'center',justifyContent:'center',opacity:busy||digits.join('').length<6?0.6:1,marginBottom:10}}>
+          {busy?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{copy(lang,'confirmDelete')}</T>}
+        </Pressable>
+        <View style={{flexDirection:'row',gap:16}}>
+          <Pressable disabled={resendIn>0||busy} onPress={send} style={{paddingVertical:8,opacity:resendIn>0||busy?0.5:1}}>
+            <T style={{color:t.primary,fontSize:13,fontWeight:'800'}}>{resendIn>0?`${copy(lang,'resendBtn')} (${resendIn}s)`:copy(lang,'resendBtn')}</T>
+          </Pressable>
+          <Pressable onPress={onClose} style={{paddingVertical:8}}>
+            <T style={{color:t.muted,fontSize:13,fontWeight:'700'}}>{cancelLabel}</T>
+          </Pressable>
+        </View>
+      </>}
+    </View>
+  </View>;
+}
+
 function WriterProfileStudio({token,theme:t,writer,lang,onUpdate,onDeleteAccount}:{token:string;theme:Theme;writer:any;lang:Language;onUpdate:(patch:any)=>void;onDeleteAccount:()=>void}){
   const[editing,setEditing]=useState(false);
   const[name,setName]=useState(writer?.writer_name||'');
@@ -2931,27 +3070,31 @@ function WriterProfileStudio({token,theme:t,writer,lang,onUpdate,onDeleteAccount
   };
   return <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={Platform.OS==='ios'?90:0}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:40}} keyboardShouldPersistTaps="handled">
-    <View style={{alignItems:'center',marginBottom:20}}>
-      <Pressable onPress={editing?handlePickAvatar:()=>setEditing(true)} disabled={uploadingImg} style={{marginBottom:10}}>
-        {uploadingImg?<View style={{width:90,height:90,borderRadius:45,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}><ActivityIndicator size="small" color={t.primary}/></View>:
-        (avatar||writer?.avatar_url)?<View><Image source={{uri:avatar||writer?.avatar_url}} style={{width:90,height:90,borderRadius:45}}/>{editing&&<View style={{position:'absolute',bottom:0,right:0,backgroundColor:t.primary,borderRadius:14,width:28,height:28,alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:t.card}}><Feather name="camera" size={13} color="#fff"/></View>}</View>:
-        <View style={{width:90,height:90,borderRadius:45,backgroundColor:t.primary,alignItems:'center',justifyContent:'center',elevation:4,shadowColor:t.primary,shadowOffset:{width:0,height:4},shadowOpacity:0.3,shadowRadius:8}}>
+    <View style={{borderRadius:22,overflow:'hidden',backgroundColor:'#7B1E2B',marginBottom:20}}>
+      <LinearGradient colors={['#7B1E2B','#4A1220']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
+      <Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="88%" cy={10} r={80} fill="#C9972B26"/><Circle cx="4%" cy={150} r={70} fill="#ffffff10"/></Svg>
+      <View style={{alignItems:'center',paddingVertical:24,paddingHorizontal:18}}>
+      <Pressable onPress={editing?handlePickAvatar:()=>setEditing(true)} disabled={uploadingImg} style={{marginBottom:12}}>
+        {uploadingImg?<View style={{width:88,height:88,borderRadius:44,backgroundColor:'#ffffff22',alignItems:'center',justifyContent:'center'}}><ActivityIndicator size="small" color="#fff"/></View>:
+        (avatar||writer?.avatar_url)?<View><Image source={{uri:avatar||writer?.avatar_url}} style={{width:88,height:88,borderRadius:44,borderWidth:3,borderColor:'#C9972B'}}/>{editing&&<View style={{position:'absolute',bottom:0,right:0,backgroundColor:'#C9972B',borderRadius:14,width:28,height:28,alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'#4A1220'}}><Feather name="camera" size={13} color="#4A1220"/></View>}</View>:
+        <View style={{width:88,height:88,borderRadius:44,backgroundColor:'#ffffff1A',alignItems:'center',justifyContent:'center',borderWidth:3,borderColor:'#C9972B'}}>
           <T style={{fontSize:32,fontWeight:'900',color:'#fff'}}>{writer?.writer_name?.[0]?.toUpperCase()||'?'}</T>
           {editing&&<View style={{position:'absolute',bottom:0,backgroundColor:'rgba(0,0,0,0.4)',borderRadius:14,width:28,height:28,alignItems:'center',justifyContent:'center'}}><Feather name="camera" size={13} color="#fff"/></View>}
         </View>}
       </Pressable>
       {!editing&&<><View style={{flexDirection:'row',alignItems:'center',gap:6}}>
-        <T style={{fontSize:20,fontWeight:'900',color:t.ink}}>{writer?.writer_name}</T>
+        <T style={{fontSize:22,fontWeight:'900',color:'#fff'}}>{writer?.writer_name}</T>
         <BadgeIcon badge={writer?.badge} size={20}/>
       </View>
-      <T style={{fontSize:13,color:t.muted,marginTop:3}}>@{writer?.username}</T>
-      {writer?.bio&&<T style={{fontSize:13,color:t.muted,marginTop:8,textAlign:'center',lineHeight:20,maxWidth:300}}>{writer?.bio}</T>}
+      <T style={{fontSize:13,color:'#EAC97A',marginTop:3,fontWeight:'700'}}>@{writer?.username}</T>
+      {writer?.bio&&<T style={{fontSize:13,color:'#F3E4D8',marginTop:8,textAlign:'center',lineHeight:20,maxWidth:300}}>{writer?.bio}</T>}
       </>}
+      </View>
     </View>
     {!editing?
-    <Pressable onPress={()=>setEditing(true)} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',backgroundColor:t.primary,borderRadius:14,paddingVertical:13,marginBottom:14,gap:8}}>
-      <Feather name="edit-2" size={16} color="#fff"/>
-      <T style={{fontSize:14,fontWeight:'800',color:'#fff'}}>{copy(lang,'editProfile')}</T>
+    <Pressable onPress={()=>setEditing(true)} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',backgroundColor:'#C9972B',borderRadius:14,paddingVertical:13,marginBottom:14,gap:8,elevation:3,shadowColor:'#000',shadowOpacity:.2,shadowRadius:6,shadowOffset:{width:0,height:3}}}>
+      <Feather name="edit-2" size={16} color="#4A1220"/>
+      <T style={{fontSize:14,fontWeight:'900',color:'#4A1220'}}>{copy(lang,'editProfile')}</T>
     </Pressable>:
     <View style={{backgroundColor:t.card,borderRadius:14,padding:16,marginBottom:14,borderWidth:1,borderColor:t.line}}>
       <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
@@ -3209,16 +3352,16 @@ function BadgeIcon({badge,size}:{badge?:string;size?:number}){
   if(badge==='top')return <Svg width={14} height={14} viewBox="0 0 24 24"><Path d="M12 2l2.4 2.4L18 3.2l.8 3.6 3.2 1.6-1.6 3.2L22 15l-3.2 1.6-.8 3.6-3.6-.8L12 22l-2.4-2.4L6 20.8l-.8-3.6L2 15.6l1.6-3.2L2 9l3.2-1.6.8-3.6L10.4 4.4z" fill="#1B5E20"/><Path d="M8 12.5l2.5 2.5L16 9.5" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></Svg>;
   return null;
 }
-function AuthorCard({writer,theme,lang,onPress,bookCount,isFollowed,onToggleFollow}:{writer:import('./src/types').WriterProfile;theme:Theme;lang:Language;onPress:()=>void;bookCount:number;isFollowed?:boolean;onToggleFollow?:()=>void}){
+function AuthorCard({writer,theme,lang,onPress,bookCount,isFollowed,onToggleFollow,cardStyle}:{writer:import('./src/types').WriterProfile;theme:Theme;lang:Language;onPress:()=>void;bookCount:number;isFollowed?:boolean;onToggleFollow?:()=>void;cardStyle?:any}){
   const bg=theme.tint;const ring=theme.primary;const suppressRef=useRef(false);const fScale=React.useRef(new Animated.Value(1)).current;const fIn=()=>{Animated.spring(fScale,{toValue:0.94,friction:5,tension:300,useNativeDriver:true}).start()};const fOut=()=>{Animated.spring(fScale,{toValue:1,friction:5,tension:300,useNativeDriver:true}).start()};const fPop=()=>{fScale.setValue(0.88);Animated.spring(fScale,{toValue:1,friction:4,tension:220,useNativeDriver:true}).start()};
-  return <Pressable onPress={()=>{if(suppressRef.current){suppressRef.current=false;return}onPress()}} style={[dStyles.writerCard,{backgroundColor:theme.card,borderColor:theme.line}]}>
+  return <Pressable onPress={()=>{if(suppressRef.current){suppressRef.current=false;return}onPress()}} style={[dStyles.writerCard,{backgroundColor:theme.card,borderColor:theme.line},cardStyle]}>
     <View style={dStyles.writerTopRow}>
       <View style={[dStyles.writerAvatar,{borderColor:ring,backgroundColor:bg}]}>
         {writer.avatar_url?<Image source={{uri:writer.avatar_url}} style={StyleSheet.absoluteFill}/>:<T style={{fontSize:20,fontWeight:'900',color:ring}}>{writer.writer_name[0]?.toUpperCase()||'?'}</T>}
       </View>
       <View style={dStyles.writerTopInfo}>
         <View style={{flexDirection:'row',alignItems:'center',gap:4}}>
-          <T numberOfLines={1} style={[dStyles.writerName,{color:theme.ink,flexShrink:1,fontSize:writer.writer_name.length>16?10.5:writer.writer_name.length>12?12:writer.writer_name.length>9?13:14.5}]}>{writer.writer_name}</T>
+          <T numberOfLines={1} style={[dStyles.writerName,{color:theme.ink,flexShrink:1,fontSize:writer.writer_name.length>12?10:11}]}>{writer.writer_name}</T>
           <BadgeIcon badge={writer.badge} size={13}/>
         </View>
         <T numberOfLines={1} style={[dStyles.writerUsername,{color:theme.muted}]}>@{writer.username}</T>

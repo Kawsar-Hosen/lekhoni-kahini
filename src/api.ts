@@ -1,4 +1,5 @@
 import { Book, Chapter } from './types';
+import type { CopyKey } from './i18n';
 
 
 const API_BASE = 'https://lekhoni-admin-api.smdkawsar2.workers.dev';
@@ -10,17 +11,20 @@ type RemoteComment = { id:string; book_id:string; display_name:string; body:stri
 type RemoteNotification = { id:string; title:string; body:string; icon:string|null; url:string|null; story_cover?:string; created_at:string };
 type RemoteEvent = { device_id:string; book_id:string; event_type:'view'|'like'|'dislike'; created_at:string };
 
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> {
+async function apiFetch<T>(path: string, init?: RequestInit, opts?: { timeout?: number; errorBody?: boolean }): Promise<T | null> {
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT);
+    const timer = setTimeout(() => controller.abort(), opts?.timeout ?? TIMEOUT);
     const isFormData = init?.body instanceof FormData;
     const headers: Record<string, string> = {};
     if (!isFormData) headers['content-type'] = 'application/json';
     if (init?.headers) Object.assign(headers, init.headers);
     const response = await fetch(`${API_BASE}${path}`, { ...init, signal: controller.signal, headers });
     clearTimeout(timer);
-    if (!response.ok) return null;
+    if (!response.ok) {
+      if (!opts?.errorBody) return null;
+      try { return await response.json() as T; } catch { return null; }
+    }
     return await response.json() as T;
   } catch { return null; }
 }
@@ -175,19 +179,87 @@ export async function saveUserState(deviceKey: string, payload: UserStatePayload
 // --- Writer Auth ---
 export type Writer = { id: string; username: string; writer_name: string; email?: string; bio?: string; avatar_url?: string | null; follower_count?: number; created_at?: string };
 
-export async function writerSignup(username: string, writerName: string, email: string, password: string): Promise<{ writer: Writer; token: string } | null> {
-  const r = await apiFetch<{ writer?: Writer; token?: string; error?: string }>('/api/public/writers/signup', {
-    method: 'POST', body: JSON.stringify({ username, writer_name: writerName, email, password }),
-  });
-  if (r?.writer && r?.token) return { writer: r.writer, token: r.token };
+const TEMP_MAIL_DOMAINS = ['mailinator.com','10minutemail.com','guerrillamail.com','yopmail.com','tempmail.com','throwawaymail.com','fakemail.net','trashmail.com','maildrop.cc','getnada.com','mohmal.com','sharklasers.com'];
+function mailBaseDomain(d: string): string { const p = d.toLowerCase().split('.'); return p.length > 2 ? p.slice(-2).join('.') : d.toLowerCase(); }
+
+export function validateWriterSignup(username: string, writerName: string, email: string, password: string): CopyKey | null {
+  const uname = (username || '').trim().toLowerCase();
+  if (!/^[a-z0-9_]{3,20}$/.test(uname) || uname.startsWith('_') || uname.endsWith('_') || uname.includes('__')) return 'invalidUsername';
+  const wname = (writerName || '').trim().replace(/\s+/g, ' ');
+  if (wname.length < 2 || wname.length > 30) return 'invalidWriterName';
+  if (!/^[A-Za-z\u0980-\u09FF\u0900-\u097F .'\-]+$/.test(wname)) return 'invalidWriterName';
+  if (!/[A-Za-z\u0980-\u09FF\u0900-\u097F]/.test(wname)) return 'invalidWriterName';
+  if (/(.)\1{3,}/.test(wname.replace(/ /g, ''))) return 'invalidWriterName';
+  const em = (email || '').trim().toLowerCase();
+  if (!em || em.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) return 'invalidEmail';
+  const dom = em.split('@')[1] || '';
+  if (TEMP_MAIL_DOMAINS.includes(dom) || TEMP_MAIL_DOMAINS.includes(mailBaseDomain(dom))) return 'tempMailBlocked';
+  const pw = password || '';
+  if (pw.length < 8 || pw.length > 128 || !/[A-Za-z]/.test(pw) || !/[0-9]/.test(pw)) return 'weakPassword';
   return null;
 }
 
-export async function writerLogin(emailOrUsername: string, password: string): Promise<{ writer: Writer; token: string } | null> {
-  const r = await apiFetch<{ writer?: Writer; token?: string; error?: string }>('/api/public/writers/login', {
+export type WriterSignupResult = { writer: Writer; token: string } | { needs_verification: true; email: string; mail_sent?: boolean } | { error: string; retry_after?: number; attempts_left?: number } | null;
+
+export async function writerSignup(username: string, writerName: string, email: string, password: string): Promise<WriterSignupResult> {
+  const r = await apiFetch<{ writer?: Writer; token?: string; needs_verification?: boolean; email?: string; mail_sent?: boolean; error?: string; retry_after?: number; attempts_left?: number }>('/api/public/writers/signup', {
+    method: 'POST', body: JSON.stringify({ username, writer_name: writerName, email, password }),
+  }, { timeout: 25000, errorBody: true });
+  if (!r) return null;
+  if (r.writer && r.token) return { writer: r.writer, token: r.token };
+  if (r.needs_verification && r.email) return { needs_verification: true, email: r.email, mail_sent: r.mail_sent };
+  if (r.error) return { error: r.error, retry_after: r.retry_after, attempts_left: r.attempts_left };
+  return null;
+}
+
+export async function verifyWriterCode(email: string, code: string): Promise<{ writer: Writer; token: string } | { error: string; attempts_left?: number } | null> {
+  const r = await apiFetch<{ writer?: Writer; token?: string; error?: string; attempts_left?: number }>('/api/public/writers/verify', {
+    method: 'POST', body: JSON.stringify({ email, code }),
+  }, { timeout: 15000, errorBody: true });
+  if (!r) return null;
+  if (r.writer && r.token) return { writer: r.writer, token: r.token };
+  if (r.error) return { error: r.error, attempts_left: r.attempts_left };
+  return null;
+}
+
+export async function resendWriterCode(email: string): Promise<{ ok: boolean; mail_sent?: boolean } | { error: string; retry_after?: number } | null> {
+  const r = await apiFetch<{ ok?: boolean; mail_sent?: boolean; error?: string; retry_after?: number }>('/api/public/writers/resend', {
+    method: 'POST', body: JSON.stringify({ email }),
+  }, { timeout: 25000, errorBody: true });
+  if (!r) return null;
+  if (r.ok) return { ok: true, mail_sent: r.mail_sent };
+  if (r.error) return { error: r.error, retry_after: r.retry_after };
+  return null;
+}
+
+export async function forgotWriterPassword(email: string): Promise<{ ok: boolean; mail_sent?: boolean } | { error: string; retry_after?: number } | null> {
+  const r = await apiFetch<{ ok?: boolean; mail_sent?: boolean; error?: string; retry_after?: number }>('/api/public/writers/forgot', {
+    method: 'POST', body: JSON.stringify({ email }),
+  }, { timeout: 25000, errorBody: true });
+  if (!r) return null;
+  if (r.ok) return { ok: true, mail_sent: r.mail_sent };
+  if (r.error) return { error: r.error, retry_after: r.retry_after };
+  return null;
+}
+
+export async function resetWriterPassword(email: string, code: string, newPassword: string): Promise<{ writer: Writer; token: string } | { error: string; attempts_left?: number } | null> {
+  const r = await apiFetch<{ writer?: Writer; token?: string; error?: string; attempts_left?: number }>('/api/public/writers/reset', {
+    method: 'POST', body: JSON.stringify({ email, code, new_password: newPassword }),
+  }, { timeout: 15000, errorBody: true });
+  if (!r) return null;
+  if (r.writer && r.token) return { writer: r.writer, token: r.token };
+  if (r.error) return { error: r.error, attempts_left: r.attempts_left };
+  return null;
+}
+
+export async function writerLogin(emailOrUsername: string, password: string): Promise<{ writer: Writer; token: string } | { unverified: true; email: string } | { error: string } | null> {
+  const r = await apiFetch<{ writer?: Writer; token?: string; error?: string; email?: string }>('/api/public/writers/login', {
     method: 'POST', body: JSON.stringify({ email_or_username: emailOrUsername, password }),
-  });
-  if (r?.writer && r?.token) return { writer: r.writer, token: r.token };
+  }, { timeout: 15000, errorBody: true });
+  if (!r) return null;
+  if (r.writer && r.token) return { writer: r.writer, token: r.token };
+  if (r.error === 'email_unverified' && r.email) return { unverified: true, email: r.email };
+  if (r.error) return { error: r.error };
   return null;
 }
 
@@ -356,20 +428,25 @@ export async function updateWriterProfile(token: string, patch: { writer_name?: 
   } catch { return { ok: false, error: 'Network error' }; }
 }
 
-export async function deleteWriterAccount(token: string): Promise<{ ok: boolean; error?: string }> {
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), TIMEOUT);
-    const res = await fetch(`${API_BASE}/api/writer/account`, {
-      method: 'DELETE',
-      signal: controller.signal,
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    clearTimeout(timer);
-    const body = await res.json().catch(() => null);
-    if (!res.ok) return { ok: false, error: body?.error || `HTTP ${res.status}` };
-    return { ok: true };
-  } catch { return { ok: false, error: 'Network error' }; }
+export async function requestDeleteCode(token: string): Promise<{ ok: boolean; mail_sent?: boolean } | { error: string; retry_after?: number } | null> {
+  const r = await apiFetch<{ ok?: boolean; mail_sent?: boolean; error?: string; retry_after?: number }>('/api/writer/account/code', {
+    method: 'POST', headers: { Authorization: `Bearer ${token}` },
+  }, { timeout: 25000, errorBody: true });
+  if (!r) return null;
+  if (r.ok) return { ok: true, mail_sent: r.mail_sent };
+  if (r.error) return { error: r.error, retry_after: r.retry_after };
+  return null;
+}
+
+export async function deleteWriterAccount(token: string, code?: string): Promise<{ ok: boolean; error?: string; attempts_left?: number }> {
+  const r = await apiFetch<{ ok?: boolean; error?: string; attempts_left?: number }>('/api/writer/account', {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+    body: code ? JSON.stringify({ code }) : undefined,
+  }, { timeout: 25000, errorBody: true });
+  if (!r) return { ok: false, error: 'Network error' };
+  if (r.ok) return { ok: true };
+  return { ok: false, error: r.error || 'Failed', attempts_left: r.attempts_left };
 }
 
 export type WriterDashboard = { stories: number; totalViews: number; followers: number; published: number; pending: number; publishedStories: { id: string; title: string; views: number; cover_url?: string; created_at: string; updated_at: string }[]; todayViews: number; weekViews: number; monthViews: number };
