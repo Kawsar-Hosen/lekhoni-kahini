@@ -10,13 +10,13 @@ const prose = [
 const chapters = (prefix: string) => prose.map((body, index) => ({ id: `${prefix}-${index + 1}`, title: ['ফিরে দেখা', 'নদীর ওপারে', 'নীল রুমাল', 'অচেনা পথ', 'শেষ চিঠি'][index], minutes: 6 + index, body: `${body}\n\n${prose[(index + 1) % prose.length]}\n\n${body}` }));
 
 export const categories = [
-  ['উপন্যাস', 'book-open', '#DDF5EC'], ['রোমান্টিক', 'heart', '#FBE7EB'], ['রহস্য', 'search', '#E8E5F8'],
+  ['উপন্যাস', 'book-open', '#F6E3DC'], ['রোমান্টিক', 'heart', '#FBE7EB'], ['রহস্য', 'search', '#E8E5F8'],
   ['থ্রিলার', 'zap', '#FFF0D7'], ['ভৌতিক', 'moon', '#E4E9ED'], ['কবিতা', 'feather', '#E6F1FF'],
   ['ইতিহাস', 'archive', '#F7EAD7'], ['কিশোর', 'sun', '#FFF6CC'], ['মুক্তিযুদ্ধ', 'flag', '#E1F3E7'],
 ] as const;
 
 export const books: Book[] = [
-  { id: 'nodi', title: 'নদীর ওপারে আলো', author: 'আনিসুল হক', category: 'উপন্যাস', categoryIcon: 'book-open', color: '#123E39', accent: '#F5C660', views: '১৮.৪ হাজার', rating: 4.8, isNew: true, updated: 'আজ', description: 'হারানো শহর, স্মৃতি আর ফিরে আসার আকাঙ্ক্ষা নিয়ে এক মায়াময় উপন্যাস।', chapters: chapters('nodi') },
+  { id: 'nodi', title: 'নদীর ওপারে আলো', author: 'আনিসুল হক', category: 'উপন্যাস', categoryIcon: 'book-open', color: '#4A1220', accent: '#C9972B', views: '১৮.৪ হাজার', rating: 4.8, isNew: true, updated: 'আজ', description: 'হারানো শহর, স্মৃতি আর ফিরে আসার আকাঙ্ক্ষা নিয়ে এক মায়াময় উপন্যাস।', chapters: chapters('nodi') },
   { id: 'megh', title: 'মেঘের নিচে বাড়ি', author: 'সাদাত হোসাইন', category: 'রোমান্টিক', categoryIcon: 'heart', color: '#6D3B46', accent: '#F3B5B9', views: '১২.৯ হাজার', rating: 4.6, updated: '২ ঘণ্টা আগে', description: 'দূরত্বের ভেতরেও পাশাপাশি বেঁচে থাকা দুজন মানুষের কোমল গল্প।', chapters: chapters('megh') },
   { id: 'ghori', title: 'তিনটার ঘড়ি', author: 'মোহাম্মদ নাজিম উদ্দিন', category: 'থ্রিলার', categoryIcon: 'zap', color: '#292E3D', accent: '#DF6E52', views: '৯.৭ হাজার', rating: 4.7, isNew: true, updated: '৫ ঘণ্টা আগে', description: 'প্রতি রাত তিনটায় থেমে যাওয়া ঘড়ি এবং একটি অসমাপ্ত তদন্তের শ্বাসরুদ্ধকর কাহিনী।', chapters: chapters('ghori') },
   { id: 'jochona', title: 'জোছনার অন্ধকার', author: 'তানজিম রহমান', category: 'রহস্য', categoryIcon: 'search', color: '#383655', accent: '#C3B7EA', views: '৭.১ হাজার', rating: 4.5, updated: 'গতকাল', description: 'নির্জন পাহাড়ি বাড়ির বন্ধ দরজার পেছনে লুকিয়ে থাকা বহু বছরের রহস্য।', chapters: chapters('jochona') },

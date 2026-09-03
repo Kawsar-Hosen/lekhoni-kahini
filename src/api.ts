@@ -26,13 +26,13 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> 
 }
 
 function toBookColor(id: string): string {
-  const palette: Record<string, string> = { nodi: '#123E39', megh: '#6D3B46', ghori: '#292E3D', jochona: '#383655', shohor: '#185366', kobita: '#276250', ekattor: '#59412E', chaya: '#232F32' };
+  const palette: Record<string, string> = { nodi: '#4A1220', megh: '#6D3B46', ghori: '#292E3D', jochona: '#383655', shohor: '#185366', kobita: '#276250', ekattor: '#59412E', chaya: '#232F32' };
   return palette[id] || `#${id.split('').reduce((a, c) => a + c.charCodeAt(0), 0).toString(16).slice(-6).padStart(6, '0')}`;
 }
 
 function toAccent(id: string): string {
-  const accents: Record<string, string> = { nodi: '#F5C660', megh: '#F3B5B9', ghori: '#DF6E52', jochona: '#C3B7EA', shohor: '#EFAB62', kobita: '#D9DF91', ekattor: '#D6A25E', chaya: '#A8C0B7' };
-  return accents[id] || '#F5C660';
+  const accents: Record<string, string> = { nodi: '#C9972B', megh: '#F3B5B9', ghori: '#DF6E52', jochona: '#C3B7EA', shohor: '#EFAB62', kobita: '#D9DF91', ekattor: '#D6A25E', chaya: '#A8C0B7' };
+  return accents[id] || '#C9972B';
 }
 
 function toCategoryIcon(cat: string | null): string {
