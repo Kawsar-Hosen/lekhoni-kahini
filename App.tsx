@@ -177,7 +177,7 @@ function AppShell(){
   const [transBook,setTransBook]=useState<{book:Book;fromX:number;fromY:number;fromW:number;fromH:number}|null>(null);
   const transAnim=useRef(new Animated.Value(0)).current;
   const {width:screenW,height:screenH}=useWindowDimensions();
-  const openWithAnim=(book:Book,fromX:number,fromY:number,fromW:number,fromH:number)=>{setTransBook({book,fromX,fromY,fromW,fromH});transAnim.setValue(0);Animated.timing(transAnim,{toValue:1,duration:320,easing:Easing.out(Easing.cubic),useNativeDriver:true}).start(()=>{setTransBook(null);open(book.id)})};
+  const openWithAnim=(book:Book,fromX:number,fromY:number,fromW:number,fromH:number)=>{setTransBook({book,fromX,fromY,fromW,fromH});transAnim.setValue(0);Animated.timing(transAnim,{toValue:1,duration:320,easing:Easing.out(Easing.cubic),useNativeDriver:false}).start(()=>{setTransBook(null);open(book.id)})};
  const theme=themeFor(state.settings.themeId,state.settings.dark);
   const [dlBooks,setDlBooks]=useState<Record<string,Book>>({});
   useEffect(()=>{getOfflineBookIds().then(async ids=>{const loaded:Record<string,Book>={};for(const id of ids){const b=await loadBookOffline(id);if(b)loaded[id]=b}setDlBooks(loaded)}).catch(()=>{})},[]);
@@ -1560,7 +1560,7 @@ return <Pressable key={ch.id} onPress={()=>{setShowChapters(false);p.read(p.book
 </View>}
 function AnimatedToggle({value,onChange,color,track}:{value:boolean;onChange:(v:boolean)=>void;color:string;track:string}){
   const anim=useRef(new Animated.Value(value?1:0)).current;
-  useEffect(()=>{Animated.timing(anim,{toValue:value?1:0,duration:230,useNativeDriver:true}).start();},[value,anim]);
+  useEffect(()=>{Animated.timing(anim,{toValue:value?1:0,duration:230,useNativeDriver:false}).start();},[value,anim]);
   const thumbX=anim.interpolate({inputRange:[0,1],outputRange:[2,26]});
   const bg=anim.interpolate({inputRange:[0,1],outputRange:[track,color]});
   return <Pressable onPress={()=>onChange(!value)} style={{width:54,height:30,borderRadius:15,justifyContent:'center'}}>
