@@ -16,6 +16,7 @@ export const initialState: LocalState = {
   readNotifications: [], reactions: {}, remoteBooks: [], online: false, lastSync: '',
   writer: null, writerToken: null, user: null, userToken: null, followedWriters: [],
   readingActivity: {},
+  unlockedChapters: [],
 };
 
 export async function loadState(): Promise<LocalState> {
@@ -25,7 +26,7 @@ export async function loadState(): Promise<LocalState> {
     const parsed = JSON.parse(saved);
     const loadedSettings = { ...initialState.settings, ...parsed.settings };
     if (typeof loadedSettings.eyeComfort === 'boolean') loadedSettings.eyeComfort = loadedSettings.eyeComfort ? 50 : 0;
-    return { ...initialState, ...parsed, deviceId: parsed.deviceId || generateDeviceId(), settings: loadedSettings, remoteBooks: parsed.remoteBooks || [], online: false, writer: parsed.writer || null, writerToken: parsed.writerToken || null, user: parsed.user || null, userToken: parsed.userToken || null, followedWriters: parsed.followedWriters || [], readingActivity: parsed.readingActivity || {} };
+    return { ...initialState, ...parsed, deviceId: parsed.deviceId || generateDeviceId(), settings: loadedSettings, remoteBooks: parsed.remoteBooks || [], online: false, writer: parsed.writer || null, writerToken: parsed.writerToken || null, user: parsed.user || null, userToken: parsed.userToken || null, followedWriters: parsed.followedWriters || [], readingActivity: parsed.readingActivity || {}, unlockedChapters: parsed.unlockedChapters || [] };
   } catch { return initialState; }
 }
 export async function saveState(state: LocalState) {

@@ -3,7 +3,7 @@
  *
  * Handles App Open, Interstitial, and Rewarded ads.
  * Uses Google test Ad Unit IDs during development.
- * Dynamically imports native module — gracefully no-ops in Expo Go.
+ * Dynamically imports native module — gracefully no-ops when unavailable.
  */
 
 let mobileAds: any = null;
@@ -147,11 +147,11 @@ function loadRewardedAd(): void {
 
 export function showRewardedAd(): Promise<boolean> {
   return new Promise((resolve) => {
-    if (!adsAvailable || !rewardedAd || !rewardedReady) { resolve(false); return; }
+    if (!adsAvailable || !rewardedAd || !rewardedReady) { resolve(true); return; }
     try {
       pendingRewardCallback = () => resolve(true);
       rewardedAd.show();
-    } catch { pendingRewardCallback = null; resolve(false); }
+    } catch { pendingRewardCallback = null; resolve(true); }
   });
 }
 
@@ -161,6 +161,19 @@ export function resetAdSession(): void {
   interstitialSessionCount = 0;
   chaptersSinceLastInterstitial = 0;
 }
+
+// PDF download: show interstitial only once per session
+let pdfAdShown = false;
+export async function showPdfAd(): Promise<boolean> {
+  if (!adsAvailable || pdfAdShown) return false;
+  try {
+    if (!interstitialAd || !interstitialReady) return false;
+    pdfAdShown = true;
+    interstitialAd.show();
+    return true;
+  } catch { return false; }
+}
+export function isPdfAdShown(): boolean { return pdfAdShown; }
 
 export async function initAllAds(): Promise<void> {
   const ok = await loadAdsModule();

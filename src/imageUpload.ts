@@ -3,6 +3,11 @@ import * as ImageManipulator from 'expo-image-manipulator';
 
 const API_BASE = 'https://lekhoni-admin-api.smdkawsar2.workers.dev';
 
+// Book cover: 2:3 vertical ratio
+// Recommended: 600×900 | High quality: 800×1200 | Minimum: 400×600
+const COVER_ASPECT: [number, number] = [2, 3];
+const COVER_WIDTH = 800; // outputs 800×1200 (high quality)
+
 export async function pickAndResizeImage(type: 'avatar' | 'cover'): Promise<string | null> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!perm.granted) return null;
@@ -11,11 +16,11 @@ export async function pickAndResizeImage(type: 'avatar' | 'cover'): Promise<stri
     mediaTypes: ['images'],
     quality: 0.85,
     allowsEditing: true,
-    aspect: type === 'avatar' ? [1, 1] : [4, 3],
+    aspect: type === 'avatar' ? [1, 1] : COVER_ASPECT,
   });
   if (result.canceled || !result.assets?.[0]) return null;
 
-  const size = type === 'avatar' ? 400 : 800;
+  const size = type === 'avatar' ? 400 : COVER_WIDTH;
   const manipulated = await ImageManipulator.manipulateAsync(
     result.assets[0].uri,
     [{ resize: { width: size } }],
@@ -29,10 +34,15 @@ export async function pickAndResizeImage(type: 'avatar' | 'cover'): Promise<stri
     type: 'image/jpeg',
   } as any);
 
-  const uploadRes = await fetch(`${API_BASE}/api/media`, {
-    method: 'POST',
-    body: formData,
-  });
+  let uploadRes: Response;
+  try {
+    uploadRes = await fetch(`${API_BASE}/api/media`, {
+      method: 'POST',
+      body: formData,
+    });
+  } catch (e: any) {
+    throw new Error('Network error');
+  }
   if (!uploadRes.ok) return null;
   const data = await uploadRes.json();
   return data.url || null;

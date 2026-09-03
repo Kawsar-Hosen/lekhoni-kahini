@@ -4,7 +4,7 @@ import { Book, Chapter } from './types';
 const API_BASE = 'https://lekhoni-admin-api.smdkawsar2.workers.dev';
 const TIMEOUT = 6000;
 
-type RemoteBook = { id:string; title:string; author:string; cover_url:string|null; status:string; views:number|string; likes:number|string; dislikes:number|string; description:string|null; category:string|null; color:string; accent:string; is_new?:boolean; featured?:boolean; home_section?:string|null; views_visible?:boolean; display_status?:string; writer_status?:string; hide_title_on_cover?:boolean; updated_at:string };
+type RemoteBook = { id:string; title:string; author:string; cover_url:string|null; status:string; views:number|string; likes:number|string; dislikes:number|string; description:string|null; category:string|null; color:string; accent:string; is_new?:boolean; featured?:boolean; home_section?:string|null; views_visible?:boolean; display_status?:string; writer_status?:string; hide_title_on_cover?:boolean; pdf_url?:string; dedication?:string; author_name?:string; show_ads?:boolean; pdf_reward_ad?:boolean; updated_at:string };
 type RemoteChapter = { id:string; book_id:string; title:string; body:string; position:number; sort_order?:number; minutes?:number };
 type RemoteComment = { id:string; book_id:string; display_name:string; body:string; status:string; created_at:string };
 type RemoteNotification = { id:string; title:string; body:string; icon:string|null; url:string|null; story_cover?:string; created_at:string };
@@ -14,7 +14,11 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T | null> 
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), TIMEOUT);
-    const response = await fetch(`${API_BASE}${path}`, { ...init, signal: controller.signal, headers: { 'content-type': 'application/json', ...init?.headers } });
+    const isFormData = init?.body instanceof FormData;
+    const headers: Record<string, string> = {};
+    if (!isFormData) headers['content-type'] = 'application/json';
+    if (init?.headers) Object.assign(headers, init.headers);
+    const response = await fetch(`${API_BASE}${path}`, { ...init, signal: controller.signal, headers });
     clearTimeout(timer);
     if (!response.ok) return null;
     return await response.json() as T;
@@ -50,6 +54,8 @@ function mergeRemoteBooks(remote: RemoteBook[], chaptersByBook: Record<string, R
       display_status: b.display_status || undefined,
       writer_status: b.writer_status || undefined,
       hide_title_on_cover: b.hide_title_on_cover || false,
+      pdf_url: b.pdf_url || '', dedication: b.dedication || '', author_name: b.author_name || '',
+      show_ads: b.show_ads !== false, pdf_reward_ad: b.pdf_reward_ad !== false,
     };
   }).filter(Boolean) as Book[];
 }
@@ -79,6 +85,8 @@ export async function fetchRemoteBook(id: string): Promise<Book | null> {
     description: b.description || '', updated: 'অনলাইন', isNew: Boolean(b.is_new), chapters: chs, cover_url: b.cover_url || null,
     display_status: b.display_status || undefined, writer_status: b.writer_status || undefined,
     hide_title_on_cover: b.hide_title_on_cover || false,
+    pdf_url: b.pdf_url || '', dedication: b.dedication || '', author_name: b.author_name || '',
+    show_ads: b.show_ads !== false, pdf_reward_ad: b.pdf_reward_ad !== false,
   };
 }
 
@@ -276,10 +284,17 @@ export async function fetchWriterStories(token: string): Promise<Story[]> {
   return (await writerApiFetch<Story[]>('/api/writer/stories', token)) || [];
 }
 
-export async function createWriterStory(token: string, title: string, description: string, category: string, coverUrl?: string, displayStatus?: string, writerStatus?: string, hideTitleOnCover?: boolean): Promise<Story | null> {
+export async function createWriterStory(token: string, title: string, description: string, category: string, coverUrl?: string, displayStatus?: string, writerStatus?: string, hideTitleOnCover?: boolean, pdfUrl?: string, dedication?: string, authorName?: string): Promise<Story | null> {
   return writerApiFetch<Story>('/api/writer/stories', token, {
-    method: 'POST', body: JSON.stringify({ title, description, category, cover_url: coverUrl, display_status: displayStatus, writer_status: writerStatus, hide_title_on_cover: hideTitleOnCover }),
+    method: 'POST', body: JSON.stringify({ title, description, category, cover_url: coverUrl, display_status: displayStatus, writer_status: writerStatus, hide_title_on_cover: hideTitleOnCover, pdf_url: pdfUrl, dedication, author_name: authorName }),
   });
+}
+
+export async function uploadWriterPdf(token: string, fileUri: string, fileName: string): Promise<string | null> {
+  const formData = new FormData();
+  formData.append('file', { uri: fileUri, name: fileName, type: 'application/pdf' } as any);
+  const r = await apiFetch<{ url?: string }>(`/api/writer/upload-pdf`, { method: 'POST', body: formData, headers: { Authorization: `Bearer ${token}` } });
+  return r?.url || null;
 }
 
 export async function updateWriterStory(token: string, storyId: string, patch: { title?: string; description?: string; status?: string; category?: string; display_status?: string; writer_status?: string; cover_url?: string }): Promise<boolean> {
