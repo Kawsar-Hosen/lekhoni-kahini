@@ -28,57 +28,45 @@ type Theme = {dark:boolean;primary:string;bg:string;card:string;ink:string;muted
 const I = (name:string) => (Feather.glyphMap as Record<string,unknown>)[name] ? name as keyof typeof Feather.glyphMap : 'bell';
 
 function SplashScreen({theme}:{theme:Theme}){
-  const[typed,setTyped]=useState('');
-  const full='লেখনী কাহিনী';
   const{height}=useWindowDimensions();
-  const fadeAnim=useRef(new Animated.Value(0)).current;
-  const scaleAnim=useRef(new Animated.Value(0.7)).current;
-  const glowAnim=useRef(new Animated.Value(0.2)).current;
-  const breathe=useRef(new Animated.Value(0)).current;
+  const logoFade=useRef(new Animated.Value(0)).current;
+  const logoScale=useRef(new Animated.Value(0.85)).current;
+  const nameFade=useRef(new Animated.Value(0)).current;
+  const dotA=useRef(new Animated.Value(0)).current;
+  const dotB=useRef(new Animated.Value(0)).current;
+  const dotC=useRef(new Animated.Value(0)).current;
   useEffect(()=>{
     Animated.parallel([
-      Animated.timing(fadeAnim,{toValue:1,duration:1000,useNativeDriver:true}),
-      Animated.spring(scaleAnim,{toValue:1,friction:7,useNativeDriver:true}),
+      Animated.timing(logoFade,{toValue:1,duration:1000,useNativeDriver:true}),
+      Animated.spring(logoScale,{toValue:1,friction:8,tension:45,useNativeDriver:true}),
+      Animated.timing(nameFade,{toValue:1,duration:800,delay:450,useNativeDriver:true}),
     ]).start();
-    Animated.loop(Animated.sequence([
-      Animated.timing(breathe,{toValue:1,duration:2000,easing:Easing.inOut(Easing.sin),useNativeDriver:true}),
-      Animated.timing(breathe,{toValue:0,duration:2000,easing:Easing.inOut(Easing.sin),useNativeDriver:true}),
-    ])).start();
-    Animated.loop(Animated.sequence([
-      Animated.timing(glowAnim,{toValue:0.5,duration:1800,useNativeDriver:true}),
-      Animated.timing(glowAnim,{toValue:0.2,duration:1800,useNativeDriver:true}),
-    ])).start();
-    let i=0;const iv=setInterval(()=>{i++;setTyped(full.slice(0,i));if(i>=full.length)clearInterval(iv)},80);return()=>clearInterval(iv);
+    const loops=[dotA,dotB,dotC].map((d,i)=>Animated.loop(Animated.sequence([Animated.delay(i*350),Animated.timing(d,{toValue:1,duration:650,useNativeDriver:true}),Animated.timing(d,{toValue:0,duration:650,useNativeDriver:true})])));
+    loops.forEach(l=>l.start());
+    return()=>{loops.forEach(l=>l.stop())};
   },[]);
-  const circleSize=Math.min(height*0.38,260);
-  return <View style={{flex:1,backgroundColor:'#3B0F1C',alignItems:'center',justifyContent:'center'}}>
+  return <View style={{flex:1,backgroundColor:'#7B1E2B',alignItems:'center',justifyContent:'center'}}>
     <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,overflow:'hidden'}}>
-      <View style={{position:'absolute',width:height*0.6,height:height*0.6,borderRadius:height*0.3,backgroundColor:'rgba(255,255,255,0.025)',top:-height*0.12,right:-height*0.15}}/>
-      <View style={{position:'absolute',width:height*0.45,height:height*0.45,borderRadius:height*0.225,backgroundColor:'rgba(255,255,255,0.02)',bottom:-height*0.08,left:-height*0.12}}/>
-      <View style={{position:'absolute',width:height*0.3,height:height*0.3,borderRadius:height*0.15,backgroundColor:'rgba(255,255,255,0.018)',top:height*0.55,right:height*0.1}}/>
+      <View style={{position:'absolute',width:height*0.62,height:height*0.62,borderRadius:height*0.31,backgroundColor:'#5A111D',opacity:0.55,top:-height*0.14,right:-height*0.16}}/>
+      <View style={{position:'absolute',width:height*0.48,height:height*0.48,borderRadius:height*0.24,backgroundColor:'#5A111D',opacity:0.45,bottom:-height*0.1,left:-height*0.13}}/>
+      <View style={{position:'absolute',width:height*0.3,height:height*0.3,borderRadius:height*0.15,backgroundColor:'#ffffff',opacity:0.03,top:height*0.52,right:height*0.08}}/>
+      <View style={{position:'absolute',width:height*0.16,height:height*0.16,borderRadius:height*0.08,backgroundColor:'#C9972B',opacity:0.05,top:height*0.16,left:height*0.06}}/>
     </View>
-    <Animated.View style={{alignItems:'center',opacity:fadeAnim,transform:[{scale:scaleAnim}]}}>
-      <Animated.View style={{width:circleSize,height:circleSize,borderRadius:circleSize/2,backgroundColor:'rgba(255,255,255,0.08)',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'rgba(255,255,255,0.1)',transform:[{scale:breathe.interpolate({inputRange:[0,1],outputRange:[0.97,1.03]})}],shadowColor:'#fff',shadowOpacity:0.06,shadowRadius:30,shadowOffset:{width:0,height:0},elevation:8}}>
-        <Svg width={circleSize*0.52} height={circleSize*0.52} viewBox="0 0 100 100" fill="none">
-          <G opacity={0.9}>
-            <Path d="M50 25 C50 25, 62 35, 62 48 C62 56, 56 62, 50 62 C44 62, 38 56, 38 48 C38 35, 50 25, 50 25Z" fill="rgba(255,255,255,0.85)"/>
-            <Path d="M50 25 C50 25, 38 20, 30 30 C22 40, 30 52, 38 50" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" fill="none"/>
-            <Path d="M50 25 C50 25, 62 20, 70 30 C78 40, 70 52, 62 50" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" fill="none"/>
-            <Path d="M50 62 C50 62, 50 72, 50 82" stroke="rgba(255,255,255,0.6)" strokeWidth="1.5" strokeLinecap="round"/>
-            <Path d="M50 70 C46 66, 40 66, 38 70" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
-            <Path d="M50 74 C54 70, 60 70, 62 74" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
-            <Circle cx="50" cy="42" r="3" fill="rgba(255,255,255,0.4)"/>
-            <Path d="M35 44 C28 48, 22 58, 28 65 C34 72, 42 65, 42 58" stroke="rgba(255,255,255,0.25)" strokeWidth="1" fill="none"/>
-            <Path d="M65 44 C72 48, 78 58, 72 65 C66 72, 58 65, 58 58" stroke="rgba(255,255,255,0.25)" strokeWidth="1" fill="none"/>
-          </G>
-        </Svg>
-      </Animated.View>
-      <View style={{marginTop:28,alignItems:'center'}}>
-        <T style={{color:'#fff',fontSize:34,fontWeight:'900',letterSpacing:1,fontFamily:'HindSiliguriMedium'}}>{typed}<Animated.View style={{width:2,height:28,backgroundColor:'#fff',borderRadius:1,marginLeft:2,opacity:glowAnim,alignSelf:'flex-end',marginBottom:4}}/></T>
+    <Animated.View style={{alignItems:'center',opacity:logoFade,transform:[{scale:logoScale}]}}>
+      <View style={{width:128,height:128,borderRadius:64,backgroundColor:'#C9972B1F',alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:'#C9972B30'}}>
+        <Image source={require('./assets/adaptive-icon.png')} style={{width:96,height:96,borderRadius:24}} resizeMode="contain"/>
       </View>
     </Animated.View>
-    <View style={{position:'absolute',bottom:36,alignItems:'center'}}>
-      <T style={{color:'rgba(255,255,255,0.2)',fontSize:9,fontWeight:'500',letterSpacing:1}}>LEKHONI KAHINI</T>
+    <Animated.View style={{alignItems:'center',opacity:nameFade,marginTop:24}}>
+      <T style={{color:'#FAF6F1',fontSize:34,fontWeight:'900',letterSpacing:1,fontFamily:'HindSiliguriMedium'}}>লেখনী কাহিনী</T>
+      <T style={{color:'rgba(250,246,241,0.75)',fontSize:14,marginTop:10,fontFamily:'HindSiliguriMedium',textAlign:'center',lineHeight:22,letterSpacing:0.5,paddingHorizontal:40}}>উপন্যাস, গল্প, সাহিত্য ও ইতিহাস — সব একসাথে</T>
+      <View style={{flexDirection:'row',alignItems:'center',gap:8,marginTop:26}}>
+        {[dotA,dotB,dotC].map((d,i)=>{const op=d.interpolate({inputRange:[0,1],outputRange:[0.25,1]});const sc=d.interpolate({inputRange:[0,1],outputRange:[0.8,1.15]});return <Animated.View key={i} style={{width:8,height:8,borderRadius:4,backgroundColor:'#C9972B',opacity:op,transform:[{scale:sc}]}}/>})}
+      </View>
+    </Animated.View>
+    <View style={{position:'absolute',bottom:32,alignItems:'center'}}>
+      <T style={{color:'rgba(250,246,241,0.35)',fontSize:9,fontWeight:'500',letterSpacing:1}}>LEKHONI KAHINI</T>
+      <T style={{color:'rgba(250,246,241,0.3)',fontSize:10,marginTop:3}}>v1.1.0</T>
     </View>
   </View>;
 }
@@ -224,7 +212,7 @@ function AppShell(){
   const [loadError,setLoadError]=useState<string|null>(null);
   const [isOffline,setIsOffline]=useState(false);
   const [retryCount,setRetryCount]=useState(0);
-  useEffect(()=>{const t=setTimeout(()=>setSplashPhase('loading'),800);return()=>clearTimeout(t)},[]);
+  useEffect(()=>{const t=setTimeout(()=>setSplashPhase('loading'),2200);return()=>clearTimeout(t)},[]);
   useEffect(()=>{if(splashPhase!=='loading')return;const t=setTimeout(()=>{if(!loaded&&!isOffline)setLoadError('timeout')},15000);return()=>clearTimeout(t)},[splashPhase,loaded,isOffline]);
   // Real-time network detection (dynamic import for native module compat)
   useEffect(()=>{const unsub=NetInfo.addEventListener((s:any)=>{const off=!s.isConnected||!s.isInternetReachable;setIsOffline(off)});return()=>{unsub()}},[]);
