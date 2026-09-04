@@ -9,6 +9,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { useFonts } from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ExpoNotifications from 'expo-notifications';
+import * as Speech from 'expo-speech';
 import * as Device from 'expo-device';
 import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
 import * as DocumentPicker from 'expo-document-picker';
@@ -1559,35 +1560,170 @@ function ReaderToggle({value,onChange,primary,bg}:{value:boolean;onChange:(v:boo
     </Pressable>
   );
 }
+export type VoiceOpt={id:string;name:string;lang:string;gender:'male'|'female'|'other'};
+export function guessVoiceGender(name:string,id:string):'male'|'female'|'other'{
+  const s=((name||'')+' '+(id||'')).toLowerCase();
+  if(/(female|woman|girl|lady|নারী|মহিলা|মেয়ে|महिला|लड़की)/.test(s))return 'female';
+  if(/(male|\bman\b|boy|gentleman|পুরুষ|ছেলে|पुरुष|लड़का)/.test(s))return 'male';
+  return 'other';
+}
+
+function VoiceSheet({rc,lang,voiceId,voiceRate,voicePitch,highlight,onPick,onRate,onPitch,onToggleHighlight,onClose,onTest}:{rc:{bg:string;card:string;ink:string;muted:string;primary:string;line:string};lang:Language;voiceId?:string|null;voiceRate:number;voicePitch:number;highlight:boolean;onPick:(id:string,lang:string)=>void;onRate:(r:number)=>void;onPitch:(pz:number)=>void;onToggleHighlight:(v:boolean)=>void;onClose:()=>void;onTest:()=>void}){
+  const[voices,setVoices]=useState<VoiceOpt[]>([]);
+  const[loading,setLoading]=useState(true);
+  useEffect(()=>{let on=true;Speech.getAvailableVoicesAsync().then(vs=>{if(!on)return;const bn=(vs||[]).filter(v=>(v.language||'').toLowerCase().startsWith('bn')).map(v=>({id:v.identifier,name:v.name||v.identifier,lang:v.language||'bn',gender:guessVoiceGender(v.name||'',v.identifier)}));setVoices(bn);setLoading(false)}).catch(()=>{if(on)setLoading(false)});return()=>{on=false}},[]);
+  const females=voices.filter(v=>v.gender==='female');
+  const males=voices.filter(v=>v.gender==='male');
+  const others=voices.filter(v=>v.gender==='other');
+  const grouped=females.length||males.length;
+  const rateOpts=[{v:0.75,l:lang==='bn'?'ধীর':lang==='hi'?'धीमा':'Slow'},{v:1,l:lang==='bn'?'স্বাভাবিক':lang==='hi'?'सामान्य':'Normal'},{v:1.25,l:lang==='bn'?'দ্রুত':lang==='hi'?'तेज़':'Fast'}];
+  const pitchOpts=[{v:0.8,l:lang==='bn'?'নিচু':lang==='hi'?'नीची':'Low'},{v:1,l:lang==='bn'?'স্বাভাবিক':lang==='hi'?'सामान्य':'Normal'},{v:1.2,l:lang==='bn'?'উঁচু':lang==='hi'?'ऊँची':'High'}];
+  const row=(v:VoiceOpt)=><Pressable key={v.id} onPress={()=>onPick(v.id,v.lang)} style={{flexDirection:'row',alignItems:'center',gap:10,paddingVertical:10,paddingHorizontal:12,borderRadius:12,backgroundColor:voiceId===v.id?rc.primary+'14':'transparent',borderWidth:1,borderColor:voiceId===v.id?rc.primary:rc.line,marginBottom:6}}>
+    <View style={{width:22,height:22,borderRadius:11,borderWidth:2,borderColor:voiceId===v.id?rc.primary:rc.muted,alignItems:'center',justifyContent:'center'}}>{voiceId===v.id&&<View style={{width:10,height:10,borderRadius:5,backgroundColor:rc.primary}}/>}</View>
+    <View style={{flex:1}}><T numberOfLines={1} style={{fontSize:14,fontWeight:'700',color:rc.ink}}>{v.name}</T><T style={{fontSize:10,color:rc.muted,marginTop:1}}>{v.lang}</T></View>
+    {voiceId===v.id&&<Feather name="check" size={16} color={rc.primary}/>}
+  </Pressable>;
+  const group=(title:string,list:VoiceOpt[])=>list.length?<View style={{marginBottom:10}}><T style={{fontSize:11,fontWeight:'800',color:rc.muted,marginBottom:6}}>{title}</T>{list.map(row)}</View>:null;
+  return <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'flex-end',zIndex:200}}>
+    <Pressable onPress={onClose} style={{position:'absolute',top:0,left:0,right:0,bottom:0}}/>
+    <View style={{backgroundColor:rc.card,borderTopLeftRadius:24,borderTopRightRadius:24,padding:20,paddingBottom:28,maxHeight:'75%'}}>
+      <View style={{width:40,height:4,borderRadius:2,backgroundColor:rc.line,alignSelf:'center',marginBottom:14}}/>
+      <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:14}}>
+        <T style={{fontSize:17,fontWeight:'900',color:rc.ink}}>{lang==='bn'?'ভয়েস সেটিংস':lang==='hi'?'वॉइस सेटिंग':'Voice Settings'}</T>
+        <Pressable onPress={onClose} hitSlop={10}><Feather name="x" size={20} color={rc.muted}/></Pressable>
+      </View>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {loading?<ActivityIndicator color={rc.primary} style={{marginVertical:20}}/>:voices.length===0?<T style={{fontSize:13,color:rc.muted,textAlign:'center',marginVertical:20,lineHeight:20}}>{lang==='bn'?'বাংলা ভয়েস পাওয়া যায়নি। TTS সেটিংস থেকে ডাউনলোড করুন।':lang==='hi'?'बंगाली आवाज़ नहीं मिली।':'No Bengali voice found.'}</T>:<>
+          {grouped?<>{group(lang==='bn'?'মহিলা কণ্ঠ':lang==='hi'?'महिला आवाज़':'Female voice',females)}{group(lang==='bn'?'পুরুষ কণ্ঠ':lang==='hi'?'पुरुष आवाज़':'Male voice',males)}{group(lang==='bn'?'অন্যান্য':lang==='hi'?'अन्य':'Others',others)}</>:<View style={{marginBottom:10}}>{voices.map(row)}</View>}
+        </>}
+        <T style={{fontSize:11,fontWeight:'800',color:rc.muted,marginBottom:6,marginTop:4}}>{lang==='bn'?'গতি':lang==='hi'?'गति':'Speed'}</T>
+        <View style={{flexDirection:'row',gap:8,marginBottom:12}}>
+          {rateOpts.map(o=>{const act=Math.abs(voiceRate-o.v)<0.01;return <Pressable key={o.v} onPress={()=>onRate(o.v)} style={{flex:1,paddingVertical:9,borderRadius:10,alignItems:'center',backgroundColor:act?rc.primary:rc.bg,borderWidth:1,borderColor:act?rc.primary:rc.line}}><T style={{fontSize:12,fontWeight:'800',color:act?'#fff':rc.muted}}>{o.l}</T></Pressable>})}
+        </View>
+        <T style={{fontSize:11,fontWeight:'800',color:rc.muted,marginBottom:6}}>{lang==='bn'?'সুর':lang==='hi'?'सुर':'Pitch'}</T>
+        <View style={{flexDirection:'row',gap:8,marginBottom:16}}>
+          {pitchOpts.map(o=>{const act=Math.abs(voicePitch-o.v)<0.01;return <Pressable key={o.v} onPress={()=>onPitch(o.v)} style={{flex:1,paddingVertical:9,borderRadius:10,alignItems:'center',backgroundColor:act?rc.primary:rc.bg,borderWidth:1,borderColor:act?rc.primary:rc.line}}><T style={{fontSize:12,fontWeight:'800',color:act?'#fff':rc.muted}}>{o.l}</T></Pressable>})}
+        </View>
+        <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:16}}>
+          <T style={{fontSize:13,fontWeight:'800',color:rc.ink}}>{lang==='bn'?'পড়ার চিহ্ন':lang==='hi'?'पठन चिह्न':'Reading mark'}</T>
+          <View style={{flexDirection:'row',gap:8}}>
+            {[{v:true,l:lang==='bn'?'চালু':lang==='hi'?'चालू':'On'},{v:false,l:lang==='bn'?'বন্ধ':lang==='hi'?'बंद':'Off'}].map(o=><Pressable key={o.l} onPress={()=>onToggleHighlight(o.v)} style={{paddingVertical:7,paddingHorizontal:16,borderRadius:10,alignItems:'center',backgroundColor:(highlight&&o.v)||(!highlight&&!o.v)?rc.primary:rc.bg,borderWidth:1,borderColor:(highlight&&o.v)||(!highlight&&!o.v)?rc.primary:rc.line}}><T style={{fontSize:12,fontWeight:'800',color:(highlight&&o.v)||(!highlight&&!o.v)?'#fff':rc.muted}}>{o.l}</T></Pressable>)}
+          </View>
+        </View>
+        <Pressable onPress={onTest} style={{backgroundColor:rc.primary,borderRadius:12,height:48,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:8}}>
+          <Feather name="play" size={16} color="#fff"/>
+          <T style={{color:'#fff',fontSize:14,fontWeight:'800'}}>{lang==='bn'?'শুনে দেখুন':lang==='hi'?'सुनकर देखें':'Preview'}</T>
+        </Pressable>
+      </ScrollView>
+    </View>
+  </View>;
+}
+
+function ReaderSlider({value,min,max,step,cardBg,lineBg,primary,onValueChange}:{value:number;min:number;max:number;step:number;cardBg:string;lineBg:string;primary:string;onValueChange:(v:number)=>void}){
+  const pct=(value-min)/(max-min);const steps=Math.round((max-min)/step);
+  const trackW=useRef(0);const[drag,setDrag]=useState(false);
+  const[live,setLive]=useState<number|null>(null);
+  const lastSent=useRef(0);const lastNv=useRef(value);
+  const cfg=useRef({min,max,step,onValueChange});cfg.current={min,max,step,onValueChange};
+  const commit=(nv:number,force?:boolean)=>{lastNv.current=nv;const now=Date.now();if(force||now-lastSent.current>120){lastSent.current=now;cfg.current.onValueChange(nv)}};
+  const setFromX=(x:number)=>{const c=cfg.current;const w=trackW.current||1;const r=Math.max(0,Math.min(1,x/w));const raw=c.min+r*(c.max-c.min);const stepped=Math.round(raw/c.step)*c.step;const nv=Math.round(Math.max(c.min,Math.min(c.max,stepped))*10)/10;setLive(r);commit(nv);};
+  const endDrag=()=>{setDrag(false);setLive(null);commit(lastNv.current,true);};
+  const pan=useRef(PanResponder.create({onStartShouldSetPanResponder:()=>true,onMoveShouldSetPanResponder:()=>true,onPanResponderGrant:(e:any)=>{setDrag(true);setFromX(e.nativeEvent.locationX)},onPanResponderMove:(e:any)=>setFromX(e.nativeEvent.locationX),onPanResponderRelease:()=>endDrag(),onPanResponderTerminate:()=>endDrag()})).current;
+  const dispPct=live??pct;
+  return <View style={{height:44,paddingHorizontal:11,justifyContent:'center'}}>
+    <View onLayout={(e)=>{trackW.current=e.nativeEvent.layout.width}} {...pan.panHandlers} style={{position:'relative',height:44,justifyContent:'center'}}>
+      <View style={{height:10,borderRadius:5,backgroundColor:lineBg,overflow:'hidden'}}><View style={{height:10,borderRadius:5,backgroundColor:primary,width:`${dispPct*100}%`}}/></View>
+      {Array.from({length:steps+1}).map((_,i)=>{const x=i/steps;return <View key={i} style={{position:'absolute',left:`${x*100}%`,width:6,height:6,borderRadius:3,backgroundColor:Math.abs(dispPct-x)<0.01?primary:lineBg,top:19,marginLeft:-3}}/>})}
+      <View style={{position:'absolute',left:`${dispPct*100}%`,marginLeft:-11,top:11,width:22,height:22,borderRadius:11,backgroundColor:cardBg,borderWidth:2.5,borderColor:primary,elevation:drag?5:3,shadowColor:'#000',shadowOpacity:drag?0.3:0.15,shadowRadius:drag?6:4,shadowOffset:{width:0,height:2},transform:[{scale:drag?1.15:1}]}}/>
+    </View>
+  </View>;
+}
+
+function splitBody(body:string):{sents:string[];groups:{text:string;start:number;end:number}[]}{
+  const bits=(body||'').split(/([।!?…\n]+)/);
+  const sents:string[]=[];
+  for(let k=0;k<bits.length;k+=2){const st=((bits[k]||'')+(bits[k+1]||'')).trim();if(st)sents.push(st)}
+  const groups:{text:string;start:number;end:number}[]=[];
+  let cur='',start=0;
+  sents.forEach((st,idx)=>{
+    const add=(cur?cur+' '+st:st);
+    if(add.trim().length>1800&&cur.trim()){groups.push({text:cur.trim(),start,end:idx});cur=st;start=idx}
+    else cur=add;
+  });
+  if(cur.trim())groups.push({text:cur.trim(),start,end:sents.length});
+  return{sents,groups};
+}
+
 function Reader(p:C&{book:Book;chapter:number}){const insets=useSafeAreaInsets();const {width}=useWindowDimensions();const c=p.book.chapters[p.chapter];if(!c)return <View style={{flex:1,backgroundColor:p.theme.reader,alignItems:'center',justifyContent:'center',padding:30}}><Feather name="book-open" size={40} color={p.theme.muted}/><T style={{color:p.theme.ink,fontWeight:'800',fontSize:16,textAlign:'center',marginTop:14}}>এই বইয়ে এখনো কোনো অধ্যায় নেই।</T><Button title="ফিরে যান" icon="arrow-left" onPress={()=>p.setScreen({type:'book',id:p.book.id})}/></View>;const key=c.id,progress=p.state.positions[key]||0;
 const [showSettings,setShowSettings]=useState(false);
+const[speaking,setSpeaking]=useState(false);
+const[spokenIdx,setSpokenIdx]=useState(-1);
+const[showVoice,setShowVoice]=useState(false);
+const speakPulse=useRef(new Animated.Value(1)).current;
+const speakRef=useRef<{active:boolean;chunks:string[];idx:number}>({active:false,chunks:[],idx:0});
+const bnVoiceRef=useRef<string|null>(null);
+const stopSpeak=useCallback(()=>{speakRef.current.active=false;try{Speech.stop()}catch{}setSpeaking(false);setSpokenIdx(-1)},[]);
+const chunkText=(body:string):string[]=>{
+  const ss=splitBody(body).sents;
+  return ss.length?ss:[(body||'').slice(0,1800)];
+};
+const speakOpts=useRef<{language:string;voice?:string;rate:number;pitch:number}>({language:'bn',rate:1,pitch:1});
+const speakChunks=()=>{const st=speakRef.current;if(!st.active)return;const ch=st.chunks[st.idx];if(ch==null){st.active=false;setSpeaking(false);setSpokenIdx(-1);return}
+  const o=speakOpts.current;
+  Speech.speak(ch,{language:o.language,voice:o.voice,rate:o.rate,pitch:o.pitch,onDone:()=>{if(!speakRef.current.active)return;speakRef.current.idx++;setSpokenIdx(speakRef.current.idx);speakChunks()},onStopped:()=>{speakRef.current.active=false;setSpeaking(false);setSpokenIdx(-1)},onError:()=>{speakRef.current.active=false;setSpeaking(false);setSpokenIdx(-1)}});};
+const toggleSpeak=async()=>{
+  if(speaking){stopSpeak();return}
+  const L=s.language;
+  const rate=s.voiceRate||1, pitch=s.voicePitch||1;
+  let language='bn',voice:string|undefined=undefined;
+  if(s.voiceId){voice=s.voiceId;language=s.voiceLang||'bn'}
+  else{
+    try{
+      if(!bnVoiceRef.current){const voices=await Speech.getAvailableVoicesAsync();const bn=voices.find(v=>(v.language||'').toLowerCase().startsWith('bn'));if(bn)bnVoiceRef.current=bn.language;}
+    }catch{}
+    if(!bnVoiceRef.current){Alert.alert(L==='bn'?'বাংলা ভয়েস পাওয়া যায়নি':L==='hi'?'बंगाली आवाज़ नहीं मिली':'Bengali voice not found',L==='bn'?'ডিভাইসের Text-to-Speech সেটিংস থেকে বাংলা ভয়েস ডাউনলোড করুন।':L==='hi'?'डिवाइस की Text-to-Speech सेटिंग से बंगाली आवाज़ डाउनलोड करें।':'Download Bengali voice data from device Text-to-Speech settings.');return}
+    language=bnVoiceRef.current;
+  }
+  speakOpts.current={language,voice,rate,pitch};
+  const chunks=chunkText(c.body||'');
+  if(!chunks.length||!chunks[0].trim())return;
+  speakRef.current={active:true,chunks,idx:0};
+  setSpeaking(true);
+  setSpokenIdx(0);
+  Vibration.vibrate(20);
+  speakChunks();
+};
+const testVoice=()=>{if(speaking)stopSpeak();try{Speech.stop()}catch{};Speech.speak('লেখনী কাহিনীতে স্বাগতম',{language:s.voiceLang||'bn',voice:s.voiceId||undefined,rate:s.voiceRate||1,pitch:s.voicePitch||1});};
 const [showChapters,setShowChapters]=useState(false);
 const [readSeconds,setReadSeconds]=useState(0);
 const autoScrollRef=useRef<ReturnType<typeof setInterval>|null>(null);
 const scrollRef=useRef<ScrollView>(null);
 const autoOffsetRef=useRef(0);
 const s=p.state.settings;
-useEffect(()=>{setReadSeconds(0)},[p.chapter]);
+useEffect(()=>{setReadSeconds(0);stopSpeak()},[p.chapter]);
+useEffect(()=>()=>{try{Speech.stop()}catch{}},[]);
+useEffect(()=>{let loop:any=null;if(speaking){loop=Animated.loop(Animated.sequence([Animated.timing(speakPulse,{toValue:1.18,duration:600,useNativeDriver:true}),Animated.timing(speakPulse,{toValue:1,duration:600,useNativeDriver:true})]));loop.start()}else{speakPulse.setValue(1)}return()=>{if(loop)loop.stop()}},[speaking]);
 useEffect(()=>{const timer=setInterval(()=>{setReadSeconds(prev=>prev+1)},60000);return()=>clearInterval(timer)},[]);
 useEffect(()=>{if(s.keepScreenOn)activateKeepAwake('lekhoni');else deactivateKeepAwake();return()=>{deactivateKeepAwake().catch(()=>{})}},[s.keepScreenOn]);
 useEffect(()=>{const timer=setInterval(()=>{const today=new Date().toISOString().slice(0,10);const prev=p.state.readingActivity[today]||{minutes:0,episodes:0};p.update({readingActivity:{...p.state.readingActivity,[today]:{minutes:(prev.minutes||0)+1,episodes:prev.episodes||0}}})},60000);return()=>clearInterval(timer)},[]);
 useEffect(()=>{p.update({positions:{...p.state.positions,[p.book.id+'_lastChapter']:p.chapter}});},[p.chapter]);
 useEffect(()=>{trackEvent(p.state.deviceId,p.book.id,'view').catch(()=>{});},[p.book.id]);
 const change=(patch:Partial<LocalState['settings']>)=>p.update({settings:{...p.state.settings,...patch}});
-useEffect(()=>{if(autoScrollRef.current){clearInterval(autoScrollRef.current);autoScrollRef.current=null}if(s.autoScroll){const ms=Math.max(30,120-s.autoScrollSpeed*20);autoScrollRef.current=setInterval(()=>{autoOffsetRef.current+=2;scrollRef.current?.scrollTo({y:autoOffsetRef.current,animated:true})},ms)}return()=>{if(autoScrollRef.current){clearInterval(autoScrollRef.current);autoScrollRef.current=null}}},[s.autoScroll,s.autoScrollSpeed]);
-const readerBg=s.readerTheme==='sepia'?'#F4ECD8':s.readerTheme==='dark'?'#1A1A1A':s.readerTheme==='amoled'?'#000000':p.theme.reader;
-const readerInk=s.readerTheme==='sepia'?'#5C4B37':s.readerTheme==='dark'?'#D4D4D4':s.readerTheme==='amoled'?'#E0E0E0':p.theme.ink;
-const readerMuted=s.readerTheme==='sepia'?'#8C7E6A':s.readerTheme==='dark'?'#888':s.readerTheme==='amoled'?'#999':p.theme.muted;
-const readerPrimary=s.readerTheme==='sepia'?'#8B6914':s.readerTheme==='dark'?'#7B96FF':s.readerTheme==='amoled'?'#7B96FF':p.theme.primary;
-const readerLineBg=s.readerTheme==='dark'?'#333':s.readerTheme==='amoled'?'#222':p.theme.line;
-const readerCardBg=s.readerTheme==='dark'?'#222':s.readerTheme==='amoled'?'#111':p.theme.card;
+useEffect(()=>{if(autoScrollRef.current){clearInterval(autoScrollRef.current);autoScrollRef.current=null}if(s.autoScroll){const ms=Math.max(30,120-s.autoScrollSpeed*20);autoScrollRef.current=setInterval(()=>{autoOffsetRef.current+=2;scrollRef.current?.scrollTo({y:autoOffsetRef.current,animated:false})},ms)}return()=>{if(autoScrollRef.current){clearInterval(autoScrollRef.current);autoScrollRef.current=null}}},[s.autoScroll,s.autoScrollSpeed]);
+const readerBg=s.readerTheme==='sepia'?'#F4ECD8':s.readerTheme==='dark'?'#1A1A1A':s.readerTheme==='amoled'?'#000000':s.readerTheme==='midnight'?'#101A2E':s.readerTheme==='maroon'?'#2B0F16':p.theme.reader;
+const readerInk=s.readerTheme==='sepia'?'#5C4B37':s.readerTheme==='dark'?'#D4D4D4':s.readerTheme==='amoled'?'#E0E0E0':s.readerTheme==='midnight'?'#D8E4F2':s.readerTheme==='maroon'?'#F3E4DE':p.theme.ink;
+const readerMuted=s.readerTheme==='sepia'?'#8C7E6A':s.readerTheme==='dark'?'#888':s.readerTheme==='amoled'?'#999':s.readerTheme==='midnight'?'#7E93AD':s.readerTheme==='maroon'?'#B99A94':p.theme.muted;
+const readerPrimary=s.readerTheme==='sepia'?'#8B6914':s.readerTheme==='dark'?'#7B96FF':s.readerTheme==='amoled'?'#7B96FF':s.readerTheme==='midnight'?'#C9972B':s.readerTheme==='maroon'?'#EAC97A':p.theme.primary;
+const readerLineBg=s.readerTheme==='dark'?'#333':s.readerTheme==='amoled'?'#222':s.readerTheme==='midnight'?'#2A3A52':s.readerTheme==='maroon'?'#4A222B':p.theme.line;
+const readerCardBg=s.readerTheme==='dark'?'#222':s.readerTheme==='amoled'?'#111':s.readerTheme==='midnight'?'#182642':s.readerTheme==='maroon'?'#38161F':p.theme.card;
 const readerSize=Math.max(16,Math.min(28,s.fontSize));
 const readerLine=Math.round(Math.max(readerSize+6,Math.min(48,s.lineHeight))*s.lineSpacing);
 const readerFont=s.fontFamily==='serif'?'serif':(s.fontFamily==='loose'?'sans-serif':GF());
 const sidePadding=Math.max(18,Math.min(30,Math.round(width*.07)));
 const formatTime=(mins:number)=>{if(mins<60)return `${mins} ${tr(p,'minutesShort')}`;const h=Math.floor(mins/60);const m=mins%60;return m>0?`${h}h ${m}m`:`${h}h`};
-const CustomSlider=({value,min,max,step,onValueChange}:{value:number;min:number;max:number;step:number;onValueChange:(v:number)=>void})=>{const pct=(value-min)/(max-min);const steps=Math.round((max-min)/step);return <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Pressable onPress={()=>{const nv=Math.max(min,value-step);onValueChange(Math.round(nv*10)/10)}} style={{width:32,height:32,borderRadius:16,backgroundColor:readerCardBg,borderWidth:1,borderColor:readerLineBg,alignItems:'center',justifyContent:'center'}}><Feather name="minus" size={16} color={readerPrimary}/></Pressable><View style={{flex:1,height:32,justifyContent:'center'}}><View style={{height:4,borderRadius:2,backgroundColor:readerLineBg,overflow:'hidden'}}><View style={{height:4,borderRadius:2,backgroundColor:readerPrimary,width:`${pct*100}%`}}/></View>{Array.from({length:steps+1}).map((_,i)=>{const x=i/steps;return <View key={i} style={{position:'absolute',left:`${x*100}%`,width:6,height:6,borderRadius:3,backgroundColor:Math.abs(pct-x)<0.01?readerPrimary:readerLineBg,top:13,marginLeft:-3}}/>})}</View><Pressable onPress={()=>{const nv=Math.min(max,value+step);onValueChange(Math.round(nv*10)/10)}} style={{width:32,height:32,borderRadius:16,backgroundColor:readerCardBg,borderWidth:1,borderColor:readerLineBg,alignItems:'center',justifyContent:'center'}}><Feather name="plus" size={16} color={readerPrimary}/></Pressable></View>};
+const CustomSliderLegacy=({value,min,max,step,onValueChange}:{value:number;min:number;max:number;step:number;onValueChange:(v:number)=>void})=>{const pct=(value-min)/(max-min);const steps=Math.round((max-min)/step);const trackW=useRef(0);const setFromX=(x:number)=>{const w=trackW.current||1;const r=Math.max(0,Math.min(1,x/w));const raw=min+r*(max-min);const stepped=Math.round(raw/step)*step;onValueChange(Math.round(Math.max(min,Math.min(max,stepped))*10)/10);};const pan=useRef(PanResponder.create({onStartShouldSetPanResponder:()=>true,onMoveShouldSetPanResponder:()=>true,onPanResponderGrant:(e:any)=>setFromX(e.nativeEvent.locationX),onPanResponderMove:(e:any)=>setFromX(e.nativeEvent.locationX)})).current;return <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Pressable onPress={()=>{const nv=Math.max(min,value-step);onValueChange(Math.round(nv*10)/10)}} style={{width:32,height:32,borderRadius:16,backgroundColor:readerCardBg,borderWidth:1,borderColor:readerLineBg,alignItems:'center',justifyContent:'center'}}><Feather name="minus" size={16} color={readerPrimary}/></Pressable><View onLayout={(e)=>{trackW.current=e.nativeEvent.layout.width}} {...pan.panHandlers} style={{flex:1,height:32,justifyContent:'center'}}><View style={{height:4,borderRadius:2,backgroundColor:readerLineBg,overflow:'hidden'}}><View style={{height:4,borderRadius:2,backgroundColor:readerPrimary,width:`${pct*100}%`}}/></View>{Array.from({length:steps+1}).map((_,i)=>{const x=i/steps;return <View key={i} style={{position:'absolute',left:`${x*100}%`,width:6,height:6,borderRadius:3,backgroundColor:Math.abs(pct-x)<0.01?readerPrimary:readerLineBg,top:13,marginLeft:-3}}/>})}</View><Pressable onPress={()=>{const nv=Math.min(max,value+step);onValueChange(Math.round(nv*10)/10)}} style={{width:32,height:32,borderRadius:16,backgroundColor:readerCardBg,borderWidth:1,borderColor:readerLineBg,alignItems:'center',justifyContent:'center'}}><Feather name="plus" size={16} color={readerPrimary}/></Pressable></View>};
 const Toggle=({value,onValueChange}:{value:boolean;onValueChange:(v:boolean)=>void})=><Pressable onPress={()=>onValueChange(!value)} style={{width:50,height:28,borderRadius:14,backgroundColor:value?readerPrimary:readerLineBg,justifyContent:'center',paddingHorizontal:2}}><View style={{width:24,height:24,borderRadius:12,backgroundColor:'#fff',alignSelf:value?'flex-end':'flex-start',shadowColor:'#000',shadowOpacity:0.15,shadowRadius:3,shadowOffset:{width:0,height:1},elevation:2}}/></Pressable>;
+const segs=spokenIdx>=0?splitBody(c.body||''):null;
 const totalProgress=Math.round(((p.chapter*100+progress)/Math.max(1,p.book.chapters.length*100))*100);
 return <View style={{flex:1,backgroundColor:readerBg}}>
 {s.eyeComfort>0&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:`rgba(255,180,50,${s.eyeComfort/500})`,zIndex:50,pointerEvents:'none'}}/>}
@@ -1598,23 +1734,25 @@ return <View style={{flex:1,backgroundColor:readerBg}}>
 <T allowFontScaling={false} numberOfLines={1} style={{color:readerInk,fontWeight:'900'}}>{c.title}</T>
 <T allowFontScaling={false} numberOfLines={1} style={{color:readerMuted,fontSize:10}}>{p.book.title}{readSeconds>0?` · ${tr(p,'readingTime')} ${formatTime(readSeconds)}`:''}</T>
 </View>
-<Pressable hitSlop={10} onPress={()=>p.update({bookmarks:p.state.bookmarks.includes(key)?p.state.bookmarks.filter(x=>x!==key):[...p.state.bookmarks,key]})}><Feather name="bookmark" size={21} color={p.state.bookmarks.includes(key)?readerPrimary:readerInk}/></Pressable>
-<Pressable hitSlop={10} onPress={()=>setShowSettings(true)}><Feather name="more-vertical" size={21} color={readerInk}/></Pressable>
+<View style={{flexDirection:'row',alignItems:'center',gap:8}}><Animated.View style={{transform:[{scale:speakPulse}]}}><Pressable hitSlop={10} onPress={toggleSpeak} accessibilityRole="button" accessibilityLabel="voice"><Feather name={speaking?"volume-x":"volume-2"} size={20} color={speaking?readerPrimary:readerInk}/></Pressable></Animated.View>
+<Pressable hitSlop={10} onPress={()=>setShowChapters(true)} accessibilityRole="button" accessibilityLabel="chapters"><Feather name="list" size={20} color={readerInk}/></Pressable>
+<Pressable hitSlop={10} onPress={()=>setShowVoice(true)} accessibilityRole="button" accessibilityLabel="voice settings"><Feather name="more-vertical" size={20} color={readerInk}/></Pressable>
+<Pressable hitSlop={10} onPress={()=>setShowSettings(true)}><Feather name="settings" size={20} color={readerInk}/></Pressable></View>
 </View>
 <View style={{height:2,backgroundColor:readerLineBg}}><View style={{height:2,backgroundColor:readerPrimary,width:`${totalProgress}%`}}/></View>
-<ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} onScroll={e=>{const n=e.nativeEvent;const v=Math.round(n.contentOffset.y/Math.max(1,n.contentSize.height-n.layoutMeasurement.height)*100);if(Math.abs(v-progress)>5)p.update({positions:{...p.state.positions,[key]:v}});autoOffsetRef.current=n.contentOffset.y}} scrollEventThrottle={800} contentContainerStyle={[styles.readerBody,{paddingHorizontal:sidePadding,paddingBottom:insets.bottom+110}]}><T allowFontScaling={false} style={{color:readerPrimary,textAlign:'center',fontWeight:'900'}}>অধ্যায় {p.chapter+1}</T><T allowFontScaling={false} style={[styles.readerTitle,{color:readerInk,fontSize:Math.min(30,Math.max(25,width*.075))}]}>{c.title}</T><T allowFontScaling={false} style={{color:readerInk,fontSize:readerSize,lineHeight:readerLine,fontFamily:readerFont,maxWidth:680,alignSelf:'center'}}>{c.body}</T><T allowFontScaling={false} style={{textAlign:'center',color:readerPrimary,fontSize:25,marginTop:30}}>❦</T></ScrollView>
+<ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} onScroll={e=>{const n=e.nativeEvent;const v=Math.round(n.contentOffset.y/Math.max(1,n.contentSize.height-n.layoutMeasurement.height)*100);if(Math.abs(v-progress)>5)p.update({positions:{...p.state.positions,[key]:v}});autoOffsetRef.current=n.contentOffset.y}} scrollEventThrottle={800} contentContainerStyle={[styles.readerBody,{paddingHorizontal:sidePadding,paddingBottom:insets.bottom+110}]}><T allowFontScaling={false} style={{color:readerPrimary,textAlign:'center',fontWeight:'900'}}>অধ্যায় {p.chapter+1}</T><T allowFontScaling={false} style={[styles.readerTitle,{color:readerInk,fontSize:Math.min(30,Math.max(25,width*.075))}]}>{c.title}</T>{segs&&s.voiceHighlight!==false?(()=>{return <T allowFontScaling={false} style={{color:readerInk,fontSize:readerSize,lineHeight:readerLine,fontFamily:readerFont,maxWidth:680,alignSelf:'center'}}>{segs.sents.map((s,i)=><T key={i} style={i===spokenIdx?{backgroundColor:readerPrimary+'22'}:undefined}>{s}</T>)}</T>})():<T allowFontScaling={false} style={{color:readerInk,fontSize:readerSize,lineHeight:readerLine,fontFamily:readerFont,maxWidth:680,alignSelf:'center'}}>{c.body}</T>}<T allowFontScaling={false} style={{textAlign:'center',color:readerPrimary,fontSize:25,marginTop:30}}>❦</T></ScrollView>
 <View style={[styles.readerTools,{backgroundColor:readerCardBg,borderTopColor:readerLineBg,paddingBottom:Math.max(8,insets.bottom),paddingTop:10}]}><Pressable hitSlop={8} disabled={p.chapter===0} onPress={()=>p.read(p.book.id,p.chapter-1)}><T allowFontScaling={false} style={{color:readerInk,fontSize:12,fontWeight:'700',opacity:p.chapter===0?.3:1}}>← আগের</T></Pressable><Pressable hitSlop={8} onPress={()=>change({fontSize:Math.max(15,s.fontSize-1)})}><T allowFontScaling={false} style={{color:readerPrimary,fontWeight:'900'}}>A−</T></Pressable><Pressable hitSlop={8} onPress={()=>change({fontSize:Math.min(28,s.fontSize+1)})}><T allowFontScaling={false} style={{color:readerPrimary,fontWeight:'900'}}>A+</T></Pressable><Pressable hitSlop={8} onPress={()=>change({dark:!s.dark})}><Feather name="moon" size={19} color={readerPrimary}/></Pressable><Pressable hitSlop={8} disabled={p.chapter===p.book.chapters.length-1} onPress={()=>p.read(p.book.id,p.chapter+1)}><T allowFontScaling={false} style={{color:readerInk,fontSize:12,fontWeight:'700',opacity:p.chapter===p.book.chapters.length-1?.3:1}}>পরের →</T></Pressable></View>
-{showSettings&&<Pressable onPress={()=>setShowSettings(false)} style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.4)',zIndex:100}}><Pressable onPress={()=>{}} style={{position:'absolute',bottom:0,left:0,right:0,backgroundColor:readerCardBg,borderTopLeftRadius:24,borderTopRightRadius:24,paddingHorizontal:20,paddingTop:16,paddingBottom:Math.max(20,insets.bottom),maxHeight:'80%'}}><View style={{width:40,height:4,borderRadius:2,backgroundColor:readerLineBg,alignSelf:'center',marginBottom:14}}/><T style={{fontSize:17,fontWeight:'900',color:readerInk,marginBottom:16}}>{tr(p,'readerSettings')}</T>
+      {showVoice&&<VoiceSheet rc={{bg:readerBg,card:readerCardBg,ink:readerInk,muted:readerMuted,primary:readerPrimary,line:readerLineBg}} lang={s.language} voiceId={s.voiceId} voiceRate={s.voiceRate||1} voicePitch={s.voicePitch||1} highlight={s.voiceHighlight!==false} onPick={(id,lg)=>p.update({settings:{...s,voiceId:id,voiceLang:lg}})} onRate={(r)=>p.update({settings:{...s,voiceRate:r}})} onPitch={(pz)=>p.update({settings:{...s,voicePitch:pz}})} onToggleHighlight={(v)=>p.update({settings:{...s,voiceHighlight:v}})} onClose={()=>setShowVoice(false)} onTest={testVoice}/>}
+      {showSettings&&<Pressable onPress={()=>setShowSettings(false)} style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.4)',zIndex:100}}><Pressable onPress={()=>{}} style={{position:'absolute',bottom:0,left:0,right:0,backgroundColor:readerCardBg,borderTopLeftRadius:24,borderTopRightRadius:24,paddingHorizontal:20,paddingTop:16,paddingBottom:Math.max(20,insets.bottom),maxHeight:'80%'}}><View style={{width:40,height:4,borderRadius:2,backgroundColor:readerLineBg,alignSelf:'center',marginBottom:14}}/><T style={{fontSize:17,fontWeight:'900',color:readerInk,marginBottom:16}}>{tr(p,'readerSettings')}</T>
 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:20}}>
-<Pressable onPress={()=>{setShowSettings(false);setShowChapters(true)}} style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingVertical:14,borderBottomWidth:1,borderBottomColor:readerLineBg+'44'}}><View style={{flexDirection:'row',alignItems:'center',gap:10}}><Feather name="list" size={18} color={readerPrimary}/><T style={{fontSize:14,fontWeight:'700',color:readerInk}}>{tr(p,'chapterList')}</T></View><View style={{flexDirection:'row',alignItems:'center',gap:6}}><T style={{fontSize:12,fontWeight:'600',color:readerMuted}}>{p.chapter+1}/{p.book.chapters.length}</T><Feather name="chevron-right" size={16} color={readerMuted}/></View></Pressable>
 <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingVertical:12,borderTopWidth:1,borderTopColor:readerLineBg+'44'}}><View style={{flexDirection:'row',alignItems:'center',gap:10}}><Feather name="play-circle" size={18} color={readerPrimary}/><T style={{fontSize:14,fontWeight:'700',color:readerInk}}>{tr(p,'autoScroll')}</T></View><View style={{flexDirection:'row',alignItems:'center',gap:8}}><ReaderToggle value={s.autoScroll} onChange={(v:boolean)=>change({autoScroll:v})} primary={readerPrimary} bg={readerLineBg}/></View></View>
-{s.autoScroll&&<View style={{paddingTop:4,paddingBottom:8}}><View style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:20}}><Pressable onPress={()=>change({autoScrollSpeed:Math.max(1,s.autoScrollSpeed-1)})} style={{width:40,height:40,borderRadius:12,backgroundColor:readerLineBg,alignItems:'center',justifyContent:'center'}}><T style={{fontSize:20,fontWeight:'900',color:readerPrimary}}>-</T></Pressable><View style={{alignItems:'center'}}><T style={{fontSize:11,color:readerMuted}}>Speed</T><T style={{fontSize:16,fontWeight:'800',color:readerInk,minWidth:50,textAlign:'center'}}>{s.autoScrollSpeed}/5</T></View><Pressable onPress={()=>change({autoScrollSpeed:Math.min(5,s.autoScrollSpeed+1)})} style={{width:40,height:40,borderRadius:12,backgroundColor:readerLineBg,alignItems:'center',justifyContent:'center'}}><T style={{fontSize:20,fontWeight:'900',color:readerPrimary}}>+</T></Pressable></View></View>}
+{s.autoScroll&&<View style={{paddingTop:4,paddingBottom:8}}><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:4}}><T style={{fontSize:13,fontWeight:'700',color:readerMuted}}>Speed</T><T style={{fontSize:12,fontWeight:'700',color:readerPrimary}}>{s.autoScrollSpeed}/5</T></View><ReaderSlider value={s.autoScrollSpeed} min={1} max={5} step={1} cardBg={readerCardBg} lineBg={readerLineBg} primary={readerPrimary} onValueChange={(v:number)=>change({autoScrollSpeed:v})}/></View>}
 <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingVertical:12,borderTopWidth:1,borderTopColor:readerLineBg+'44'}}><View style={{flexDirection:'row',alignItems:'center',gap:10}}><Feather name="smartphone" size={18} color={readerPrimary}/><T style={{fontSize:14,fontWeight:'700',color:readerInk}}>{tr(p,'keepScreenOn')}</T></View><ReaderToggle value={Boolean(s.keepScreenOn)} onChange={(v:boolean)=>change({keepScreenOn:v})} primary={readerPrimary} bg={readerLineBg}/></View>
-<T style={{fontSize:13,fontWeight:'700',color:readerMuted,marginBottom:8,marginTop:14}}>{tr(p,'readerTheme')}</T><View style={{flexDirection:'row',gap:8,marginBottom:16}}>{[{k:'default',l:tr(p,'light'),bg:'#FFFFFF',ink:'#1A1A1A'},{k:'sepia',l:tr(p,'sepia'),bg:'#F4ECD8',ink:'#5C4B37'},{k:'dark',l:tr(p,'darkReader'),bg:'#1A1A1A',ink:'#D4D4D4'},{k:'amoled',l:tr(p,'amoled'),bg:'#000000',ink:'#E0E0E0'}].map(t=><Pressable key={t.k} onPress={()=>change({readerTheme:t.k as any})} style={{flex:1,alignItems:'center',paddingVertical:10,borderRadius:12,backgroundColor:t.bg,borderWidth:2,borderColor:s.readerTheme===t.k?readerPrimary:'transparent'}}><View style={{width:28,height:28,borderRadius:8,backgroundColor:t.bg,borderWidth:1,borderColor:t.ink+'33',marginBottom:4,alignItems:'center',justifyContent:'center'}}><Feather name="book-open" size={14} color={t.ink}/></View><T style={{fontSize:10,fontWeight:'700',color:t.ink}}>{t.l}</T></Pressable>)}</View>
+<T style={{fontSize:13,fontWeight:'700',color:readerMuted,marginBottom:8,marginTop:14}}>{tr(p,'readerTheme')}</T><View style={{flexDirection:'row',gap:6,marginBottom:16}}>{[{k:'default',l:tr(p,'light'),bg:'#FFFFFF',ink:'#1A1A1A'},{k:'sepia',l:tr(p,'sepia'),bg:'#F4ECD8',ink:'#5C4B37'},{k:'dark',l:tr(p,'darkReader'),bg:'#1A1A1A',ink:'#D4D4D4'},{k:'amoled',l:tr(p,'amoled'),bg:'#000000',ink:'#E0E0E0'},{k:'midnight',l:tr(p,'readerMidnight'),bg:'#101A2E',ink:'#D8E4F2'},{k:'maroon',l:tr(p,'readerMaroon'),bg:'#2B0F16',ink:'#F3E4DE'}].map(t=><Pressable key={t.k} onPress={()=>change({readerTheme:t.k as any})} style={{flex:1,alignItems:'center',paddingVertical:7,borderRadius:12,backgroundColor:t.bg,borderWidth:2,borderColor:s.readerTheme===t.k?readerPrimary:'transparent'}}><View style={{width:20,height:20,borderRadius:7,backgroundColor:t.bg,borderWidth:1,borderColor:t.ink+'33',marginBottom:3,alignItems:'center',justifyContent:'center'}}><Feather name="book-open" size={11} color={t.ink}/></View><T numberOfLines={1} style={{fontSize:8,fontWeight:'700',color:t.ink}}>{t.l}</T></Pressable>)}</View>
 <T style={{fontSize:13,fontWeight:'700',color:readerMuted,marginBottom:8}}>{tr(p,'readerFont')}</T><View style={{flexDirection:'row',gap:8,marginBottom:16}}>{[{k:'default',l:tr(p,'fontDefault')},{k:'serif',l:tr(p,'fontSerif')},{k:'loose',l:tr(p,'fontLoose')}].map(f=><Pressable key={f.k} onPress={()=>change({fontFamily:f.k as any})} style={{flex:1,alignItems:'center',paddingVertical:10,borderRadius:12,backgroundColor:s.fontFamily===f.k?readerPrimary+'18':'transparent',borderWidth:1.5,borderColor:s.fontFamily===f.k?readerPrimary:readerLineBg}}><T style={{fontSize:13,fontWeight:s.fontFamily===f.k?'800':'600',color:s.fontFamily===f.k?readerPrimary:readerInk}}>{f.l}</T></Pressable>)}</View>
 <View style={{marginBottom:14}}><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:8}}><T style={{fontSize:13,fontWeight:'700',color:readerMuted}}>{tr(p,'lineSpacing')}</T><T style={{fontSize:12,fontWeight:'700',color:readerPrimary}}>{s.lineSpacing.toFixed(1)}x</T></View><View style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:20}}><Pressable onPress={()=>change({lineSpacing:Math.max(0.8,+(s.lineSpacing-0.1).toFixed(1))})} style={{width:40,height:40,borderRadius:12,backgroundColor:readerLineBg,alignItems:'center',justifyContent:'center'}}><T style={{fontSize:20,fontWeight:'900',color:readerPrimary}}>-</T></Pressable><T style={{fontSize:16,fontWeight:'800',color:readerInk,minWidth:50,textAlign:'center'}}>{s.lineSpacing.toFixed(1)}x</T><Pressable onPress={()=>change({lineSpacing:Math.min(2.0,+(s.lineSpacing+0.1).toFixed(1))})} style={{width:40,height:40,borderRadius:12,backgroundColor:readerLineBg,alignItems:'center',justifyContent:'center'}}><T style={{fontSize:20,fontWeight:'900',color:readerPrimary}}>+</T></Pressable></View></View>
-<View style={{marginBottom:14}}><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:4}}><T style={{fontSize:13,fontWeight:'700',color:readerMuted}}>{tr(p,'brightness')}</T><T style={{fontSize:12,fontWeight:'700',color:readerPrimary}}>{s.brightness}%</T></View><CustomSlider value={s.brightness} min={20} max={100} step={5} onValueChange={(v:number)=>change({brightness:v})}/></View>
-<View style={{marginBottom:14}}><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:4}}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><Feather name="eye" size={16} color={readerMuted}/><T style={{fontSize:13,fontWeight:'700',color:readerMuted}}>{tr(p,'eyeComfort')}</T></View><T style={{fontSize:12,fontWeight:'700',color:readerPrimary}}>{s.eyeComfort>0?s.eyeComfort+'%':'OFF'}</T></View><CustomSlider value={s.eyeComfort} min={0} max={80} step={5} onValueChange={(v:number)=>change({eyeComfort:v})}/></View>
+<View style={{marginBottom:14}}><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:4}}><T style={{fontSize:13,fontWeight:'700',color:readerMuted}}>{tr(p,'brightness')}</T><T style={{fontSize:12,fontWeight:'700',color:readerPrimary}}>{s.brightness}%</T></View><ReaderSlider value={s.brightness} min={20} max={100} step={5} cardBg={readerCardBg} lineBg={readerLineBg} primary={readerPrimary} onValueChange={(v:number)=>change({brightness:v})}/></View>
+<View style={{marginBottom:14}}><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:4}}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><Feather name="eye" size={16} color={readerMuted}/><T style={{fontSize:13,fontWeight:'700',color:readerMuted}}>{tr(p,'eyeComfort')}</T></View><T style={{fontSize:12,fontWeight:'700',color:readerPrimary}}>{s.eyeComfort>0?s.eyeComfort+'%':'OFF'}</T></View><ReaderSlider value={s.eyeComfort} min={0} max={80} step={5} cardBg={readerCardBg} lineBg={readerLineBg} primary={readerPrimary} onValueChange={(v:number)=>change({eyeComfort:v})}/></View>
 <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingVertical:12,borderTopWidth:1,borderTopColor:readerLineBg+'44'}}><View style={{flexDirection:'row',alignItems:'center',gap:10}}><Feather name="volume-2" size={18} color={readerMuted}/><T style={{fontSize:14,fontWeight:'600',color:readerInk}}>{tr(p,'volumeScroll')}</T></View><ReaderToggle value={Boolean(s.volumeScroll)} onChange={(v:boolean)=>change({volumeScroll:v})} primary={readerPrimary} bg={readerLineBg}/></View>
 </ScrollView>
 </Pressable></Pressable>}
