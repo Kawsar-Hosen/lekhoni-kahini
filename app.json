@@ -33,12 +33,19 @@
       "expo-font",
       "expo-web-browser",
       [
-        "expo-image-picker",
+        "expo-av",
         {
-          "cameraPermission": false,
-          "photosPermission": "Allow Lekhoni Kahini to access your photos for avatar and cover image"
+          "microphonePermission": false
         }
       ],
+        [
+          "expo-image-picker",
+          {
+            "cameraPermission": false,
+            "microphonePermission": false,
+            "photosPermission": "Allow Lekhoni Kahini to access your photos for avatar and cover image"
+          }
+        ],
       [
         "@react-native-google-signin/google-signin",
         {

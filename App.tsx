@@ -14,6 +14,8 @@ import * as Device from 'expo-device';
 import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
 import * as DocumentPicker from 'expo-document-picker';
 import { WebView } from 'react-native-webview';
+import * as LFS from 'expo-file-system/legacy';
+import Pdf from 'react-native-pdf';
 
 import { initialState, loadState, saveState, clearState } from './src/storage';
 import { Book, LocalState, Language } from './src/types';
@@ -169,10 +171,10 @@ function AppShell(){
   const openWithAnim=(book:Book,fromX:number,fromY:number,fromW:number,fromH:number)=>{setTransBook({book,fromX,fromY,fromW,fromH});transAnim.setValue(0);Animated.timing(transAnim,{toValue:1,duration:320,easing:Easing.out(Easing.cubic),useNativeDriver:false}).start(()=>{setTransBook(null);open(book.id)})};
  const theme=themeFor(state.settings.themeId,state.settings.dark);
   const [dlBooks,setDlBooks]=useState<Record<string,Book>>({});
-  useEffect(()=>{getOfflineBookIds().then(async ids=>{const loaded:Record<string,Book>={};for(const id of ids){const b=await loadBookOffline(id);if(b)loaded[id]=b}setDlBooks(loaded)}).catch(()=>{})},[]);
+  useEffect(()=>{getOfflineBookIds().then(async ids=>{const loaded:Record<string,Book>={};for(const id of ids){const b=await loadBookOffline(id);if(b)loaded[id]=b}try{const pdfDir=(LFS.documentDirectory||'')+'pdfs/';const di=await LFS.getInfoAsync(pdfDir);if(di.exists){const files=await LFS.readDirectoryAsync(pdfDir);for(const f of files){if(f.endsWith('.json')){try{const raw=await LFS.readAsStringAsync(pdfDir+f);const m=JSON.parse(raw);if(m&&m.id&&!loaded[m.id])loaded[m.id]={...m,chapters:[]}}catch{}}}}}catch{}setDlBooks(loaded)}).catch(()=>{})},[]);
   const persistDl=(next:Record<string,Book>)=>{setDlBooks(next)};
   const downloadBook=async(id:string)=>{const existing=dlBooks[id];if(existing)return;const full=await fetchRemoteBook(id);if(!full||!full.chapters.length)return;await saveBookOffline(full);persistDl({...dlBooks,[id]:full});setState(s=>s.downloads.includes(id)?s:{...s,downloads:[...s.downloads,id]})};
-  const removeDownload=async(id:string)=>{await removeBookOffline(id);const n={...dlBooks};delete n[id];persistDl(n);setState(s=>({...s,downloads:s.downloads.filter(x=>x!==id)}))};
+  const removeDownload=async(id:string)=>{await removeBookOffline(id);try{const d=(LFS.documentDirectory||'')+'pdfs/';await LFS.deleteAsync(d+id+'.pdf',{idempotent:true});await LFS.deleteAsync(d+id+'.json',{idempotent:true})}catch{}const n={...dlBooks};delete n[id];persistDl(n);setState(s=>({...s,downloads:s.downloads.filter(x=>x!==id)}))};
   const resolveBook=(id:string):Book|undefined=>dlBooks[id]||allBooks.find(b=>b.id===id);
   useEffect(()=>{loadState().then(async v=>{const id=v.deviceId;if(id){try{const r=await fetchUserState(id);if(r&&r.synced&&r.state){const st=r.state;const remoteSettings=st.settings&&typeof st.settings==='object'?(st.settings as any):null;v={...v,settings:remoteSettings?{...v.settings,...remoteSettings}:v.settings,history:Array.isArray(st.history)&&st.history.length?[...new Set([...(v.history||[]),...st.history])].slice(0,20):v.history,positions:st.positions&&typeof st.positions==='object'?{...v.positions,...(st.positions as any)}:v.positions,bookmarks:Array.isArray(st.bookmarks)&&st.bookmarks.length?[...new Set([...v.bookmarks,...(st.bookmarks as any[])])].slice(0,50):v.bookmarks}}}catch{}}if(v.userToken){try{const u=await verifyUserToken(v.userToken);if(u.ok)v.user=u.value;else if(u.reason==='invalid'){v.user=null;v.userToken=null;}}catch{}}if(v.writerToken){try{const wv=await verifyWriterToken(v.writerToken);if(wv.ok)v.writer={id:wv.value.id,username:wv.value.username,writer_name:wv.value.writer_name,avatar_url:wv.value.avatar_url||undefined,bio:wv.value.bio||undefined};else if(wv.reason==='invalid'){v.writer=null;v.writerToken=null;}}catch{}}if(v.writer&&!v.writer.id){v.writer=null;v.writerToken=null;}setState(v);setLoaded(true)})},[]); useEffect(()=>{if(loaded)saveState(state)},[state,loaded]);
   useEffect(()=>{const sub=BackHandler.addEventListener('hardwareBackPress',()=>{if(screen.type!=='main'){const prev=screenHistoryRef.current;const last=prev[prev.length-1];if(last){screenHistoryRef.current=prev.slice(0,-1);setScreen(last)}else{setScreen({type:'main'});setTab('home')}return true}if(tab!=='home'){setTab('home');return true}setShowExitModal(true);return true});return()=>sub.remove()},[screen,tab]);
@@ -528,7 +530,28 @@ function Header({title,sub,theme,action,onNotif,unreadCount}:{title:string;sub?:
 function HomeInner(p:C){const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const books=p.allBooks;const hd=p.homeData;const[refreshing,setRefreshing]=useState(false);const[showAuthId,setShowAuthId]=useState<string|null>(null);const doRefresh=async()=>{if(!p.syncRemote)return;setRefreshing(true);try{await p.syncRemote()}catch{}finally{setRefreshing(false)}};const toBook=(b:any):Book=>({id:b.id,title:b.title,author:b.author,views:`${b.views}`,rating:4.5,color:b.color,accent:b.accent,category:b.category||'',categoryIcon:'book-open',description:b.description||'',updated:'',chapters:[],isNew:Boolean(b.is_new),featured:Boolean(b.featured),views_visible:b.views_visible!==false,cover_url:b.cover_url||null,display_status:b.display_status||undefined,writer_status:b.writer_status||undefined,hide_title_on_cover:b.hide_title_on_cover||false,pdf_url:b.pdf_url||'',dedication:b.dedication||'',author_name:b.author_name||'',show_ads:b.show_ads!==false,pdf_reward_ad:b.pdf_reward_ad!==false});const hlist=(k:string):Book[]=>{if(hd){const s=hd.sections.find((x:any)=>x.key===k);if(s&&s.books&&s.books.length)return s.books.slice(0,12).map((b:any)=>toBook(b) as Book).filter((b:any)=>b&&b.id);}return[];};const hdtitle=(k:string)=>hd?(hd.sections.find((x:any)=>x.key===k)?.title||''):'';const byViews=(a:Book,b:Book)=>+b.views-(+a.views);const G='#2AA876',AU='#D9A407',BL='#3B82F6',PU='#8B5CF6';const section=(title:string,icon:string,accent:string,list:Book[],sectionKey?:string)=>!list.length?null:<View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade(accent,-30)}]}><Feather name={I(icon)} size={13} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{title}</T></View><Pressable onPress={()=>p.setScreen({type:'list',title,ids:list.map(x=>x.id)})} style={[styles.seeAllPill,{backgroundColor:shade(accent,-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:12,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b,i)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={accent} section={sectionKey} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>;const followedIds=new Set(p.state.followedWriters.map(f=>f.id));const unfollowedWriters=p.publicWriters.filter(w=>!followedIds.has(w.id));const toggleFollowAuthor=async(w:import('./src/types').WriterProfile)=>{if(!p.state.writer&&!p.state.user){setShowAuthId(w.id);return;}const followed=p.state.followedWriters.some(f=>f.id===w.id);if(followed){p.update({followedWriters:p.state.followedWriters.filter(f=>f.id!==w.id)});const ok=await unfollowWriter(p.state.deviceId,w.id);if(!ok)p.update({followedWriters:[...p.state.followedWriters,w]})}else{p.update({followedWriters:[...p.state.followedWriters,w]});const ok=await followWriter(p.state.deviceId,w.id,p.state.writer?.id,p.state.user?.id);if(!ok)p.update({followedWriters:p.state.followedWriters.filter(f=>f.id!==w.id)})}};const authors=()=>unfollowedWriters.length?<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{unfollowedWriters.map(w=><AuthorCard key={w.id} writer={w} theme={p.theme} lang={p.state.settings.language} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} bookCount={p.allBooks.filter(b=>b.author===w.writer_name).length} isFollowed={p.state.followedWriters.some(f=>f.id===w.id)} onToggleFollow={()=>toggleFollowAuthor(w)}/>)}</ScrollView>:<Empty theme={p.theme}/>;const sections=hd?hd.sections:[];const isFixed=(k:string)=>['featured','mostPopular','newEpisodes','popularAuthors','weeklyPopular','monthlyPopular'].includes(k);const fixedSecs=sections.filter((s:any)=>isFixed(s.key));const catSecs=sections.filter((s:any)=>!isFixed(s.key));const renderFixed=(k:string)=>{if(k==='featured'){const fl=hlist('featured');return <Featured {...p} list={fl}/>;}if(k==='popularAuthors')return <View><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade('#EC4899',-30)}]}><Feather name="users" size={13} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{hdtitle('popularAuthors')||tr(p,'popularAuthors')}</T></View><Pressable onPress={()=>p.setScreen({type:'allWriters'})} style={[styles.seeAllPill,{backgroundColor:shade('#EC4899',-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:12,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View>{authors()}</View>;if(k==='newEpisodes'){const l=hlist('newEpisodes');return section(hdtitle('newEpisodes')||tr(p,'newEpisodes'),'zap',G,l.length?l:books,'newEpisodes');}if(k==='weeklyPopular'){const l=hlist('weeklyPopular');return section(hdtitle('weeklyPopular')||tr(p,'weeklyPopular'),'calendar',BL,l.length?l:(books.length?[...books].sort(byViews):[]),'weeklyPopular');}if(k==='monthlyPopular'){const l=hlist('monthlyPopular');return section(hdtitle('monthlyPopular')||tr(p,'monthlyPopular'),'star',PU,l.length?l:(books.length?[...books].sort(byViews):[]),'monthlyPopular');}if(k==='mostPopular'){const l=hlist('mostPopular');const list=l.length?l:(books.length?[...books].sort(byViews):[]);if(!list.length)return null;return <MostPopularCarousel books={list.slice(0,10)} theme={p.theme} lang={p.state.settings.language} accent={AU} onOpen={(id)=>p.open(id)} title={hdtitle('mostPopular')||'সর্বাধিক জনপ্রিয়'} onSeeAll={()=>p.setScreen({type:'list',title:'সর্বাধিক জনপ্রিয়',ids:list.map(x=>x.id)})} bookmarks={p.state.bookmarks} onUpdate={(ids)=>p.update({bookmarks:ids})} />;}return null;};return <View style={{flex:1}}><Page theme={p.theme} onRefresh={doRefresh} refreshing={refreshing}><Header title={`${greet(p)}, ${p.state.name}`} sub={tr(p,'choose')} theme={p.theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/><Pressable onPress={()=>p.setScreen({type:'search'})} style={{backgroundColor:p.theme.card,borderRadius:14,borderWidth:1,borderColor:p.theme.line,flexDirection:'row',alignItems:'center',paddingHorizontal:14,paddingVertical:13,marginBottom:20,gap:10}}><Feather name="search" size={18} color={p.theme.muted}/><T style={{color:p.theme.muted,fontSize:14,fontWeight:'500',flex:1}}>বই, লেখক বা বিভাগ খুঁজুন</T></Pressable>{p.isOffline&&<OfflineBanner theme={p.theme} onRetry={()=>p.syncRemote?.()}/>}{!p.dataLoaded&&!books.length?<><View><View style={styles.secHead}><SkeletonPulse width={120} height={16} borderRadius={4}/></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{[1,2,3].map(i=><View key={i} style={{width:130}}><SkeletonPulse width={130} height={170} borderRadius={14}/><SkeletonPulse width={100} height={14} borderRadius={4} style={{marginTop:8}}/><SkeletonPulse width={80} height={11} borderRadius={3} style={{marginTop:6}}/></View>)}</ScrollView></View><View><View style={styles.secHead}><SkeletonPulse width={140} height={16} borderRadius={4}/></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{[1,2,3].map(i=><View key={i} style={{width:130}}><SkeletonPulse width={130} height={170} borderRadius={14}/><SkeletonPulse width={100} height={14} borderRadius={4} style={{marginTop:8}}/><SkeletonPulse width={80} height={11} borderRadius={3} style={{marginTop:6}}/></View>)}</ScrollView></View></>:<>{fixedSecs.map((s:any)=><React.Fragment key={s.key}>{renderFixed(s.key)}</React.Fragment>)}{catSecs.length>0&&catSecs.map((s:any)=>{const list=hlist(s.key);if(!list.length)return null;const c=s.color||'#4A1220';return <View key={s.key}><View style={styles.secHead}><View style={{flexDirection:'row',alignItems:'center',gap:8}}><View style={[styles.secIcon,{backgroundColor:shade(c,-30)}]}><Feather name={I(s.icon||'book-open')} size={13} color="#fff"/></View><T style={[styles.sectionTitle,{color:p.theme.ink}]}>{s.title}</T></View><Pressable onPress={()=>p.setScreen({type:'list',title:s.title,ids:list.map((x:any)=>x.id)})} style={[styles.seeAllPill,{backgroundColor:shade(c,-30)}]}><T style={{color:'#fff',fontWeight:'900',fontSize:12,letterSpacing:0.3}}>{tr(p,'seeAllText')}</T></Pressable></View><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:12,paddingRight:4}}>{list.map((b:Book,i:number)=><BookCard key={b.id} book={b} theme={p.theme} lang={p.state.settings.language} accent={c} section={s.key} onPress={()=>p.open(b.id)}/>)}</ScrollView></View>})}</>}</Page>{showAuthId&&<AuthModal theme={p.theme} lang={p.state.settings.language} onClose={()=>setShowAuthId(null)} onGoto={()=>{setShowAuthId(null);p.setScreen({type:'writer'})}}/>}</View>}
 const Home=React.memo(HomeInner);
 function LibraryLink({title,icon,n,theme,onPress}:{title:string;icon:string;n:number;theme:Theme;onPress:()=>void}){const scale=React.useRef(new Animated.Value(1)).current;const pressIn=()=>{Animated.spring(scale,{toValue:0.96,useNativeDriver:true}).start()};const pressOut=()=>{Animated.spring(scale,{toValue:1,friction:3,tension:40,useNativeDriver:true}).start()};return <Animated.View style={{transform:[{scale}],width:'48.5%'}}><Pressable onPress={onPress} onPressIn={pressIn} onPressOut={pressOut} style={{backgroundColor:theme.card,borderRadius:20,borderWidth:1,borderColor:theme.line,paddingVertical:20,paddingHorizontal:16,shadowColor:'#000',shadowOpacity:0.04,shadowRadius:10,shadowOffset:{width:0,height:2},elevation:2}}><View style={{width:44,height:44,borderRadius:14,backgroundColor:theme.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}><Feather name={I(icon)} size={20} color={theme.primary}/></View><T style={{fontSize:14,fontWeight:'800',color:theme.ink,marginBottom:4}}>{title}</T><T style={{color:theme.muted,fontSize:11,fontWeight:'600'}}>{n}টি</T></Pressable></Animated.View>}
-function LibBookCard({book,theme,onPress}:{book:Book;theme:Theme;onPress:()=>void}){const hideAll=book.hide_title_on_cover&&book.cover_url;return <Pressable onPress={onPress} style={{backgroundColor:theme.card,borderRadius:18,borderWidth:1,borderColor:theme.line,flexDirection:'row',alignItems:'center',padding:12,marginBottom:12,shadowColor:'#000',shadowOpacity:0.03,shadowRadius:8,shadowOffset:{width:0,height:2},elevation:2,gap:14}}><View style={{width:72,height:96,borderRadius:12,backgroundColor:book.color,overflow:'hidden',justifyContent:'flex-end',padding:hideAll?0:8}}>{book.cover_url?<Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12}} resizeMode="cover"/>:null}{!hideAll&&book.cover_url&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12,backgroundColor:'rgba(0,0,0,0.15)'}}/>}{!hideAll&&<T numberOfLines={2} style={{color:'#fff',fontWeight:'900',fontSize:10,lineHeight:13}}>{book.title}</T>}</View><View style={{flex:1}}><T numberOfLines={2} style={{fontSize:15,fontWeight:'800',color:theme.ink,lineHeight:20}}>{book.title}</T><T numberOfLines={1} style={{fontSize:12,fontWeight:'600',color:theme.primary,marginTop:5}}>{book.author}</T><View style={{flexDirection:'row',alignItems:'center',gap:6,marginTop:8}}><View style={{flexDirection:'row',alignItems:'center',gap:3}}><Feather name="eye" size={11} color={theme.muted}/><T style={{color:theme.muted,fontSize:11}}>{book.views_visible !== false ? book.views : ''}</T></View><View style={{width:3,height:3,borderRadius:1.5,backgroundColor:theme.muted,opacity:0.4}}/><T style={{color:theme.muted,fontSize:11}}>{book.category}</T></View></View><Feather name="chevron-right" size={18} color={theme.muted} style={{opacity:0.5}}/></Pressable>}
+function LibBookCard({book,theme,onPress,showDelete,onDelete}:{book:Book;theme:Theme;onPress:()=>void;showDelete?:boolean;onDelete?:()=>void}){
+  const hideAll=book.hide_title_on_cover&&book.cover_url;const sup=useRef(false);
+  const open=()=>{if(sup.current){sup.current=false;return}onPress()};
+  const del=()=>{sup.current=true;if(onDelete)onDelete()};
+  return <Pressable onPress={open} style={{backgroundColor:theme.card,borderRadius:18,borderWidth:1,borderColor:theme.line,flexDirection:'row',alignItems:'center',padding:12,marginBottom:12,shadowColor:'#000',shadowOpacity:0.03,shadowRadius:8,shadowOffset:{width:0,height:2},elevation:2,gap:14}}>
+    <View style={{width:72,height:96,borderRadius:12,backgroundColor:book.color,overflow:'hidden',justifyContent:'flex-end',padding:hideAll?0:8}}>
+      {book.cover_url?<Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12}} resizeMode="cover"/>:null}
+      {!hideAll&&book.cover_url&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12,backgroundColor:'rgba(0,0,0,0.15)'}}/>}
+      {!hideAll&&<T numberOfLines={2} style={{color:'#fff',fontWeight:'900',fontSize:10,lineHeight:13}}>{book.title}</T>}
+    </View>
+    <View style={{flex:1}}>
+      <T numberOfLines={2} style={{fontSize:15,fontWeight:'800',color:theme.ink,lineHeight:20}}>{book.title}</T>
+      <T numberOfLines={1} style={{fontSize:12,fontWeight:'600',color:theme.primary,marginTop:5}}>{book.author}</T>
+      <View style={{flexDirection:'row',alignItems:'center',gap:6,marginTop:8}}>
+        <View style={{flexDirection:'row',alignItems:'center',gap:3}}><Feather name="eye" size={11} color={theme.muted}/><T style={{color:theme.muted,fontSize:11}}>{book.views_visible !== false ? book.views : ''}</T></View>
+        <View style={{width:3,height:3,borderRadius:1.5,backgroundColor:theme.muted,opacity:0.4}}/>
+        <T style={{color:theme.muted,fontSize:11}}>{book.category}</T>
+      </View>
+    </View>
+    {showDelete&&onDelete?<Pressable onPress={del} hitSlop={8} style={{width:36,height:36,borderRadius:18,backgroundColor:'#EF44441A',alignItems:'center',justifyContent:'center'}}><Feather name="trash-2" size={16} color="#EF4444"/></Pressable>:<Feather name="chevron-right" size={18} color={theme.muted} style={{opacity:0.5}}/>}
+  </Pressable>;
+}
 function LibEmpty({tab,theme,lang,onBrowse}:{tab:'downloads'|'favorites'|'history'|'bookmarks';theme:Theme;lang:Language;onBrowse:()=>void}){
   const cfg={
     downloads:{icon:'download-cloud',color:'#0F766E',bg:'#D9F0EA',title:copy(lang,'emptyDownloads'),sub:copy(lang,'emptyDownloadsSub')},
@@ -552,7 +575,7 @@ function LibEmpty({tab,theme,lang,onBrowse}:{tab:'downloads'|'favorites'|'histor
     </Pressable>
   </Animated.View>;
 }
-function Library(p:C){const[libTab,setLibTab]=React.useState<'downloads'|'favorites'|'history'|'bookmarks'>('downloads');const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const theme=p.theme;const[refreshing,setRefreshing]=useState(false);const doRefresh=async()=>{if(!p.syncRemote)return;setRefreshing(true);try{await p.syncRemote()}catch{}finally{setRefreshing(false)}};const tabs:{key:'downloads'|'favorites'|'history'|'bookmarks';icon:string;label:string;color:string}[]=[{key:'downloads',icon:'download-cloud',label:tr(p,'downloads'),color:'#0F766E'},{key:'favorites',icon:'heart',label:tr(p,'favorites'),color:'#E11D48'},{key:'history',icon:'clock',label:tr(p,'history'),color:'#B45309'},{key:'bookmarks',icon:'bookmark',label:tr(p,'bookmarks'),color:'#7C3AED'}];const tabIdx=tabs.findIndex(x=>x.key===libTab);const{width:sw}=useWindowDimensions();const tabW=(sw-36-8)/4;const slideAnim=React.useRef(new Animated.Value(tabIdx)).current;React.useEffect(()=>{Animated.timing(slideAnim,{toValue:tabIdx,duration:200,easing:Easing.bezier(0.25,0.1,0.25,1),useNativeDriver:true}).start()},[tabIdx]);const tabScales=React.useRef(tabs.map(()=>new Animated.Value(1))).current;const tabIn=(i:number)=>{Animated.spring(tabScales[i],{toValue:0.85,friction:5,tension:300,useNativeDriver:true}).start()};const tabOut=(i:number)=>{Animated.spring(tabScales[i],{toValue:1,friction:5,tension:300,useNativeDriver:true}).start()};const listFade=React.useRef(new Animated.Value(1)).current;React.useEffect(()=>{listFade.setValue(0.25);Animated.timing(listFade,{toValue:1,duration:260,useNativeDriver:true}).start()},[libTab]);const ids=libTab==='downloads'?p.state.downloads:libTab==='favorites'?p.state.favorites:libTab==='history'?p.state.history:p.state.bookmarks;return <Page theme={theme} onRefresh={doRefresh} refreshing={refreshing}><Header title={tr(p,'library')} sub={tr(p,'librarySub')} theme={theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/><View style={{backgroundColor:theme.tint,borderRadius:18,marginBottom:16,flexDirection:'row',padding:4,position:'relative'}}><Animated.View style={{position:'absolute',top:4,bottom:4,left:4,width:tabW,backgroundColor:'#fff',borderRadius:14,shadowColor:'#000',shadowOpacity:0.12,shadowRadius:6,shadowOffset:{width:0,height:2},elevation:3,transform:[{translateX:slideAnim.interpolate({inputRange:[0,1,2,3],outputRange:[0,tabW,tabW*2,tabW*3]})}]}}/>{tabs.map((t,i)=>{const act=libTab===t.key;return <Pressable key={t.key} onPress={()=>setLibTab(t.key)} onPressIn={()=>tabIn(i)} onPressOut={()=>tabOut(i)} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:9,zIndex:1}}><Animated.View style={{transform:[{scale:tabScales[i]}]}}><T numberOfLines={1} style={{fontSize:12,fontWeight:act?'800':'600',color:act?theme.primary:theme.muted}}>{t.label}</T></Animated.View></Pressable>})}</View><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><T style={{fontSize:17,fontWeight:'900',color:theme.ink}}>{tabs[tabIdx].label}</T><View style={{backgroundColor:theme.tint,borderRadius:8,paddingHorizontal:10,paddingVertical:4}}><T style={{color:theme.primary,fontSize:11,fontWeight:'700'}}>{ids.length}টি</T></View></View>{ids.length?<Animated.View style={{opacity:listFade}}>{ids.map(id=>{const b=p.allBooks.find(x=>x.id===id)||p.dlBooks[id];return b&&<LibBookCard key={id} book={b} theme={theme} onPress={()=>p.open(id)}/> })}</Animated.View>:<LibEmpty tab={libTab} theme={theme} lang={p.state.settings.language} onBrowse={()=>p.setScreen({type:'search'})}/>}</Page>}
+function Library(p:C){const[libTab,setLibTab]=React.useState<'downloads'|'favorites'|'history'|'bookmarks'>('downloads');const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const theme=p.theme;const[refreshing,setRefreshing]=useState(false);const doRefresh=async()=>{if(!p.syncRemote)return;setRefreshing(true);try{await p.syncRemote()}catch{}finally{setRefreshing(false)}};const tabs:{key:'downloads'|'favorites'|'history'|'bookmarks';icon:string;label:string;color:string}[]=[{key:'downloads',icon:'download-cloud',label:tr(p,'downloads'),color:'#0F766E'},{key:'favorites',icon:'heart',label:tr(p,'favorites'),color:'#E11D48'},{key:'history',icon:'clock',label:tr(p,'history'),color:'#B45309'},{key:'bookmarks',icon:'bookmark',label:tr(p,'bookmarks'),color:'#7C3AED'}];const tabIdx=tabs.findIndex(x=>x.key===libTab);const{width:sw}=useWindowDimensions();const tabW=(sw-36-8)/4;const slideAnim=React.useRef(new Animated.Value(tabIdx)).current;React.useEffect(()=>{Animated.timing(slideAnim,{toValue:tabIdx,duration:200,easing:Easing.bezier(0.25,0.1,0.25,1),useNativeDriver:true}).start()},[tabIdx]);const tabScales=React.useRef(tabs.map(()=>new Animated.Value(1))).current;const tabIn=(i:number)=>{Animated.spring(tabScales[i],{toValue:0.85,friction:5,tension:300,useNativeDriver:true}).start()};const tabOut=(i:number)=>{Animated.spring(tabScales[i],{toValue:1,friction:5,tension:300,useNativeDriver:true}).start()};const listFade=React.useRef(new Animated.Value(1)).current;React.useEffect(()=>{listFade.setValue(0.25);Animated.timing(listFade,{toValue:1,duration:260,useNativeDriver:true}).start()},[libTab]);const ids=libTab==='downloads'?p.state.downloads:libTab==='favorites'?p.state.favorites:libTab==='history'?p.state.history:p.state.bookmarks;return <Page theme={theme} onRefresh={doRefresh} refreshing={refreshing}><Header title={tr(p,'library')} sub={tr(p,'librarySub')} theme={theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/><View style={{backgroundColor:theme.tint,borderRadius:18,marginBottom:16,flexDirection:'row',padding:4,position:'relative'}}><Animated.View style={{position:'absolute',top:4,bottom:4,left:4,width:tabW,backgroundColor:'#fff',borderRadius:14,shadowColor:'#000',shadowOpacity:0.12,shadowRadius:6,shadowOffset:{width:0,height:2},elevation:3,transform:[{translateX:slideAnim.interpolate({inputRange:[0,1,2,3],outputRange:[0,tabW,tabW*2,tabW*3]})}]}}/>{tabs.map((t,i)=>{const act=libTab===t.key;return <Pressable key={t.key} onPress={()=>setLibTab(t.key)} onPressIn={()=>tabIn(i)} onPressOut={()=>tabOut(i)} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:9,zIndex:1}}><Animated.View style={{transform:[{scale:tabScales[i]}]}}><T numberOfLines={1} style={{fontSize:12,fontWeight:act?'800':'600',color:act?theme.primary:theme.muted}}>{t.label}</T></Animated.View></Pressable>})}</View><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><T style={{fontSize:17,fontWeight:'900',color:theme.ink}}>{tabs[tabIdx].label}</T><View style={{backgroundColor:theme.tint,borderRadius:8,paddingHorizontal:10,paddingVertical:4}}><T style={{color:theme.primary,fontSize:11,fontWeight:'700'}}>{ids.length}টি</T></View></View>{ids.length?<Animated.View style={{opacity:listFade}}>{ids.map(id=>{const b=p.allBooks.find(x=>x.id===id)||p.dlBooks[id];return b&&<LibBookCard key={id} book={b} theme={theme} onPress={()=>p.open(id)} showDelete={libTab==='downloads'} onDelete={()=>p.removeDownload(id)}/> })}</Animated.View>:<LibEmpty tab={libTab} theme={theme} lang={p.state.settings.language} onBrowse={()=>p.setScreen({type:'search'})}/>}</Page>}
 function Categories(p:C){const theme=p.theme;const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const[refreshing,setRefreshing]=useState(false);const doRefresh=async()=>{if(!p.syncRemote)return;setRefreshing(true);try{await p.syncRemote()}catch{}finally{setRefreshing(false)}};const skeletonColors=['#2AA876','#E85D75','#8B5CF6','#D97706','#3B82F6','#EC4899','#0891B2','#DC2626','#059669'];return <Page theme={theme} onRefresh={doRefresh} refreshing={refreshing}><Header title={tr(p,'categories')} sub={tr(p,'categoriesSub')} theme={theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/>{!p.dataLoaded&&!p.allCategories.length?<View style={styles.catGrid}>{skeletonColors.map((c,i)=><View key={i} style={[styles.catCard,{opacity:0.6}]}><View style={[styles.catImgWrap]}><SkeletonPulse width="100%" height={120} borderRadius={0} style={{backgroundColor:c+'44'}}/></View></View>)}</View>:!p.allCategories.length?<Empty theme={theme}/>:<View style={styles.catGrid}>{p.allCategories.map(c=>{const count=p.allBooks.filter(b=>b.category===c[0]).length;const hasImg=Boolean(c[3]);const bookWord=count===1?copy(p.state.settings.language,'book'):copy(p.state.settings.language,'books');return <Pressable key={c[0]} onPress={()=>p.setScreen({type:'list',title:c[0],ids:p.allBooks.filter(b=>b.category===c[0]).map(b=>b.id)})} style={styles.catCard}><View style={[styles.catImgWrap]}>{hasImg?<Image source={{uri:c[3]!}} style={styles.catImg}/>:<View style={[styles.catImgFallback,{backgroundColor:c[2]}]}><T style={{color:'#fff',fontSize:28,fontWeight:'900',opacity:0.5}}>{c[0][0]}</T></View>}<View style={styles.catImgOverlay}><T numberOfLines={1} style={styles.catImgName}>{c[0]}</T></View></View><View style={[styles.catBadge,{backgroundColor:theme.tint}]}><T style={[styles.catBadgeText,{color:theme.primary}]}>{count} {bookWord}</T></View></Pressable>})}</View>}</Page>}
 function Episodes(p:C){const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const[refreshing,setRefreshing]=useState(false);const doRefresh=async()=>{if(!p.syncRemote)return;setRefreshing(true);try{await p.syncRemote()}catch{}finally{setRefreshing(false)}};return <Page theme={p.theme} onRefresh={doRefresh} refreshing={refreshing}><Header title={tr(p,'episodes')} sub={tr(p,'episodesSub')} theme={p.theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/>{p.allBooks.map((b,i)=><Episode key={b.id} book={b} theme={p.theme} onPress={()=>p.read(b.id,b.chapters.length?(i+2)%b.chapters.length:0)}/>)}</Page>}
 function Profile(p:C){
@@ -1151,8 +1174,54 @@ function PdfDetailsScreen(p:C&{book:Book}){
   const rxn=p.state.reactions[b.id];
   const [likes,setLikes]=useState<number>(b.likes||0);const [liked,setLiked]=useState<boolean>(rxn==='like');const [disliked,setDisliked]=useState<boolean>(rxn==='dislike');
   const [cmtCount,setCmtCount]=useState<number|null>(null);
-  const [pendingPdfUnlock,setPendingPdfUnlock]=useState<{bookId:string;pdfUrl:string;title:string}|null>(null);
-  const [unlocking,setUnlocking]=useState(false);
+  const [pdfLocalUri,setPdfLocalUri]=useState<string|null>(null);
+  const [pdfPages,setPdfPages]=useState<number|null>(null);
+  const [downloading,setDownloading]=useState(false);
+  const [pdfPct,setPdfPct]=useState<number|null>(null);
+  const [dlFailed,setDlFailed]=useState(false);
+  const downloadRef=useRef<any>(null);
+  const pdfLocalPath=()=>b.id&&(LFS.documentDirectory||'')+`pdfs/${b.id}.pdf`;
+  const checkPdfDownloaded=useCallback(async()=>{try{const u=pdfLocalPath();const info=await LFS.getInfoAsync(u);if(info.exists){setPdfLocalUri(u);setPdfPct(100);countPdfPages(u).then(n=>{if(n)setPdfPages(n)});persistPdfMeta();ensurePdfRegistered()}}catch{}},[b.id]);
+  useEffect(()=>{checkPdfDownloaded()},[b.id]);
+  const countPdfPages=async(uri:string):Promise<number|null>=>{
+    try{
+      const info=await LFS.getInfoAsync(uri);
+      if(!info.exists||(info.size||0)>15*1024*1024)return null;
+      const txt=await LFS.readAsStringAsync(uri);
+      const counts=(txt.match(/\/Count\s+(\d+)/g)||[]).map(m=>parseInt(m.replace(/\D+/g,''),10)).filter(n=>n>0&&n<100000);
+      if(counts.length)return Math.max(...counts);
+      const pages=(txt.match(/\/Type\s*\/Page[^s]/g)||[]).length;
+      return pages>0?pages:null;
+    }catch{return null}
+  };
+  const persistPdfMeta=async()=>{
+    try{
+      const dir=(LFS.documentDirectory||'')+'pdfs/';
+      const meta={id:b.id,title:b.title,author:b.author_name||b.author,author_name:b.author_name||'',cover_url:b.cover_url||null,category:b.category||'',categoryIcon:'book-open',color:'#4A1220',accent:'#C9972B',views:b.views,views_visible:b.views_visible!==false,rating:b.rating||4.5,description:b.description||'',updated:'',pdf_url:b.pdf_url||'',dedication:b.dedication||'',display_status:'complete',writer_status:'complete',hide_title_on_cover:false,chapters:[]};
+      await LFS.writeAsStringAsync(dir+b.id+'.json',JSON.stringify(meta));
+    }catch{}
+  };
+  const ensurePdfRegistered=()=>{if(!p.state.downloads.includes(b.id))p.update({downloads:[...p.state.downloads,b.id]})};
+  const openPdf=(localUri?:string|null)=>{const src=localUri||pdfLocalUri||b.pdf_url;if(src)p.setScreen({type:'pdfReader',id:b.id,pdfUrl:src,title:b.title})};
+  const startPdf=async()=>{
+    if(downloading)return;
+    if(pdfLocalUri||!b.pdf_url){openPdf();return}
+    const uri=pdfLocalPath();
+    try{
+      const dir=(LFS.documentDirectory||'')+'pdfs/';
+      const di=await LFS.getInfoAsync(dir);
+      if(!di.exists)await LFS.makeDirectoryAsync(dir,{intermediates:true});
+      setDlFailed(false);setDownloading(true);
+      let last=0;
+      const task=LFS.createDownloadResumable(b.pdf_url!,uri,{},(pr:any)=>{const t2=pr.totalBytesExpectedToWrite,w=pr.totalBytesWritten;if(t2>0){const pc=Math.min(99,Math.floor(w/t2*100));if(pc>=last){last=pc;setPdfPct(pc)}}});
+      downloadRef.current=task;
+      const res=await task.downloadAsync();
+      downloadRef.current=null;
+      const fi=await LFS.getInfoAsync(uri).catch(()=>null);
+      if(res&&res.status===200&&fi&&fi.exists&&(fi.size||0)>1024){setPdfLocalUri(uri);setPdfPct(100);setDownloading(false);Vibration.vibrate([0,40,40,80]);countPdfPages(uri).then(n=>{if(n)setPdfPages(n)});persistPdfMeta();ensurePdfRegistered();setTimeout(()=>openPdf(uri),400)}
+      else{setDownloading(false);setDlFailed(true);setPdfPct(null);setTimeout(()=>setDlFailed(false),3000)}
+    }catch{setDownloading(false);setDlFailed(true);setPdfPct(null);downloadRef.current=null;setTimeout(()=>setDlFailed(false),3000)}
+  };
   const [showMoreMenu,setShowMoreMenu]=useState(false);
   const [showReport,setShowReport]=useState(false);
   const [reportReason,setReportReason]=useState('');
@@ -1178,28 +1247,23 @@ function PdfDetailsScreen(p:C&{book:Book}){
         <Pressable onPress={toggleFav} hitSlop={8} style={[dStyles.navBtn,{backgroundColor:fav?'#EF4444':t.primary+'14',borderColor:fav?'#EF4444':t.primary+'35',borderWidth:1.5,borderRadius:21,elevation:fav?4:0,shadowColor:'#EF4444',shadowOpacity:fav?0.35:0,shadowRadius:8,shadowOffset:{width:0,height:3}}]}><Feather name="heart" size={17} color={fav?'#fff':t.primary}/></Pressable>
         <Pressable onPress={()=>setShowMoreMenu(true)} hitSlop={8} style={[dStyles.navBtn,{backgroundColor:t.primary+'14',borderColor:t.primary+'35',borderWidth:1.5,borderRadius:21}]}><Feather name="more-vertical" size={17} color={t.primary}/></Pressable>
       </View>
-      <View style={[dStyles.panel,{borderColor:'#00000022'}]}>
-        {b.cover_url?<Image source={{uri:b.cover_url}} style={{position:'absolute',top:-60,left:-60,right:-60,bottom:-60}} blurRadius={40} resizeMode="cover" fadeDuration={0}/>:null}
-        <LinearGradient colors={b.cover_url?['rgba(0,0,0,0.40)','rgba(0,0,0,0.15)','rgba(0,0,0,0.40)']:[base,dark]} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
-        <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
-          <Circle cx="90%" cy={-10} r={100} fill={accent+'25'}/>
-          <Ellipse cx="8%" cy={220} rx={120} ry={70} fill={accent+'18'}/>
-          <Circle cx="75%" cy={190} r={55} fill="#ffffff0A"/>
-        </Svg>
-        <View style={dStyles.storyCard}>
-          <View style={dStyles.coverBox}><Cover book={b}/></View>
-          <View style={dStyles.storyInfo}>
+      <View style={{borderRadius:24,overflow:'hidden',backgroundColor:'#4A1220',marginBottom:14,elevation:4,shadowColor:'#000',shadowOpacity:.25,shadowRadius:12,shadowOffset:{width:0,height:6}}}>
+        {b.cover_url?<Image source={{uri:b.cover_url}} style={{position:'absolute',top:-50,left:-50,right:-50,bottom:-50}} blurRadius={36} resizeMode="cover" fadeDuration={0}/>:null}
+        <LinearGradient colors={['rgba(43,10,18,0.6)','rgba(43,10,18,0.92)']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
+        <Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="88%" cy={4} r={78} fill="#C9972B" opacity={0.14}/><Circle cx="2%" cy={180} r={64} fill="#ffffff" opacity={0.05}/><Ellipse cx="70%" cy={200} rx={90} ry={50} fill="#ffffff" opacity={0.04}/></Svg>
+        <View style={{flexDirection:'row',gap:14,padding:16}}>
+          <View style={{borderRadius:12,overflow:'hidden',elevation:5,shadowColor:'#000',shadowOpacity:.35,shadowRadius:10,shadowOffset:{width:0,height:5},borderWidth:1,borderColor:'#C9972B55'}}><Cover book={b}/></View>
+          <View style={{flex:1,justifyContent:'center'}}>
             <View style={{flexDirection:'row',alignItems:'center',gap:6,flexWrap:'wrap'}}>
-              <View style={[dStyles.statusBadge,{backgroundColor:accent+'2E'}]}><Feather name={I(b.categoryIcon)} size={11} color={accent}/><T style={{color:accent,fontSize:10.5,fontWeight:'900'}}>{b.category||'PDF'}</T></View>
-              <View style={[dStyles.statusBadge,{backgroundColor:'#8B5CF62E'}]}><Feather name="file-text" size={10} color="#8B5CF6"/><T style={{color:'#8B5CF6',fontSize:10,fontWeight:'900'}}>PDF</T></View>
+              <View style={{flexDirection:'row',alignItems:'center',gap:4,backgroundColor:'#C9972B2E',borderRadius:8,paddingHorizontal:8,paddingVertical:3}}><Feather name={I(b.categoryIcon)} size={11} color="#EAC97A"/><T style={{color:'#EAC97A',fontSize:10.5,fontWeight:'900'}}>{b.category||'PDF'}</T></View>
               {b.writer_status==='ongoing'&&<View style={[dStyles.statusBadge,{backgroundColor:'#10B9812E'}]}><Feather name="loader" size={10} color="#10B981"/><T style={{color:'#10B981',fontSize:10,fontWeight:'900'}}>{copy(p.state.settings.language,'statusOngoing')}</T></View>}
               {b.writer_status==='complete'&&<View style={[dStyles.statusBadge,{backgroundColor:'#F59E0B2E'}]}><Feather name="check-circle" size={10} color="#F59E0B"/><T style={{color:'#F59E0B',fontSize:10,fontWeight:'900'}}>{copy(p.state.settings.language,'statusComplete')}</T></View>}
             </View>
-            <T numberOfLines={2} style={dStyles.storyTitle}>{b.title}</T>
-            {b.author_name||b.author?<T numberOfLines={1} style={dStyles.storyAuthor}>{b.author_name||b.author}</T>:null}
-            <View style={dStyles.tagRow}>
-              <View style={[dStyles.miniTag,{backgroundColor:'#ffffff1F'}]}><Feather name="star" size={10} color={accent}/><T style={dStyles.miniTagT}>{b.rating}</T></View>
-              {b.isNew?<View style={[dStyles.miniTag,{backgroundColor:'#F59E0B'}]}><T style={dStyles.miniTagT}>{copy(p.state.settings.language,'statusNew')}</T></View>:null}
+            <T numberOfLines={2} style={{fontSize:19,fontWeight:'900',color:'#fff',lineHeight:25,marginTop:8}}>{b.title}</T>
+            {b.author_name||b.author?<T numberOfLines={1} style={{fontSize:12,fontWeight:'700',color:'#EAC97A',marginTop:4}}>{b.author_name||b.author}</T>:null}
+            <View style={{flexDirection:'row',alignItems:'center',gap:10,marginTop:8}}>
+              <View style={{flexDirection:'row',alignItems:'center',gap:4}}><Feather name="star" size={11} color="#C9972B"/><T style={{fontSize:12,fontWeight:'800',color:'#fff'}}>{b.rating}</T></View>
+              {b.isNew&&<View style={{borderRadius:7,backgroundColor:'#C9972B',paddingHorizontal:8,paddingVertical:2}}><T style={{fontSize:10,fontWeight:'900',color:'#4A1220'}}>{copy(p.state.settings.language,'statusNew')}</T></View>}
             </View>
           </View>
         </View>
@@ -1220,18 +1284,26 @@ function PdfDetailsScreen(p:C&{book:Book}){
           </Pressable>
         </View>
       </View>
-      <Pressable onPress={()=>{if(b.pdf_reward_ad!==false){setPendingPdfUnlock({bookId:b.id,pdfUrl:b.pdf_url!,title:b.title})}else{p.setScreen({type:'pdfReader',id:b.id,pdfUrl:b.pdf_url!,title:b.title})}}} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,backgroundColor:'#8B5CF6',height:52,borderRadius:16,elevation:3,shadowColor:'#8B5CF6',shadowOpacity:.3,shadowRadius:8,shadowOffset:{width:0,height:4},marginBottom:16}}>
-        <Feather name="file-text" size={20} color="#fff"/>
-        <T style={{color:'#fff',fontWeight:'900',fontSize:15}}>PDF পড়ুন</T>
+      {downloading&&<View style={{backgroundColor:t.card,borderWidth:1,borderColor:t.line,borderRadius:14,padding:14,marginBottom:14}}>
+        <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:10}}>
+          <T style={{fontSize:12,fontWeight:'800',color:t.ink}}>পড়ার অগ্রগতি</T>
+          <T style={{fontSize:12,fontWeight:'900',color:t.primary}}>{pdfPct===null?0:pdfPct}%</T>
+        </View>
+        <View style={{height:8,borderRadius:4,backgroundColor:t.line,overflow:'hidden'}}>
+          <View style={{height:'100%',borderRadius:4,backgroundColor:'#8B5CF6',width:`${pdfPct===null?0:pdfPct}%`}}/>
+        </View>
+        <T style={{fontSize:11,color:t.muted,textAlign:'center',marginTop:10}}>পিডিএফ ডাউনলোড হচ্ছে...</T>
+      </View>}
+      <Pressable onPress={startPdf} disabled={downloading} style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,backgroundColor:'#7B1E2B',height:52,borderRadius:16,elevation:3,shadowColor:'#000',shadowOpacity:.25,shadowRadius:8,shadowOffset:{width:0,height:4},marginBottom:16,opacity:downloading?0.7:1}}>
+        {downloading?<ActivityIndicator color="#EAC97A" size="small"/>:<Feather name="book-open" size={20} color="#EAC97A"/>}
+        <T style={{color:'#fff',fontWeight:'900',fontSize:15}}>এখনই পড়ুন</T>
       </Pressable>
+      {pdfPages!==null&&<T style={{fontSize:12,fontWeight:'700',color:t.muted,textAlign:'center',marginBottom:14,marginTop:-6}}>পৃষ্ঠা: {pdfPages}</T>}
+      {dlFailed&&<T style={{color:'#EF4444',fontSize:12,fontWeight:'700',textAlign:'center',marginBottom:16}}>ডাউনলোড ব্যর্থ হয়েছে। আবার চেষ্টা করুন।</T>}
       {b.dedication?<View style={{backgroundColor:t.card,borderWidth:1,borderColor:t.line,borderRadius:14,padding:14,marginBottom:14}}>
         <View style={{flexDirection:'row',alignItems:'center',gap:6,marginBottom:6}}><Feather name="heart" size={14} color="#EC4899"/><T style={{fontSize:12,fontWeight:'800',color:'#EC4899'}}>সমর্পণ</T></View>
         <T style={{color:t.ink,fontSize:13,lineHeight:20}}>{b.dedication}</T>
       </View>:null}
-      <Section title={tr(p,'summary')} theme={t}/>
-      <View style={[dStyles.sumCard,{backgroundColor:t.card,borderColor:t.line}]}>
-        <T style={{color:t.ink,lineHeight:23}}>{b.description||'—'}</T>
-      </View>
     </Animated.View>
     {showMoreMenu&&<Pressable onPress={()=>setShowMoreMenu(false)} style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.3)',zIndex:100}}>
       <View style={{position:'absolute',top:50,right:16,backgroundColor:t.card,borderRadius:14,padding:6,minWidth:180,shadowColor:'#000',shadowOffset:{width:0,height:4},shadowOpacity:0.15,shadowRadius:12,elevation:8,borderWidth:1,borderColor:t.line}}>
@@ -1265,29 +1337,6 @@ function PdfDetailsScreen(p:C&{book:Book}){
             {reporting?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:15}}>{tr(p,'reportSubmit')}</T>}
           </Pressable>
         </>}
-      </Pressable>
-    </Pressable>}
-    {pendingPdfUnlock&&<Pressable onPress={()=>setPendingPdfUnlock(null)} style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',paddingHorizontal:24,zIndex:200}}>
-      <Pressable onPress={()=>{}} style={{width:'100%',maxWidth:360,backgroundColor:t.card,borderRadius:24,padding:28,alignItems:'center'}}>
-        <View style={{width:64,height:64,borderRadius:32,backgroundColor:'#EDE9FE',alignItems:'center',justifyContent:'center',marginBottom:16}}>
-          <Feather name="file-text" size={28} color="#8B5CF6"/>
-        </View>
-        <T style={{fontSize:18,fontWeight:'900',color:t.ink,textAlign:'center',marginBottom:6}}>PDF ডাউনলোড</T>
-        <T style={{fontSize:13,fontWeight:'600',color:t.muted,textAlign:'center',marginBottom:8}}>একটি ছোট ad দেখুন এবং PDF পড়ুন</T>
-        <View style={{backgroundColor:t.bg,borderRadius:12,padding:12,width:'100%',marginBottom:20}}>
-          <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:6}}>
-            <Feather name="info" size={14} color={t.primary}/>
-            <T style={{fontSize:12,fontWeight:'700',color:t.ink}}>কিভাবে কাজ করে?</T>
-          </View>
-          <T style={{fontSize:11,fontWeight:'500',color:t.muted,lineHeight:18}}>১. "ad দেখুন" বাটনে ক্লিক করুন{'\n'}২. ৫-১০ সেকেন্ড ad দেখুন{'\n'}৩. PDF অটোমেটিক খুলে যাবে</T>
-        </View>
-        <Pressable onPress={async()=>{setUnlocking(true);let ok=false;try{ok=await showRewardedAd()}catch{}if(!ok)ok=true;if(ok){setPendingPdfUnlock(null);setTimeout(()=>p.setScreen({type:'pdfReader',id:pendingPdfUnlock.bookId,pdfUrl:pendingPdfUnlock.pdfUrl,title:pendingPdfUnlock.title}),300)}setUnlocking(false)}} disabled={unlocking} style={{width:'100%',backgroundColor:unlocking?'#6D28D9':'#8B5CF6',borderRadius:14,height:52,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:8}}>
-          {unlocking?<ActivityIndicator color="#fff" size="small"/>:<><Feather name="play" size={18} color="#fff"/>
-          <T style={{color:'#fff',fontWeight:'900',fontSize:15}}>ad দেখুন এবং পড়ুন</T></>}
-        </Pressable>
-        <Pressable onPress={()=>setPendingPdfUnlock(null)} style={{marginTop:12}}>
-          <T style={{color:t.muted,fontWeight:'700',fontSize:13}}>বাতিল করুন</T>
-        </Pressable>
       </Pressable>
     </Pressable>}
   </Page>}
@@ -2829,7 +2878,27 @@ function LazyWebView(props:any){
 
 function PDFReaderScreen({theme:t,lang,pdfUrl,title,onBack}:{theme:Theme;lang:Language;pdfUrl:string;title:string;onBack:()=>void}){
   const insets=useSafeAreaInsets();
-  const viewerUrl=pdfUrl.startsWith('http')?`https://docs.google.com/gview?url=${encodeURIComponent(pdfUrl)}&embedded=true`:pdfUrl;
+  const[pdfErr,setPdfErr]=useState('');
+  const[page,setPage]=useState(1);
+  const[total,setTotal]=useState(0);
+  const[retryKey,setRetryKey]=useState(0);
+  const[dragging,setDragging]=useState(false);
+  const[dragPage,setDragPage]=useState(1);
+  const[dragY,setDragY]=useState(0);
+  const railH=useRef(0);
+  const[showJump,setShowJump]=useState(false);
+  const[jumpText,setJumpText]=useState('');
+  const isLocal=!pdfUrl.startsWith('http');
+  const source=isLocal?{uri:pdfUrl}:{uri:pdfUrl,cache:true};
+  const storeKey='@lekhoni/pdfpage/'+pdfUrl;
+  const readPct=total>1?Math.round((page-1)/(total-1)*100):(total===1?100:0);
+  useEffect(()=>{AsyncStorage.getItem(storeKey).then(v=>{const n=parseInt(v||'',10);if(n>0)setPage(n)}).catch(()=>{})},[storeKey]);
+  const onPg=(pg:number,n:number)=>{setPage(pg);if(n>0)setTotal(n);AsyncStorage.setItem(storeKey,String(pg)).catch(()=>{})};
+  const railRatio=(y:number)=>{const h=railH.current||1;return Math.max(0,Math.min(1,y/h))};
+  const railStart=(y:number)=>{if(total<=1)return;setDragging(true);const pg=Math.min(total,Math.max(1,Math.round(railRatio(y)*(total-1))+1));setDragPage(pg);setDragY(y)};
+  const railMove=(y:number)=>{if(total<=1)return;const pg=Math.min(total,Math.max(1,Math.round(railRatio(y)*(total-1))+1));setDragPage(pg);setDragY(y)};
+  const railEnd=()=>{if(dragging&&dragPage!==page)setPage(dragPage);setDragging(false)};
+  const goJump=()=>{const n=parseInt(jumpText.replace(/[^0-9]/g,''),10);if(!n||n<1)return;setPage(total>0?Math.min(n,total):n);setShowJump(false)};
   return <View style={{flex:1,backgroundColor:t.bg}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
       <Pressable onPress={onBack} style={{flexDirection:'row',alignItems:'center',gap:4}}>
@@ -2839,7 +2908,39 @@ function PDFReaderScreen({theme:t,lang,pdfUrl,title,onBack}:{theme:Theme;lang:La
       <T numberOfLines={1} style={{fontSize:13,fontWeight:'800',color:t.ink,flex:1,textAlign:'center',marginHorizontal:10}}>{title}</T>
       <View style={{width:50}}/>
     </View>
-    <LazyWebView source={{uri:viewerUrl}} style={{flex:1}} startInLoadingState={true} renderLoading={()=><View style={{flex:1,alignItems:'center',justifyContent:'center'}}><ActivityIndicator size="large" color={t.primary}/><T style={{marginTop:10,color:t.muted,fontSize:12}}>PDF লোড হচ্ছে...</T></View>}/>
+    <View style={{height:3,backgroundColor:t.line}}><View style={{height:3,backgroundColor:'#C9972B',width:`${readPct}%`}}/></View>
+    {pdfErr?<View style={{flex:1,alignItems:'center',justifyContent:'center',padding:32}}>
+      <View style={{width:64,height:64,borderRadius:32,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',marginBottom:14}}><Feather name="alert-circle" size={28} color={t.primary}/></View>
+      <T style={{color:t.ink,fontWeight:'800',fontSize:15,textAlign:'center'}}>{pdfErr}</T>
+      <T style={{color:t.muted,fontSize:12,textAlign:'center',marginTop:8,lineHeight:18}}>{lang==='bn'?'ইন্টারনেট চেক করে ফিরে গিয়ে আবার খুলুন।':lang==='hi'?'इंटरनेट जाँचें।':'Check internet and reopen.'}</T>
+      <Pressable onPress={()=>{setPdfErr('');setRetryKey(k=>k+1)}} style={{marginTop:16,backgroundColor:t.primary,borderRadius:12,paddingVertical:11,paddingHorizontal:24}}><T style={{color:'#fff',fontSize:13,fontWeight:'800'}}>{lang==='bn'?'আবার চেষ্টা করুন':lang==='hi'?'पुनः प्रयास करें':'Retry'}</T></Pressable>
+    </View>:<Pdf key={retryKey} source={source} page={page} onLoadComplete={(n)=>{if(n>0)setTotal(n)}} onPageChanged={(pg,n)=>onPg(pg,n||0)} onError={()=>{setPdfErr(lang==='bn'?'PDF খোলা যায়নি':lang==='hi'?'PDF नहीं खुला':'Could not open PDF')}} style={{flex:1,backgroundColor:t.bg}}/>}
+    {!pdfErr&&<View style={{flexDirection:'row',alignItems:'center',justifyContent:'center',gap:10,paddingTop:10,paddingBottom:Math.max(12,insets.bottom),backgroundColor:t.card,borderTopWidth:1,borderTopColor:t.line}}>
+      <Pressable onPress={()=>{setJumpText(String(page));setShowJump(true)}} style={{backgroundColor:t.tint,borderRadius:12,paddingVertical:9,paddingHorizontal:20}}><T style={{fontSize:13,fontWeight:'800',color:t.primary}}>{page}{total>0?` / ${total} পাতা • ${readPct}%`:''}</T></Pressable>
+    </View>}
+    {!pdfErr&&total>1&&<View onLayout={(e)=>{railH.current=e.nativeEvent.layout.height}} onTouchStart={(e)=>railStart(e.nativeEvent.locationY)} onTouchMove={(e)=>railMove(e.nativeEvent.locationY)} onTouchEnd={railEnd} onTouchCancel={railEnd} style={{position:'absolute',right:6,top:'30%',height:'40%',width:30,alignItems:'center',justifyContent:'center',zIndex:10}}>
+      <View pointerEvents="none" style={{position:'absolute',top:8,bottom:8,width:4,borderRadius:2,backgroundColor:t.line,opacity:0.7}}/>
+      <View pointerEvents="none" style={{position:'absolute',top:8,bottom:8,width:4,borderRadius:2,overflow:'hidden'}}><View style={{height:`${total>1?(page-1)/(total-1)*100:0}%`,width:4,borderRadius:2,backgroundColor:t.primary}}/></View>
+      {Array.from({length:Math.min(total,21)}).map((_,i)=>{const n=Math.min(total,21);const f=n<=1?0:i/(n-1);const pg=Math.min(total,Math.max(1,Math.round(f*(total-1))+1));const act=pg===page;return <View key={i} pointerEvents="none" style={{position:'absolute',top:`${10+f*80}%`,marginTop:act?-3:-2,width:act?12:8,height:act?7:4,borderRadius:3,backgroundColor:act?t.primary:(f<=(total>1?(page-1)/(total-1):0)?t.primary:t.line)}}/>})}
+      <View pointerEvents="none" style={{position:'absolute',top:`${total>1?(page-1)/(total-1)*100:0}%`,marginTop:-9,width:18,height:18,borderRadius:9,backgroundColor:t.primary,borderWidth:2,borderColor:'#fff',elevation:4,shadowColor:'#000',shadowOpacity:.3,shadowRadius:4,shadowOffset:{width:0,height:2}}}/>
+    </View>}
+    {dragging&&<View pointerEvents="none" style={{position:'absolute',top:insets.top+64,left:0,right:0,alignItems:'center',zIndex:40}}>
+      <View style={{backgroundColor:t.card,borderWidth:1,borderColor:t.line,borderRadius:16,paddingHorizontal:22,paddingVertical:12,elevation:6,shadowColor:'#000',shadowOpacity:.2,shadowRadius:8,shadowOffset:{width:0,height:3}}}>
+        <T style={{fontSize:17,fontWeight:'900',color:t.primary}}>{dragPage}{total>0?` / ${total} পাতা`:''}</T>
+      </View>
+    </View>}
+    {showJump&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:32,zIndex:50,elevation:20}}>
+      <Pressable onPress={()=>setShowJump(false)} style={{position:'absolute',top:0,left:0,right:0,bottom:0}}/>
+      <View style={{width:'100%',backgroundColor:t.card,borderRadius:20,padding:22,borderWidth:1,borderColor:t.line}}>
+        <T style={{fontSize:16,fontWeight:'900',color:t.ink,textAlign:'center',marginBottom:6}}>{lang==='bn'?'পাতায় যান':lang==='hi'?'पेज पर जाएं':'Go to page'}</T>
+        <T style={{fontSize:12,color:t.muted,textAlign:'center',marginBottom:14}}>{total>0?(lang==='bn'?`1 – ${total} এর মধ্যে`:lang==='hi'?`1 – ${total} के बीच`:`Between 1 – ${total}`):lang==='bn'?'পাতা নম্বর দিন':lang==='hi'?'पेज नंबर डालें':'Enter page number'}</T>
+        <TextInput value={jumpText} onChangeText={setJumpText} keyboardType="number-pad" autoFocus selectTextOnFocus placeholder="12" placeholderTextColor={t.muted+'88'} style={{color:t.ink,fontSize:22,fontWeight:'900',textAlign:'center',backgroundColor:t.bg,borderWidth:1.5,borderColor:t.primary,borderRadius:12,paddingVertical:10,marginBottom:14,fontFamily:GF()}}/>
+        <View style={{flexDirection:'row',gap:10}}>
+          <Pressable onPress={()=>setShowJump(false)} style={{flex:1,height:48,borderRadius:14,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}><T style={{color:t.primary,fontWeight:'800',fontSize:14}}>{copy(lang,'cancel')}</T></Pressable>
+          <Pressable onPress={goJump} style={{flex:1,height:48,borderRadius:14,backgroundColor:t.primary,alignItems:'center',justifyContent:'center'}}><T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{lang==='bn'?'যান':lang==='hi'?'जाएँ':'Go'}</T></Pressable>
+        </View>
+      </View>
+    </View>}
   </View>;
 }
 

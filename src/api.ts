@@ -371,7 +371,7 @@ export async function createWriterStory(token: string, title: string, descriptio
 export async function uploadWriterPdf(token: string, fileUri: string, fileName: string): Promise<string | null> {
   const formData = new FormData();
   formData.append('file', { uri: fileUri, name: fileName, type: 'application/pdf' } as any);
-  const r = await apiFetch<{ url?: string }>(`/api/writer/upload-pdf`, { method: 'POST', body: formData, headers: { Authorization: `Bearer ${token}` } });
+  const r = await apiFetch<{ url?: string }>(`/api/writer/upload-pdf`, { method: 'POST', body: formData, headers: { Authorization: `Bearer ${token}` } }, { timeout: 120000, errorBody: true });
   return r?.url || null;
 }
 
