@@ -1140,6 +1140,7 @@ function GridBookCard({book:b,theme:t,onPress}:{book:Book;theme:Theme;onPress:()
   return <Pressable onPress={onPress} style={{width:'31%'}}>
     <View style={{width:'100%',aspectRatio:3/4,borderRadius:10,backgroundColor:b.color||'#4A1220',overflow:'hidden',marginBottom:6,borderWidth:1,borderColor:t.line}}>
       {b.cover_url?<Image source={{uri:b.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0}} resizeMode="cover"/>:<View style={{flex:1,alignItems:'center',justifyContent:'center',padding:6}}><T numberOfLines={3} style={{color:'#fff',fontWeight:'800',fontSize:10,textAlign:'center',lineHeight:14}}>{b.title}</T></View>}
+      {b.views_visible!==false?<View style={{position:'absolute',left:5,bottom:5,flexDirection:'row',alignItems:'center',gap:3,backgroundColor:'rgba(0,0,0,0.55)',borderRadius:7,paddingHorizontal:6,paddingVertical:3}}><Feather name="eye" size={9} color="#fff"/><T style={{color:'#fff',fontSize:9,fontWeight:'700'}}>{b.views}</T></View>:null}
     </View>
     <T numberOfLines={2} style={{fontSize:12,fontWeight:'800',color:t.ink,lineHeight:16}}>{b.title}</T>
     <T numberOfLines={1} style={{fontSize:10.5,fontWeight:'600',color:t.muted,marginTop:2}}>{b.author}</T>
