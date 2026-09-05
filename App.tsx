@@ -26,7 +26,7 @@ import { saveBookOffline, loadBookOffline, removeBookOffline, isBookOffline, get
 import { initAllAds, showAppOpenAd, maybeShowInterstitial, showRewardedAd, isRewardedAdReady, resetAdSession } from './src/ads';
 
 type Tab = 'home'|'library'|'categories'|'episodes'|'profile';
-type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'pdfReader', id:string, pdfUrl:string, title:string } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' } | { type:'newStory' } | { type:'newPdfStory' } | { type:'editStory', id:string, title:string, desc:string, coverUrl:string|null, writerStatus:string } | { type:'aboutApp' } | { type:'terms' } | { type:'guide' };
+type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'pdfReader', id:string, pdfUrl:string, title:string } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' } | { type:'newStory' } | { type:'newPdfStory' } | { type:'editStory', id:string, title:string, desc:string, coverUrl:string|null, writerStatus:string, pdfUrl?:string } | { type:'aboutApp' } | { type:'terms' } | { type:'guide' };
 type Theme = {dark:boolean;primary:string;bg:string;card:string;ink:string;muted:string;line:string;tint:string;reader:string};
 const I = (name:string) => (Feather.glyphMap as Record<string,unknown>)[name] ? name as keyof typeof Feather.glyphMap : 'bell';
 
@@ -258,7 +258,7 @@ const sameScreen=(a:Screen,b:Screen)=>JSON.stringify(a)===JSON.stringify(b); con
   if(screen.type==='newStory')body=<NewStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} categories={allCategories.map(c=>c[0])} onBack={goBack} onCreated={goBack}/>;
   if(screen.type==='newPdfStory')body=<NewStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} categories={allCategories.map(c=>c[0])} onBack={goBack} onCreated={goBack} initialMode="pdf"/>;
   if(screen.type==='pdfReader')body=<PDFReaderScreen theme={theme} lang={state.settings.language} pdfUrl={screen.pdfUrl} title={screen.title} onBack={goBack}/>;
-  if(screen.type==='editStory')body=<EditStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} storyId={screen.id} initialTitle={screen.title} initialDesc={screen.desc} initialCover={screen.coverUrl} initialWriterStatus={screen.writerStatus} onBack={goBack} onSaved={syncRemote}/>;
+  if(screen.type==='editStory')body=<EditStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} storyId={screen.id} initialTitle={screen.title} initialDesc={screen.desc} initialCover={screen.coverUrl} initialWriterStatus={screen.writerStatus} pdfUrl={screen.pdfUrl} onBack={goBack} onSaved={syncRemote}/>;
   if(screen.type==='aboutApp')body=<AboutAppScreen theme={theme} lang={state.settings.language} onBack={goBack}/>;
   if(screen.type==='terms')body=<TermsScreen theme={theme} lang={state.settings.language} onBack={goBack}/>;
   if(screen.type==='guide')body=<GuideScreen theme={theme} lang={state.settings.language} onBack={goBack} onWriter={()=>setScreen({type:'writer'})} setScreen={setScreen}/>;
@@ -3212,18 +3212,23 @@ function AboutAppScreen({theme:t,lang,onBack}:{theme:Theme;lang:Language;onBack:
   </View>;
 }
 
-function EditStoryScreen({token,theme:t,lang,storyId,initialTitle,initialDesc,initialCover,initialWriterStatus,onBack,onSaved}:{token:string;theme:Theme;lang:Language;storyId:string;initialTitle:string;initialDesc:string;initialCover:string|null;initialWriterStatus:string;onBack:()=>void;onSaved:()=>void}){
+function EditStoryScreen({token,theme:t,lang,storyId,initialTitle,initialDesc,initialCover,initialWriterStatus,pdfUrl:initialPdfUrl,onBack,onSaved}:{token:string;theme:Theme;lang:Language;storyId:string;initialTitle:string;initialDesc:string;initialCover:string|null;initialWriterStatus:string;pdfUrl?:string;onBack:()=>void;onSaved:()=>void}){
   const insets=useSafeAreaInsets();
   const[title,setTitle]=useState(initialTitle);
   const[desc,setDesc]=useState(initialDesc);
   const[cover,setCover]=useState(initialCover||'');
   const[coverPreview,setCoverPreview]=useState(initialCover||'');
   const[writerStatus,setWriterStatus]=useState(initialWriterStatus);
+  const[pdfFile,setPdfFile]=useState<{uri:string;name:string}|null>(null);
+  const[newPdfUrl,setNewPdfUrl]=useState('');
+  const[uploadingPdf,setUploadingPdf]=useState(false);
+  const isPdfStory=!!(initialPdfUrl||newPdfUrl);
+  const pickPdf=async()=>{try{const r=await DocumentPicker.getDocumentAsync({type:'application/pdf',copyToCacheDirectory:true});if(!r.canceled&&r.assets?.length){setPdfFile({uri:r.assets[0].uri,name:r.assets[0].name})}}catch{}};
   const[saving,setSaving]=useState(false);
   const[saved,setSaved]=useState(false);
   const[uploadingImg,setUploadingImg]=useState(false);
   const pickCover=async()=>{setUploadingImg(true);try{const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}}catch{}setUploadingImg(false)};
-  const save=async()=>{if(!title.trim())return;setSaving(true);try{await updateWriterStory(token,storyId,{title:title.trim(),description:desc.trim(),cover_url:cover||undefined,writer_status:writerStatus||undefined});onSaved();setSaved(true);setTimeout(()=>onBack(),1200)}catch(e){}finally{setSaving(false)}};
+  const save=async()=>{if(!title.trim())return;setSaving(true);try{let pdfUrl=newPdfUrl||undefined;if(pdfFile&&!newPdfUrl){setUploadingPdf(true);try{const uploaded=await uploadWriterPdf(token,pdfFile.uri,pdfFile.name);if(uploaded){pdfUrl=uploaded;setNewPdfUrl(uploaded)}else{Alert.alert('ত্রুটি','PDF আপলোড ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');setUploadingPdf(false);setSaving(false);return}}catch{Alert.alert('ত্রুটি','PDF আপলোড ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');setUploadingPdf(false);setSaving(false);return}setUploadingPdf(false)}await updateWriterStory(token,storyId,{title:title.trim(),description:desc.trim(),cover_url:cover||undefined,writer_status:writerStatus||undefined,...(pdfUrl?{pdf_url:pdfUrl}:{})});onSaved();setSaved(true);setTimeout(()=>onBack(),1200)}catch(e){}finally{setSaving(false)}};
   return <View style={{flex:1,backgroundColor:t.bg}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
       <Pressable onPress={onBack} style={{flexDirection:'row',alignItems:'center',gap:4}}>
@@ -3244,6 +3249,17 @@ function EditStoryScreen({token,theme:t,lang,storyId,initialTitle,initialDesc,in
         <Feather name="info" size={16} color={t.primary} style={{marginTop:2}}/>
         <T style={{fontSize:12,color:t.ink,lineHeight:20,flex:1}}>আপনি যেকোনো সময় এই গল্পটি পুনরায় সম্পাদনা করতে পারবেন। পরিবর্তন করার পর "সংরক্ষণ" চাপুন।</T>
       </View>
+      {isPdfStory&&<View style={{marginBottom:16}}>
+        <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>পিডিএফ ফাইল</T>
+        <View style={{backgroundColor:t.card,borderWidth:1,borderColor:t.line,borderRadius:12,padding:12,flexDirection:'row',alignItems:'center',gap:10}}>
+          <View style={{width:40,height:40,borderRadius:10,backgroundColor:'#8B5CF6'+'18',alignItems:'center',justifyContent:'center'}}><Feather name="file-text" size={18} color="#8B5CF6"/></View>
+          <T numberOfLines={1} style={{flex:1,fontSize:12,fontWeight:'700',color:t.ink}}>{pdfFile?pdfFile.name:(newPdfUrl?newPdfUrl.split('/').pop():initialPdfUrl?.split('/').pop())||'PDF'}</T>
+          <Pressable onPress={pickPdf} disabled={uploadingPdf} style={{backgroundColor:'#8B5CF6',borderRadius:8,paddingHorizontal:10,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:4,opacity:uploadingPdf?0.5:1}}>
+            {uploadingPdf?<ActivityIndicator color="#fff" size="small"/>:<Feather name="refresh-cw" size={12} color="#fff"/>}
+            <T style={{color:'#fff',fontWeight:'800',fontSize:11}}>বদলান</T>
+          </Pressable>
+        </View>
+      </View>}
       <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>কভার ছবি</T>
       <Pressable onPress={pickCover} disabled={uploadingImg} style={{borderRadius:12,borderWidth:1.5,borderColor:t.line,borderStyle:'dashed',overflow:'hidden',marginBottom:16}}>
         {uploadingImg?<View style={{height:140,alignItems:'center',justifyContent:'center',backgroundColor:t.card}}><ActivityIndicator size="small" color={t.primary}/></View>:
@@ -3273,7 +3289,7 @@ function WriterStories({token,theme:t,lang,categories,setScreen,onRefresh}:{toke
   const insets=useSafeAreaInsets();
   const[stories,setStories]=useState<any[]>([]);
   const[loading,setLoading]=useState(true);
-  const[filter,setFilter]=useState<'all'|'published'|'draft'|'pending'|'rejected'>('all');
+  const[filter,setFilter]=useState<'all'|'published'|'draft'|'pending'|'rejected'|'pdf'>('all');
   const[expanded,setExpanded]=useState<string|null>(null);
   const[chapters,setChapters]=useState<any[]>([]);
   const[chTitle,setChTitle]=useState('');
@@ -3284,7 +3300,7 @@ function WriterStories({token,theme:t,lang,categories,setScreen,onRefresh}:{toke
   const[deleteId,setDeleteId]=useState<string|null>(null);
   const load=()=>{fetchWriterStories(token).then(s=>{setStories(s||[]);const m:Record<string,string>={};const w:Record<string,string>={};(s||[]).forEach((x:any)=>{if(x.display_status)m[x.id]=x.display_status;if(x.writer_status)w[x.id]=x.writer_status});setStoryStatuses(m);setWriterStatuses(w)}).finally(()=>setLoading(false))};
   useEffect(()=>{load()},[token]);
-  const filtered=filter==='all'?stories:stories.filter(s=>s.status===filter);
+  const filtered=filter==='all'?stories:filter==='pdf'?stories.filter(s=>(s as any).pdf_url):stories.filter(s=>s.status===filter);
   const statusColor=(s:string)=>s==='published'?'#10B981':s==='pending'?'#F59E0B':s==='rejected'?'#EF4444':'#9CA3AF';
   const toggleExpand=async(id:string)=>{
     if(expanded===id){setExpanded(null);return}
@@ -3306,18 +3322,24 @@ function WriterStories({token,theme:t,lang,categories,setScreen,onRefresh}:{toke
   const confirmDelete=async()=>{if(deleteId){await deleteWriterStory(token,deleteId);setDeleteId(null);load();onRefresh?.()}};
   const toggleDisplayStatus=async(id:string,status:string)=>{const newStatus=storyStatuses[id]===status?'':status;setStoryStatuses(s=>({...s,[id]:newStatus}));await updateWriterStory(token,id,{display_status:newStatus});setStories(s=>s.map(x=>x.id===id?{...x,display_status:newStatus}:x))};
   const toggleWriterStatus=async(id:string,status:string)=>{const newStatus=writerStatuses[id]===status?'':status;setWriterStatuses(s=>({...s,[id]:newStatus}));await updateWriterStory(token,id,{writer_status:newStatus});setStories(s=>s.map(x=>x.id===id?{...x,writer_status:newStatus}:x))};
-  const startEdit=(s:any)=>{setScreen({type:'editStory',id:s.id,title:s.title,desc:s.description||'',coverUrl:s.cover_url||null,writerStatus:s.writer_status||''})};
+  const startEdit=(s:any)=>{setScreen({type:'editStory',id:s.id,title:s.title,desc:s.description||'',coverUrl:s.cover_url||null,writerStatus:s.writer_status||'',pdfUrl:(s as any).pdf_url||''})};
   return <View style={{flex:1}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
       <T style={{fontSize:16,fontWeight:'900',color:t.ink}}>{copy(lang,'myStories')} ({stories.length})</T>
+      <View style={{flexDirection:'row',gap:6}}>
       <Pressable onPress={()=>setScreen({type:'newStory'})} style={{backgroundColor:t.primary,borderRadius:10,paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:5}}>
         <Feather name="plus" size={14} color="#fff"/>
         <T style={{color:'#fff',fontWeight:'800',fontSize:12}}>{copy(lang,'newStory')}</T>
       </Pressable>
+      <Pressable onPress={()=>setScreen({type:'newPdfStory'})} style={{backgroundColor:'#8B5CF6',borderRadius:10,paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:5}}>
+        <Feather name="file-text" size={14} color="#fff"/>
+        <T style={{color:'#fff',fontWeight:'800',fontSize:12}}>PDF</T>
+      </Pressable>
+      </View>
     </View>
     <View style={{flexDirection:'row',gap:5,marginBottom:14}}>
-      {(['all','published','draft','pending','rejected'] as const).map(f=><Pressable key={f} onPress={()=>setFilter(f)} style={{paddingHorizontal:10,paddingVertical:5,borderRadius:8,backgroundColor:filter===f?t.primary:t.card,borderWidth:1,borderColor:filter===f?t.primary:t.line}}>
-        <T style={{fontSize:11,fontWeight:'700',color:filter===f?'#fff':t.muted}}>{copy(lang,f)}</T>
+      {(['all','published','draft','pending','rejected','pdf'] as const).map(f=><Pressable key={f} onPress={()=>setFilter(f)} style={{paddingHorizontal:10,paddingVertical:5,borderRadius:8,backgroundColor:filter===f?t.primary:t.card,borderWidth:1,borderColor:filter===f?t.primary:t.line}}>
+        <T style={{fontSize:11,fontWeight:'700',color:filter===f?'#fff':t.muted}}>{f==='pdf'?'PDF':copy(lang,f)}</T>
       </Pressable>)}
     </View>
     {loading?<View style={{alignItems:'center',paddingVertical:40}}><ActivityIndicator color={t.primary}/></View>:

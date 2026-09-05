@@ -375,7 +375,7 @@ export async function uploadWriterPdf(token: string, fileUri: string, fileName: 
   return r?.url || null;
 }
 
-export async function updateWriterStory(token: string, storyId: string, patch: { title?: string; description?: string; status?: string; category?: string; display_status?: string; writer_status?: string; cover_url?: string }): Promise<boolean> {
+export async function updateWriterStory(token: string, storyId: string, patch: { title?: string; description?: string; status?: string; category?: string; display_status?: string; writer_status?: string; cover_url?: string; pdf_url?: string }): Promise<boolean> {
   const r = await writerApiFetch<{ ok: boolean }>(`/api/writer/stories/${storyId}`, token, {
     method: 'PUT', body: JSON.stringify(patch),
   });
