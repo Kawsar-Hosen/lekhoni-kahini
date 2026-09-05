@@ -549,7 +549,7 @@ function LibBookCard({book,theme,dark,onPress,showDelete,onDelete,cached}:{book:
   const isPdf=!!(cached?.pdf_url||book.pdf_url);
   const dlN=cached&&cached.chapters?cached.chapters.length:book.chapters.length;
   const status=showDelete?(isPdf?'pdf':'dl'):'plain';
-  const grad=dark?(status==='pdf'?['#4A2E12','#5A3A1A']:status==='dl'?['#14352B','#1E4436']:['#4A1220','#5A1A28']):(status==='pdf'?['#FFF7E8','#FBEECB']:status==='dl'?['#EDF9F2','#DDF0E6']:['#FFF9F3','#FBEEDF']);
+  const grad:[string,string]=dark?(status==='pdf'?['#4A2E12','#5A3A1A']:status==='dl'?['#14352B','#1E4436']:['#4A1220','#5A1A28']):(status==='pdf'?['#FFF7E8','#FBEECB']:status==='dl'?['#EDF9F2','#DDF0E6']:['#FFF9F3','#FBEEDF']);
   const strip=status==='dl'?'#10B981':'#C9972B';
   const open=()=>{if(sup.current){sup.current=false;return}onPress()};
   const del=()=>{sup.current=true;if(onDelete)onDelete()};
