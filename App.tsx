@@ -859,16 +859,16 @@ function ProfileDetails(p:C){
         </Pressable>}
       </View>
 
-      {sections.map((sec,idx)=><Pressable key={idx} onPress={()=>{if(sec.ids.length)p.setScreen({type:'list',title:sec.title,ids:sec.ids})}} style={[styles.menuGroup,{backgroundColor:t.card,marginBottom:10}]}>
-        <View style={{flexDirection:'row',alignItems:'center',paddingVertical:14,paddingHorizontal:16}}>
-          <View style={{width:36,height:36,borderRadius:10,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
-            <Feather name={sec.icon as any} size={17} color={t.primary}/>
+      {sections.map((sec,idx)=><Pressable key={idx} onPress={()=>{if(sec.ids.length)p.setScreen({type:'list',title:sec.title,ids:sec.ids})}} style={[styles.menuGroup,{backgroundColor:t.card,marginBottom:8,borderLeftWidth:3,borderLeftColor:'#C9972B'}]}>
+        <View style={{flexDirection:'row',alignItems:'center',paddingVertical:10,paddingHorizontal:12}}>
+          <View style={{width:32,height:32,borderRadius:9,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:t.line}}>
+            <Feather name={sec.icon as any} size={15} color={t.primary}/>
           </View>
-          <View style={{flex:1,marginLeft:12}}>
-            <T style={{fontSize:14,fontWeight:'800',color:t.ink}}>{sec.title}</T>
-            <T style={{fontSize:11,color:t.muted,marginTop:1}}>{sec.count} {tr(p,'books')}</T>
+          <View style={{flex:1,marginLeft:10}}>
+            <T style={{fontSize:13,fontWeight:'800',color:t.ink}}>{sec.title}</T>
+            <T style={{fontSize:10.5,color:t.muted,marginTop:1}}>{sec.count} {tr(p,'books')}</T>
           </View>
-          <Feather name="chevron-right" size={18} color={t.muted}/>
+          <Feather name="chevron-right" size={16} color={t.muted}/>
         </View>
       </Pressable>)}
       <Modal visible={editing} transparent animationType="fade" onRequestClose={()=>setEditing(false)}>
