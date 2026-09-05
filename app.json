@@ -18,6 +18,12 @@
     "android": {
       "package": "com.lekhoni.kahini",
       "versionCode": 2,
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4A1220"
@@ -33,19 +39,23 @@
       "expo-font",
       "expo-web-browser",
       [
-        "expo-av",
+        "expo-build-properties",
         {
-          "microphonePermission": false
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "minSdkVersion": 24
+          }
         }
       ],
-        [
-          "expo-image-picker",
-          {
-            "cameraPermission": false,
-            "microphonePermission": false,
-            "photosPermission": "Allow Lekhoni Kahini to access your photos for avatar and cover image"
-          }
-        ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": false,
+          "microphonePermission": false,
+          "photosPermission": "Allow Lekhoni Kahini to access your photos for avatar and cover image"
+        }
+      ],
       [
         "@react-native-google-signin/google-signin",
         {
@@ -60,7 +70,8 @@
           "androidAppId": "ca-app-pub-3940256099942544~3347511713",
           "iosAppId": "ca-app-pub-3940256099942544~1458002511"
         }
-      ]
+      ],
+      "expo-build-properties"
     ],
     "extra": {
       "eas": {

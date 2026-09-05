@@ -178,7 +178,7 @@ const sameScreen=(a:Screen,b:Screen)=>JSON.stringify(a)===JSON.stringify(b); con
   const [transBook,setTransBook]=useState<{book:Book;fromX:number;fromY:number;fromW:number;fromH:number}|null>(null);
   const transAnim=useRef(new Animated.Value(0)).current;
   const {width:screenW,height:screenH}=useWindowDimensions();
-  const openWithAnim=(book:Book,fromX:number,fromY:number,fromW:number,fromH:number)=>{setTransBook({book,fromX,fromY,fromW,fromH});transAnim.setValue(0);Animated.timing(transAnim,{toValue:1,duration:320,easing:Easing.out(Easing.cubic),useNativeDriver:false}).start(()=>{setTransBook(null);open(book.id)})};
+  const openWithAnim=(book:Book,fromX:number,fromY:number,fromW:number,fromH:number)=>{if(transBook)return;setTransBook({book,fromX,fromY,fromW,fromH});transAnim.setValue(0);Animated.timing(transAnim,{toValue:1,duration:320,easing:Easing.out(Easing.cubic),useNativeDriver:false}).start(()=>{setTransBook(null);open(book.id)})};
  const theme=themeFor(state.settings.themeId,state.settings.dark);
   const [dlBooks,setDlBooks]=useState<Record<string,Book>>({});
   useEffect(()=>{getOfflineBookIds().then(async ids=>{const loaded:Record<string,Book>={};for(const id of ids){const b=await loadBookOffline(id);if(b)loaded[id]=b}try{const pdfDir=(LFS.documentDirectory||'')+'pdfs/';const di=await LFS.getInfoAsync(pdfDir);if(di.exists){const files=await LFS.readDirectoryAsync(pdfDir);for(const f of files){if(f.endsWith('.json')){try{const raw=await LFS.readAsStringAsync(pdfDir+f);const m=JSON.parse(raw);if(m&&m.id&&!loaded[m.id])loaded[m.id]={...m,chapters:[]}}catch{}}}}}catch{}setDlBooks(loaded);setState(s=>{const keep=s.downloads.filter(id=>loaded[id]);return keep.length===s.downloads.length?s:{...s,downloads:keep}})}).catch(()=>{})},[]);
@@ -1274,7 +1274,7 @@ function PdfDetailsScreen(p:C&{book:Book}){
   const countPdfPages=async(uri:string):Promise<number|null>=>{
     try{
       const info=await LFS.getInfoAsync(uri);
-      if(!info.exists||(info.size||0)>15*1024*1024)return null;
+      if(!info.exists||(info.size||0)>5*1024*1024)return null;
       const txt=await LFS.readAsStringAsync(uri);
       const counts=(txt.match(/\/Count\s+(\d+)/g)||[]).map(m=>parseInt(m.replace(/\D+/g,''),10)).filter(n=>n>0&&n<100000);
       if(counts.length)return Math.max(...counts);

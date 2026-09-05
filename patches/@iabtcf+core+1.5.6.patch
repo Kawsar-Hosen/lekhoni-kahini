@@ -1,0 +1,100 @@
+diff --git a/node_modules/@iabtcf/core/lib/mjs/model/gvl/Stack.d.ts b/node_modules/@iabtcf/core/lib/mjs/model/gvl/Stack.d.ts
+deleted file mode 100644
+index 03d4f63..0000000
+--- a/node_modules/@iabtcf/core/lib/mjs/model/gvl/Stack.d.ts
++++ /dev/null
+@@ -1,6 +0,0 @@
+-import { GVLMapItem } from './GVLMapItem.js';
+-export interface Stack extends GVLMapItem {
+-    purposes: number[];
+-    specialFeatures: number[];
+-    description: string;
+-}
+diff --git a/node_modules/@iabtcf/core/lib/mjs/model/gvl/Stack.js b/node_modules/@iabtcf/core/lib/mjs/model/gvl/Stack.js
+deleted file mode 100644
+index cb0ff5c..0000000
+--- a/node_modules/@iabtcf/core/lib/mjs/model/gvl/Stack.js
++++ /dev/null
+@@ -1 +0,0 @@
+-export {};
+diff --git a/node_modules/@iabtcf/core/lib/mjs/model/gvl/Vendor.d.ts b/node_modules/@iabtcf/core/lib/mjs/model/gvl/Vendor.d.ts
+deleted file mode 100644
+index 3327938..0000000
+--- a/node_modules/@iabtcf/core/lib/mjs/model/gvl/Vendor.d.ts
++++ /dev/null
+@@ -1,19 +0,0 @@
+-import { GVLMapItem } from './GVLMapItem.js';
+-export interface Vendor extends GVLMapItem {
+-    purposes: number[];
+-    legIntPurposes: number[];
+-    flexiblePurposes: number[];
+-    specialPurposes: number[];
+-    features: number[];
+-    specialFeatures: number[];
+-    policyUrl: string;
+-    usesCookies: boolean;
+-    cookieMaxAgeSeconds: number | null;
+-    cookieRefresh: boolean;
+-    usesNonCookieAccess: boolean;
+-    deviceStorageDisclosureUrl?: string;
+-    deletedDate?: Date | string;
+-    overflow?: {
+-        httpGetLimit: 32 | 128;
+-    };
+-}
+diff --git a/node_modules/@iabtcf/core/lib/mjs/model/gvl/Vendor.js b/node_modules/@iabtcf/core/lib/mjs/model/gvl/Vendor.js
+deleted file mode 100644
+index cb0ff5c..0000000
+--- a/node_modules/@iabtcf/core/lib/mjs/model/gvl/Vendor.js
++++ /dev/null
+@@ -1 +0,0 @@
+-export {};
+diff --git a/node_modules/@iabtcf/core/lib/mjs/model/gvl/VendorList.d.ts b/node_modules/@iabtcf/core/lib/mjs/model/gvl/VendorList.d.ts
+deleted file mode 100644
+index 7f613bd..0000000
+--- a/node_modules/@iabtcf/core/lib/mjs/model/gvl/VendorList.d.ts
++++ /dev/null
+@@ -1,10 +0,0 @@
+-import { IntMap } from '../IntMap.js';
+-import { Vendor } from './Vendor.js';
+-import { Declarations } from './Declarations.js';
+-export interface VendorList extends Declarations {
+-    lastUpdated: string | Date;
+-    gvlSpecificationVersion: number;
+-    vendorListVersion: number;
+-    tcfPolicyVersion: number;
+-    vendors: IntMap<Vendor>;
+-}
+diff --git a/node_modules/@iabtcf/core/lib/mjs/model/gvl/VendorList.js b/node_modules/@iabtcf/core/lib/mjs/model/gvl/VendorList.js
+deleted file mode 100644
+index cb0ff5c..0000000
+--- a/node_modules/@iabtcf/core/lib/mjs/model/gvl/VendorList.js
++++ /dev/null
+@@ -1 +0,0 @@
+-export {};
+diff --git a/node_modules/@iabtcf/core/lib/mjs/model/gvl/index.d.ts b/node_modules/@iabtcf/core/lib/mjs/model/gvl/index.d.ts
+index 42b80dc..06d2cfc 100644
+--- a/node_modules/@iabtcf/core/lib/mjs/model/gvl/index.d.ts
++++ b/node_modules/@iabtcf/core/lib/mjs/model/gvl/index.d.ts
+@@ -4,6 +4,3 @@ export * from './Feature.js';
+ export * from './GVLMapItem.js';
+ export * from './IDSetMap.js';
+ export * from './Purpose.js';
+-export * from './Stack.js';
+-export * from './Vendor.js';
+-export * from './VendorList.js';
+diff --git a/node_modules/@iabtcf/core/lib/mjs/model/gvl/index.js b/node_modules/@iabtcf/core/lib/mjs/model/gvl/index.js
+index 56ddec4..06d2cfc 100644
+--- a/node_modules/@iabtcf/core/lib/mjs/model/gvl/index.js
++++ b/node_modules/@iabtcf/core/lib/mjs/model/gvl/index.js
+@@ -1,10 +1,6 @@
+-// created from 'create-ts-index'
+ export * from './ByPurposeVendorMap.js';
+ export * from './Declarations.js';
+ export * from './Feature.js';
+ export * from './GVLMapItem.js';
+ export * from './IDSetMap.js';
+ export * from './Purpose.js';
+-export * from './Stack.js';
+-export * from './Vendor.js';
+-export * from './VendorList.js';
