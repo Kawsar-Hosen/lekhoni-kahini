@@ -859,7 +859,7 @@ function ProfileDetails(p:C){
         </Pressable>}
       </View>
 
-      {sections.map((sec,idx)=><Pressable key={idx} onPress={()=>{if(sec.ids.length)p.setScreen({type:'list',title:sec.title,ids:sec.ids})}} style={[styles.menuGroup,{backgroundColor:t.card,marginBottom:8,borderLeftWidth:3,borderLeftColor:'#C9972B'}]}>
+      {sections.map((sec,idx)=><Pressable key={idx} onPress={()=>{if(sec.ids.length)p.setScreen({type:'list',title:sec.title,ids:sec.ids})}} style={[styles.menuGroup,{backgroundColor:t.card,marginBottom:8,marginTop:idx===0?8:0,borderLeftWidth:3,borderLeftColor:'#C9972B'}]}>
         <View style={{flexDirection:'row',alignItems:'center',paddingVertical:10,paddingHorizontal:12}}>
           <View style={{width:32,height:32,borderRadius:9,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',borderWidth:1,borderColor:t.line}}>
             <Feather name={sec.icon as any} size={15} color={t.primary}/>
