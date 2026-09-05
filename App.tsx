@@ -2645,6 +2645,24 @@ function WriterDashboard({token,theme:t,lang}:{token:string;theme:Theme;lang:Lan
     </View>
   </ScrollView>}
 
+async function extractPdfTitle(uri:string):Promise<string|null>{
+  try{
+    const info=await LFS.getInfoAsync(uri);
+    if(!info.exists)return null;
+    const size=info.size||0;
+    if(size>10*1024*1024)return null;
+    const raw=await LFS.readAsStringAsync(uri,{encoding:'base64'});
+    const decoded=atob(raw);
+    const searchSize=Math.min(decoded.length,65536);
+    const head=decoded.substring(0,searchSize);
+    const m=head.match(/\/Title\s*\(([^)]{1,200})\)/);
+    if(m){let t=m[1].replace(/\\\\/g,'\\').replace(/\\"/g,'"').replace(/\\n/g,'\n');if(t.length>80)t=t.substring(0,80);return t.trim()||null}
+    const m2=head.match(/\/Title\s*<([0-9A-Fa-f]{4,400})>/);
+    if(m2){const hex=m2[1];let s='';for(let i=0;i<hex.length;i+=2)s+=String.fromCharCode(parseInt(hex.substring(i,i+2),16));if(s.length>80)s=s.substring(0,80);return s.trim()||null}
+    return null;
+  }catch{return null}
+}
+
 function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialMode}:{token:string;theme:Theme;lang:Language;categories:string[];onBack:()=>void;onCreated:()=>void;initialMode?:'text'|'pdf'}){
   const insets=useSafeAreaInsets();
   const[mode,setMode]=useState<'text'|'pdf'|null>(initialMode||null);
@@ -2681,8 +2699,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   if(mode==='pdf'&&!cover)missingFields.push('কভার ছবি');
   if(!category&&localCats.length>0)missingFields.push(copy(lang,'selectCategory'));
   const canPublish=missingFields.length===0;
-  const pickCover=async()=>{setUploadingImg(true);setCoverError(null);try{const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}else{setCoverError('failed')}}catch(e:any){if(e?.message?.includes('Network')||e?.message?.includes('fetch'))setCoverError('noInternet');else setCoverError('failed')}finally{setUploadingImg(false)}};
-  const pickPdf=async()=>{try{const r=await DocumentPicker.getDocumentAsync({type:'application/pdf',copyToCacheDirectory:true});if(!r.canceled&&r.assets?.length){setPdfFile({uri:r.assets[0].uri,name:r.assets[0].name})}}catch{}};
+  const pickCover=async()=>{setUploadingImg(true);setCoverError(null);try{const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}else{setCoverError('failed')}}catch(e:any){if(e?.message?.includes('Network')||e?.message?.includes('fetch'))setCoverError('noInternet');else setCoverError('failed')}finally{setUploadingImg(false)}};\n  const pickPdf=async()=>{try{const r=await DocumentPicker.getDocumentAsync({type:'application/pdf',copyToCacheDirectory:true});if(!r.canceled&&r.assets?.length){const uri=r.assets[0].uri;const name=r.assets[0].name;const extracted=await extractPdfTitle(uri);setPdfFile({uri,name});if(extracted&&!title.trim())setTitle(extracted)}}catch{}};
   const handleCreate=async()=>{
     if(!canPublish)return;setSaving(true);
     const finalTitle=(mode==='pdf'&&!title.trim()&&pdfFile)?pdfFile.name.replace(/\.pdf$/i,''):title.trim();
