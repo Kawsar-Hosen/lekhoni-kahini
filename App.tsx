@@ -1450,7 +1450,7 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
   const rxn=p.state.reactions[b.id];
   const [likes,setLikes]=useState<number>(b.likes||0);const [liked,setLiked]=useState<boolean>(rxn==='like');const [disliked,setDisliked]=useState<boolean>(rxn==='dislike');
   const [cmtCount,setCmtCount]=useState<number|null>(null);
-  const [dlPct,setDlPct]=useState<number|null>(null);const [dlFailed,setDlFailed]=useState(false);const dlTimer=useRef<any>(null);const dlSpinAnim=useRef(new Animated.Value(0)).current;
+  const [dlPct,setDlPct]=useState<number|null>(null);const [dlFailed,setDlFailed]=useState(false);const [showNoChapters,setShowNoChapters]=useState(false);const dlTimer=useRef<any>(null);const dlSpinAnim=useRef(new Animated.Value(0)).current;
   useEffect(()=>{setDlPct(null);setDlFailed(false)},[b.id]);
   const likeAnim=useRef(new Animated.Value(1)).current;
   const fade=useRef(new Animated.Value(0)).current;
@@ -1462,7 +1462,7 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
   const likeScale=likeAnim.interpolate({inputRange:[0,1],outputRange:[0.5,1]});
   React.useEffect(()=>{if(dlPct!==null&&dlPct<100){dlSpinAnim.setValue(0);Animated.loop(Animated.timing(dlSpinAnim,{toValue:1,duration:1000,easing:Easing.linear,useNativeDriver:true})).start()}else{dlSpinAnim.setValue(0)}},[dlPct]);
   const dlSpin=dlSpinAnim.interpolate({inputRange:[0,1],outputRange:['0deg','360deg']});
-  const doDownload=async()=>{if(dlPct!==null)return;setDlFailed(false);Vibration.vibrate(30);setDlPct(2);try{const full=await fetchRemoteBook(b.id);if(!full||!full.chapters.length){setDlPct(null);setDlFailed(true);Alert.alert(tr(p,'details'),p.state.settings.language==='bn'?'এই বইটিতে এখনো পড়ার মতো কোনো অধ্যায় নেই।':p.state.settings.language==='hi'?'इस किताब में अभी पढ़ने लायक कोई अध्याय नहीं है।':'No readable chapters yet.');return}setDlPct(6);await saveBookOffline(full,pct=>setDlPct(6+Math.floor(pct*0.92)));p.markDownloaded(full);setDlPct(100);Vibration.vibrate([0,40,40,80]);setTimeout(()=>setDlPct(null),2000)}catch{setDlPct(null);setDlFailed(true);setTimeout(()=>setDlFailed(false),3000)}};
+  const doDownload=async()=>{if(dlPct!==null)return;setDlFailed(false);Vibration.vibrate(30);setDlPct(2);try{const full=await fetchRemoteBook(b.id);if(!full||!full.chapters.length){setDlPct(null);setDlFailed(true);setShowNoChapters(true);return}setDlPct(6);await saveBookOffline(full,pct=>setDlPct(6+Math.floor(pct*0.92)));p.markDownloaded(full);setDlPct(100);Vibration.vibrate([0,40,40,80]);setTimeout(()=>setDlPct(null),2000)}catch{setDlPct(null);setDlFailed(true);setTimeout(()=>setDlFailed(false),3000)}};
   const goComments=()=>p.setScreen({type:'comments',id:b.id});const readAll=()=>p.read(b.id,0);
   const writer=p.publicWriters.find((x:import('./src/types').WriterProfile)=>x.writer_name===b.author);
   const toggleFav=()=>{Vibration.vibrate(20);fav?p.update({favorites:p.state.favorites.filter(x=>x!==b.id)}):p.update({favorites:[...p.state.favorites,b.id]})};
@@ -1603,6 +1603,19 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
         </Pressable>
       </Pressable>
     </Pressable>}
+    <Modal visible={showNoChapters} transparent animationType="fade" onRequestClose={()=>setShowNoChapters(false)}>
+      <Pressable onPress={()=>setShowNoChapters(false)} style={{flex:1,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24}}>
+        <Pressable onPress={()=>{}} style={{width:'100%',maxWidth:300,backgroundColor:t.card,borderRadius:20,padding:22,alignItems:'center',borderWidth:1,borderColor:'#C9972B55',elevation:6,shadowColor:'#000',shadowOpacity:0.2,shadowRadius:12,shadowOffset:{width:0,height:4}}}>
+          <View style={{width:64,height:64,borderRadius:32,backgroundColor:'#4A1220',alignItems:'center',justifyContent:'center',marginBottom:12,borderWidth:2,borderColor:'#C9972B66'}}>
+            <Svg width={28} height={28} viewBox="0 0 24 24" fill="none"><Path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" stroke="#EAC97A" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/><Path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" stroke="#EAC97A" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></Svg>
+          </View>
+          <T style={{fontSize:16,fontWeight:'900',color:t.ink,textAlign:'center',marginBottom:6}}>{p.state.settings.language==='bn'?'এখনো কোনো অধ্যায় নেই':p.state.settings.language==='hi'?'अभी कोई अध्याय नहीं':'No chapters yet'}</T>
+          <T numberOfLines={1} style={{fontSize:12,fontWeight:'700',color:t.primary,textAlign:'center',marginBottom:8}}>{b.title}</T>
+          <T style={{fontSize:13,color:t.muted,textAlign:'center',lineHeight:20,marginBottom:18}}>{p.state.settings.language==='bn'?'এই বইটিতে এখনো পড়ার মতো কোনো অধ্যায় যোগ হয়নি। লেখক নতুন অধ্যায় প্রকাশ করলে এখান থেকে ডাউনলোড করে অফলাইনে পড়তে পারবেন।':p.state.settings.language==='hi'?'इस किताब में अभी पढ़ने लायक कोई अध्याय नहीं जोड़ा गया है। लेखक के नए अध्याय प्रकाशित करने पर आप यहाँ से डाउनलोड करके ऑफ़लाइन पढ़ सकेंगे।':'No readable chapters have been added to this book yet. Once the writer publishes new chapters, you can download them here to read offline.'}</T>
+          <Pressable onPress={()=>setShowNoChapters(false)} style={{width:'100%',height:46,borderRadius:13,backgroundColor:'#7B1E2B',alignItems:'center',justifyContent:'center'}}><T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{p.state.settings.language==='bn'?'বুঝেছি':p.state.settings.language==='hi'?'समझ गया':'Got it'}</T></Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
   </Page>}
 function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x=>x.id===p.bookId)||p.dlBooks[p.bookId];const [items,setItems]=useState<{id:string;display_name:string;body:string;created_at:string;avatar_url:string}[]>([]);const [draft,setDraft]=useState('');const[focused,setFocused]=useState(false);const sendScale=useRef(new Animated.Value(1)).current;const sendIn=()=>{Animated.spring(sendScale,{toValue:0.88,friction:5,tension:300,useNativeDriver:true}).start()};const sendOut=()=>{Animated.spring(sendScale,{toValue:1,friction:5,tension:300,useNativeDriver:true}).start()};const [posting,setPosting]=useState(false);const [loading,setLoading]=useState(true);const[showSuccess,setShowSuccess]=useState(false);const[approvalRequired,setApprovalRequired]=useState(true);const spinAnim=useRef(new Animated.Value(0)).current;const scaleAnim=useRef(new Animated.Value(0)).current;const checkAnim=useRef(new Animated.Value(0)).current;
   const cmtColors=['#E8F5E9','#FFF3E0','#E3F2FD','#F3E5F5','#E0F7FA','#FFF8E1','#FCE4EC','#E8EAF6','#F1F8E9','#FBE9E7'];
