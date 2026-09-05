@@ -2725,10 +2725,6 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
           </Pressable>
         </View>
       </View>}
-      {mode&&<Pressable onPress={()=>setMode(null)} style={{flexDirection:'row',alignItems:'center',gap:4,marginBottom:12}}>
-        <Feather name="arrow-left" size={14} color={t.primary}/>
-        <T style={{fontSize:12,fontWeight:'700',color:t.primary}}>পরিবর্তন করুন</T>
-      </Pressable>}
       {!canPublish&&<View style={{backgroundColor:'#FEF3C7',borderRadius:10,padding:12,marginBottom:16,borderWidth:1,borderColor:'#F59E0B',flexDirection:'row',alignItems:'flex-start',gap:8}}>
         <Feather name="alert-circle" size={16} color="#D97706" style={{marginTop:1}}/>
         <View style={{flex:1}}>
