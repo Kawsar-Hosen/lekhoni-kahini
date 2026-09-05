@@ -2704,7 +2704,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
     if(hideTitle)return <Image source={{uri:coverPreview}} style={{width:80,height:110,borderRadius:10}} resizeMode="cover"/>;
     return <View style={{width:80,height:110,borderRadius:10,overflow:'hidden',backgroundColor:'#4A1220'}}><Image source={{uri:coverPreview}} style={{position:'absolute',top:0,left:0,right:0,bottom:0}} resizeMode="cover"/><View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.2)'}}/><Feather name="book-open" size={18} color="#C9972B" style={{position:'absolute',top:10,left:10}}/><T numberOfLines={2} style={{position:'absolute',bottom:10,left:10,right:10,color:'#fff',fontWeight:'900',fontSize:11,lineHeight:14}}>{title||'...'}</T></View>;
   };
-  return <View style={{flex:1,backgroundColor:t.bg}}>
+  return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={insets.top}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
       <Pressable onPress={onBack} style={{flexDirection:'row',alignItems:'center',gap:4}}>
         <Feather name="arrow-left" size={18} color={t.primary}/>
@@ -2970,7 +2970,7 @@ function PDFReaderScreen({theme:t,lang,pdfUrl,title,onBack}:{theme:Theme;lang:La
   const railMove=(y:number)=>{if(total<=1)return;const pg=Math.min(total,Math.max(1,Math.round(railRatio(y)*(total-1))+1));setDragPage(pg);setDragY(y)};
   const railEnd=()=>{if(dragging&&dragPage!==page)setPage(dragPage);setDragging(false)};
   const goJump=()=>{const n=parseInt(jumpText.replace(/[^0-9]/g,''),10);if(!n||n<1)return;setPage(total>0?Math.min(n,total):n);setShowJump(false)};
-  return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={insets.top}>
+  return <View style={{flex:1,backgroundColor:t.bg}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
       <Pressable onPress={onBack} style={{flexDirection:'row',alignItems:'center',gap:4}}>
         <Feather name="arrow-left" size={18} color={t.primary}/>
