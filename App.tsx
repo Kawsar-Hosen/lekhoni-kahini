@@ -255,7 +255,7 @@ const sameScreen=(a:Screen,b:Screen)=>JSON.stringify(a)===JSON.stringify(b); con
   if(screen.type==='followedWriters')body=<FollowedWritersList {...common}/>;
   if(screen.type==='writerProfile')body=<WriterProfileView {...common} writer={screen.writer}/>;
   if(screen.type==='allWriters')body=<AllWritersList {...common}/>;
-  if(screen.type==='newStory')body=<NewStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} categories={allCategories.map(c=>c[0])} onBack={goBack} onCreated={goBack}/>;
+  if(screen.type==='newStory')body=<NewStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} categories={allCategories.map(c=>c[0])} onBack={goBack} onCreated={goBack} initialMode="text"/>;
   if(screen.type==='newPdfStory')body=<NewStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} categories={allCategories.map(c=>c[0])} onBack={goBack} onCreated={goBack} initialMode="pdf"/>;
   if(screen.type==='pdfReader')body=<PDFReaderScreen theme={theme} lang={state.settings.language} pdfUrl={screen.pdfUrl} title={screen.title} onBack={goBack}/>;
   if(screen.type==='editStory')body=<EditStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} storyId={screen.id} initialTitle={screen.title} initialDesc={screen.desc} initialCover={screen.coverUrl} initialWriterStatus={screen.writerStatus} pdfUrl={screen.pdfUrl} onBack={goBack} onSaved={syncRemote}/>;
@@ -2723,11 +2723,6 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
             <T style={{fontSize:14,fontWeight:'800',color:t.ink}}>লিখে দিন</T>
             <T style={{fontSize:11,color:t.muted,textAlign:'center'}}>নিজে লিখে অধ্যায় তৈরি করুন</T>
           </Pressable>
-          <Pressable onPress={()=>setMode('pdf')} style={{flex:1,backgroundColor:t.card,borderRadius:14,borderWidth:2,borderColor:'#8B5CF6',padding:20,alignItems:'center',gap:10}}>
-            <View style={{width:50,height:50,borderRadius:25,backgroundColor:'#8B5CF6'+'15',alignItems:'center',justifyContent:'center'}}><Feather name="file-text" size={22} color="#8B5CF6"/></View>
-            <T style={{fontSize:14,fontWeight:'800',color:t.ink}}>PDF আপলোড</T>
-            <T style={{fontSize:11,color:t.muted,textAlign:'center'}}>PDF ফাইল আপলোড করুন</T>
-          </Pressable>
         </View>
       </View>}
       {mode&&<Pressable onPress={()=>setMode(null)} style={{flexDirection:'row',alignItems:'center',gap:4,marginBottom:12}}>
@@ -3328,8 +3323,8 @@ function WriterStories({token,theme:t,lang,categories,setScreen,onRefresh}:{toke
       <T style={{fontSize:16,fontWeight:'900',color:t.ink}}>{copy(lang,'myStories')} ({stories.length})</T>
       <View style={{flexDirection:'row',gap:6}}>
       <Pressable onPress={()=>setScreen({type:'newStory'})} style={{backgroundColor:t.primary,borderRadius:10,paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:5}}>
-        <Feather name="plus" size={14} color="#fff"/>
-        <T style={{color:'#fff',fontWeight:'800',fontSize:12}}>{copy(lang,'newStory')}</T>
+        <Feather name="edit-3" size={14} color="#fff"/>
+        <T style={{color:'#fff',fontWeight:'800',fontSize:12}}>{lang==='bn'?'লিখে দিন':lang==='hi'?'लिखें':'Write'}</T>
       </Pressable>
       <Pressable onPress={()=>setScreen({type:'newPdfStory'})} style={{backgroundColor:'#8B5CF6',borderRadius:10,paddingHorizontal:12,paddingVertical:7,flexDirection:'row',alignItems:'center',gap:5}}>
         <Feather name="file-text" size={14} color="#fff"/>
