@@ -27,6 +27,7 @@ export type LocalState = {
   followedWriters: WriterProfile[];
   readingActivity: Record<string, { minutes: number; episodes: number }>;
   unlockedChapters: string[];
+  freshChapters: Record<string, { count: number; fresh: Record<string, number> }>;
   ageVerified?: boolean;
 };
 export type Route =

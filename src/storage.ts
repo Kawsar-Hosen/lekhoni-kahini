@@ -18,6 +18,7 @@ export const initialState: LocalState = {
   writer: null, writerToken: null, user: null, userToken: null, followedWriters: [],
   readingActivity: {},
   unlockedChapters: [],
+  freshChapters: {},
 };
 
 export async function loadState(): Promise<LocalState> {
