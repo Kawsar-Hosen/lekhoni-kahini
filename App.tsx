@@ -3638,21 +3638,19 @@ function WriterNotifs({token,theme:t,lang,deviceID,p}:{token:string;theme:Theme;
 function Back({title,theme,onPress}:{title:string;theme:Theme;onPress:()=>void}){return <View style={styles.back}><Pressable onPress={onPress}><Feather name="arrow-left" size={22} color={theme.ink}/></Pressable><T style={[styles.backTitle,{color:theme.ink}]}>{title}</T><View style={{width:22}}/></View>}
 function Section({title,theme,action,seeAllText}:{title:string;theme:Theme;action?:()=>void;seeAllText?:string}){return <View style={styles.section}><T style={[styles.sectionTitle,{color:theme.ink}]}>{title}</T>{action&&<Pressable onPress={action}><T style={{color:theme.primary,fontWeight:'800',fontSize:12}}>{seeAllText||'See all →'}</T></Pressable>}</View>}
 function Cover({book,large}:{book:Book;large?:boolean}){const hideAll=book.hide_title_on_cover&&book.cover_url;return <View style={[styles.cover,large&&styles.coverLarge,{backgroundColor:book.color}]}>{book.cover_url?<Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:large?16:9}} resizeMode="cover"/>:null}{!hideAll&&book.cover_url&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:large?16:9,backgroundColor:'rgba(0,0,0,0.15)'}}/>}{!hideAll&&<Feather name={I(book.categoryIcon)} size={large?27:20} color={book.accent}/>}{!hideAll&&!book.hide_title_on_cover&&<T numberOfLines={3} style={[styles.coverTitle,large&&{fontSize:17}]}>{book.title}</T>}{!hideAll&&!book.hide_title_on_cover&&<View style={{height:2,width:24,backgroundColor:book.accent,marginVertical:7}}/>}{!hideAll&&<T style={styles.coverAuthor}>{book.author}</T>}</View>}
-function Episode({book,theme,dark,onPress}:{book:Book;theme:Theme;dark?:boolean;onPress:()=>void}){const c=book.chapters[book.chapters.length-1];const isPdf=!!book.pdf_url;return <Pressable onPress={onPress} style={{borderRadius:16,borderWidth:1,borderColor:dark?'#C9972B44':theme.line,marginBottom:10,overflow:'hidden'}}>
+function Episode({book,theme,dark,onPress}:{book:Book;theme:Theme;dark?:boolean;onPress:()=>void}){const c=book.chapters[book.chapters.length-1];const isPdf=!!book.pdf_url;
+const shim=useRef(new Animated.Value(0)).current;
+useEffect(()=>{const l=Animated.loop(Animated.timing(shim,{toValue:1,duration:2400,easing:Easing.linear,useNativeDriver:true}));l.start();return()=>l.stop()},[]);
+const shimX=shim.interpolate({inputRange:[0,1],outputRange:[-40,100]});return <Pressable onPress={onPress} style={{borderRadius:16,borderWidth:1,borderColor:dark?'#C9972B44':theme.line,marginBottom:10,overflow:'hidden'}}>
   <LinearGradient colors={dark?['#4A1220','#5A1A28']:['#FFF9F3','#FBEEDF']} start={{x:0,y:0}} end={{x:1,y:1}} style={{flexDirection:'row',alignItems:'center',padding:10,paddingLeft:13,gap:12}}>
     <View style={{position:'absolute',left:0,top:0,bottom:0,width:4,backgroundColor:'#C9972B'}}/>
     <View style={{width:64,height:86,borderRadius:10,backgroundColor:book.color||'#4A1220',overflow:'hidden',borderWidth:1,borderColor:dark?'#C9972B55':theme.line}}>
       {book.cover_url?<Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0}} resizeMode="cover"/>:<View style={{flex:1,alignItems:'center',justifyContent:'center',padding:5}}><T numberOfLines={2} style={{color:'#fff',fontWeight:'800',fontSize:9,textAlign:'center'}}>{book.title}</T></View>}
-      <View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.18)'}}/>
-      <View pointerEvents="none" style={{position:'absolute',left:0,right:0,top:0,bottom:0,alignItems:'center',justifyContent:'center'}}>
-        <View style={{width:30,height:30,borderRadius:15,backgroundColor:'#C9972B',alignItems:'center',justifyContent:'center',borderWidth:2,borderColor:'#fff'}}>
-          <Feather name={isPdf?"file-text":"play"} size={13} color="#4A1220"/>
-        </View>
-      </View>
     </View>
     <View style={{flex:1}}>
-      <View style={{alignSelf:'flex-start',backgroundColor:dark?'#C9972B2E':'#C9972B1F',borderRadius:7,paddingHorizontal:8,paddingVertical:3,marginBottom:5,borderWidth:1,borderColor:'#C9972B55'}}>
+      <View style={{alignSelf:'flex-start',backgroundColor:dark?'#C9972B2E':'#C9972B1F',borderRadius:7,paddingHorizontal:8,paddingVertical:3,marginBottom:5,borderWidth:1,borderColor:'#C9972B55',overflow:'hidden'}}>
         <T style={{color:dark?'#EAC97A':'#8A6D1B',fontSize:10,fontWeight:'900'}}>{isPdf?'পিডিএফ বই':'নতুন পর্ব'}</T>
+        <Animated.View pointerEvents="none" style={{position:'absolute',top:-4,bottom:-4,width:22,backgroundColor:'#ffffff59',transform:[{translateX:shimX},{rotate:'18deg'}]}}/>
       </View>
       <T numberOfLines={2} style={{fontSize:15,fontWeight:'800',color:theme.ink,lineHeight:20}}>{book.title}</T>
       <T numberOfLines={1} style={{color:theme.muted,fontSize:11,marginTop:4}}>{isPdf?(book.category||'পিডিএফ'):`পর্ব ${book.chapters.length}: ${c?.title||'—'}`}</T>
