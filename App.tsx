@@ -548,11 +548,14 @@ function LibBookCard({book,theme,dark,onPress,showDelete,onDelete,cached}:{book:
   const hideAll=book.hide_title_on_cover&&book.cover_url;const sup=useRef(false);
   const isPdf=!!(cached?.pdf_url||book.pdf_url);
   const dlN=cached&&cached.chapters?cached.chapters.length:book.chapters.length;
+  const status=showDelete?(isPdf?'pdf':'dl'):'plain';
+  const grad=dark?(status==='pdf'?['#4A2E12','#5A3A1A']:status==='dl'?['#14352B','#1E4436']:['#4A1220','#5A1A28']):(status==='pdf'?['#FFF7E8','#FBEECB']:status==='dl'?['#EDF9F2','#DDF0E6']:['#FFF9F3','#FBEEDF']);
+  const strip=status==='dl'?'#10B981':'#C9972B';
   const open=()=>{if(sup.current){sup.current=false;return}onPress()};
   const del=()=>{sup.current=true;if(onDelete)onDelete()};
-  return <Pressable onPress={open} style={{borderRadius:18,borderWidth:1,borderColor:dark?'#C9972B44':theme.line,marginBottom:12,overflow:'hidden',shadowColor:'#000',shadowOpacity:0.06,shadowRadius:8,shadowOffset:{width:0,height:2},elevation:2}}>
-    <LinearGradient colors={dark?['#4A1220','#5A1A28']:['#FFF9F3','#FBEEDF']} start={{x:0,y:0}} end={{x:1,y:1}} style={{flexDirection:'row',alignItems:'center',padding:12,paddingLeft:15,gap:14}}>
-    <View style={{position:'absolute',left:0,top:0,bottom:0,width:4,backgroundColor:'#C9972B'}}/>
+  return <Pressable onPress={open} style={{borderRadius:18,borderWidth:1,borderColor:dark?strip+'44':theme.line,marginBottom:12,overflow:'hidden',shadowColor:'#000',shadowOpacity:0.06,shadowRadius:8,shadowOffset:{width:0,height:2},elevation:2}}>
+    <LinearGradient colors={grad} start={{x:0,y:0}} end={{x:1,y:1}} style={{flexDirection:'row',alignItems:'center',padding:12,paddingLeft:15,gap:14}}>
+    <View style={{position:'absolute',left:0,top:0,bottom:0,width:4,backgroundColor:strip}}/>
     <View style={{width:72,height:96,borderRadius:12,backgroundColor:book.color,overflow:'hidden',justifyContent:'flex-end',padding:hideAll?0:8}}>
       {book.cover_url?<Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12}} resizeMode="cover"/>:null}
       {!hideAll&&book.cover_url&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:12,backgroundColor:'rgba(0,0,0,0.15)'}}/>}
