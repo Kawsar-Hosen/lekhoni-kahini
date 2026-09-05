@@ -8,7 +8,7 @@ const API_BASE = 'https://lekhoni-admin-api.smdkawsar2.workers.dev';
 const COVER_ASPECT: [number, number] = [2, 3];
 const COVER_WIDTH = 800; // outputs 800×1200 (high quality)
 
-export async function pickAndResizeImage(type: 'avatar' | 'cover'): Promise<string | null> {
+export async function pickAndResizeImage(type: 'avatar' | 'cover', token?: string): Promise<string | null> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (!perm.granted) return null;
 
@@ -43,6 +43,7 @@ export async function pickAndResizeImage(type: 'avatar' | 'cover'): Promise<stri
         method: 'POST',
         body: formData,
         signal: controller.signal,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
     } finally { clearTimeout(timer); }
   } catch (e: any) {

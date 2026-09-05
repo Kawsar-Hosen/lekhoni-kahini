@@ -9,6 +9,8 @@ const UT_KEY = 'lekhoni_user_token';
 const TOKENS_FALLBACK_KEY = '@lekhoni/tokens/v1';
 
 // Auth tokens live in SecureStore (encrypted), never in plaintext AsyncStorage.
+// The AsyncStorage fallback is a read-only migration source: entries are
+// re-secured and wiped at the first opportunity, never written fresh.
 export async function saveTokens(t: { writerToken?: string | null; userToken?: string | null }) {
   try {
     if (t.writerToken !== undefined) {
@@ -19,31 +21,28 @@ export async function saveTokens(t: { writerToken?: string | null; userToken?: s
       if (t.userToken) await SecureStore.setItemAsync(UT_KEY, t.userToken);
       else await SecureStore.deleteItemAsync(UT_KEY);
     }
+    try { await AsyncStorage.removeItem(TOKENS_FALLBACK_KEY); } catch {}
   } catch {
-    try {
-      const cur = await loadTokensFallback();
-      await AsyncStorage.setItem(TOKENS_FALLBACK_KEY, JSON.stringify({
-        writerToken: t.writerToken !== undefined ? (t.writerToken || null) : cur.writerToken,
-        userToken: t.userToken !== undefined ? (t.userToken || null) : cur.userToken,
-      }));
-    } catch { /* ignore */ }
+    // SecureStore unavailable (rare): keep in-memory only this session.
+    // Deliberately NOT writing secrets to plaintext AsyncStorage.
   }
 }
-async function loadTokensFallback(): Promise<{ writerToken: string | null; userToken: string | null }> {
+export async function loadTokens(): Promise<{ writerToken: string | null; userToken: string | null }> {
+  let w: string | null = null, u: string | null = null;
+  try {
+    w = await SecureStore.getItemAsync(WT_KEY);
+    u = await SecureStore.getItemAsync(UT_KEY);
+  } catch { /* fall through to legacy read */ }
   try {
     const raw = await AsyncStorage.getItem(TOKENS_FALLBACK_KEY);
-    if (!raw) return { writerToken: null, userToken: null };
-    const p = JSON.parse(raw);
-    return { writerToken: p.writerToken || null, userToken: p.userToken || null };
-  } catch { return { writerToken: null, userToken: null }; }
-}
-export async function loadTokens(): Promise<{ writerToken: string | null; userToken: string | null }> {
-  try {
-    const w = await SecureStore.getItemAsync(WT_KEY);
-    const u = await SecureStore.getItemAsync(UT_KEY);
-    if (w || u) return { writerToken: w, userToken: u };
-    return loadTokensFallback();
-  } catch { return loadTokensFallback(); }
+    if (raw) {
+      const p = JSON.parse(raw);
+      if (!w && p.writerToken) { const t=p.writerToken; w = t; try { await SecureStore.setItemAsync(WT_KEY, t); } catch {} }
+      if (!u && p.userToken) { const t=p.userToken; u = t; try { await SecureStore.setItemAsync(UT_KEY, t); } catch {} }
+      if (w && u) { try { await AsyncStorage.removeItem(TOKENS_FALLBACK_KEY); } catch {} }
+    }
+  } catch { /* ignore */ }
+  return { writerToken: w, userToken: u };
 }
 export async function clearTokens() {
   try { await SecureStore.deleteItemAsync(WT_KEY); } catch {}
@@ -80,10 +79,12 @@ export async function loadState(): Promise<LocalState> {
     if (typeof loadedSettings.eyeComfort === 'boolean') loadedSettings.eyeComfort = loadedSettings.eyeComfort ? 50 : 0;
     // Tokens: SecureStore wins; migrate legacy plaintext tokens once, then strip.
     const tk = await loadTokens();
-    let writerToken = tk.writerToken, userToken = tk.userToken;
-    if (!writerToken && parsed.writerToken) { writerToken = parsed.writerToken; saveTokens({ writerToken }).catch(() => {}); }
-    if (!userToken && parsed.userToken) { userToken = parsed.userToken; saveTokens({ userToken }).catch(() => {}); }
-    return { ...initialState, ...parsed, deviceId: parsed.deviceId || generateDeviceId(), settings: loadedSettings, remoteBooks: parsed.remoteBooks || [], online: false, writer: parsed.writer || null, writerToken, user: parsed.user || null, userToken, followedWriters: parsed.followedWriters || [], readingActivity: parsed.readingActivity || {}, unlockedChapters: parsed.unlockedChapters || [] };
+    let writerToken = tk.writerToken, userToken = tk.userToken, migrated = false;
+    if (!writerToken && parsed.writerToken) { writerToken = parsed.writerToken; migrated = true; saveTokens({ writerToken }).catch(() => {}); }
+    if (!userToken && parsed.userToken) { userToken = parsed.userToken; migrated = true; saveTokens({ userToken }).catch(() => {}); }
+    const out = { ...initialState, ...parsed, deviceId: parsed.deviceId || generateDeviceId(), settings: loadedSettings, remoteBooks: parsed.remoteBooks || [], online: false, writer: parsed.writer || null, writerToken, user: parsed.user || null, userToken, followedWriters: parsed.followedWriters || [], readingActivity: parsed.readingActivity || {}, unlockedChapters: parsed.unlockedChapters || [] };
+    if (migrated) saveState(out).catch(() => {});
+    return out;
   } catch { return initialState; }
 }
 export async function saveState(state: LocalState) {

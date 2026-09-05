@@ -319,9 +319,9 @@ export async function verifyUserToken(token: string): Promise<TokenCheck<UserPro
 }
 
 export async function updateUserProfile(token: string, data: { display_name?: string; bio?: string; avatar_url?: string }): Promise<UserProfile | null> {
-  const r = await apiFetch<{ user?: UserProfile }>('/api/public/users/profile', {
+  const r = await apiFetch<{ user?: UserProfile; error?: string }>('/api/public/users/profile', {
     method: 'PUT', body: JSON.stringify({ token, ...data }),
-  });
+  }, { timeout: TIMEOUT, errorBody: true, authRoute: true });
   return r?.user || null;
 }
 
@@ -380,7 +380,7 @@ export async function createWriterStory(token: string, title: string, descriptio
 export async function uploadWriterPdf(token: string, fileUri: string, fileName: string): Promise<string | null> {
   const formData = new FormData();
   formData.append('file', { uri: fileUri, name: fileName, type: 'application/pdf' } as any);
-  const r = await apiFetch<{ url?: string }>(`/api/writer/upload-pdf`, { method: 'POST', body: formData, headers: { Authorization: `Bearer ${token}` } }, { timeout: 120000, errorBody: true });
+  const r = await apiFetch<{ url?: string }>(`/api/writer/upload-pdf`, { method: 'POST', body: formData, headers: { Authorization: `Bearer ${token}` } }, { timeout: 120000, errorBody: true, authRoute: true });
   return r?.url || null;
 }
 
@@ -455,7 +455,7 @@ export async function updateWriterProfile(token: string, patch: { writer_name?: 
 export async function requestDeleteCode(token: string): Promise<{ ok: boolean; mail_sent?: boolean } | { error: string; retry_after?: number } | null> {
   const r = await apiFetch<{ ok?: boolean; mail_sent?: boolean; error?: string; retry_after?: number }>('/api/writer/account/code', {
     method: 'POST', headers: { Authorization: `Bearer ${token}` },
-  }, { timeout: 25000, errorBody: true });
+  }, { timeout: 25000, errorBody: true, authRoute: true });
   if (!r) return null;
   if (r.ok) return { ok: true, mail_sent: r.mail_sent };
   if (r.error) return { error: r.error, retry_after: r.retry_after };
@@ -467,7 +467,7 @@ export async function deleteWriterAccount(token: string, code?: string): Promise
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
     body: code ? JSON.stringify({ code }) : undefined,
-  }, { timeout: 25000, errorBody: true });
+  }, { timeout: 25000, errorBody: true, authRoute: true });
   if (!r) return { ok: false, error: 'Network error' };
   if (r.ok) return { ok: true };
   return { ok: false, error: r.error || 'Failed', attempts_left: r.attempts_left };
