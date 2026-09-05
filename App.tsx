@@ -1159,7 +1159,7 @@ function GridBookCard({book:b,theme:t,onPress}:{book:Book;theme:Theme;onPress:()
       {b.views_visible!==false?<View style={{position:'absolute',left:5,bottom:5,flexDirection:'row',alignItems:'center',gap:3,backgroundColor:'rgba(0,0,0,0.55)',borderRadius:7,paddingHorizontal:6,paddingVertical:3}}><Feather name="eye" size={9} color="#fff"/><T style={{color:'#fff',fontSize:9,fontWeight:'700'}}>{b.views}</T></View>:null}
     </View>
     <T numberOfLines={2} style={{fontSize:12,fontWeight:'800',color:t.ink,lineHeight:16}}>{b.title}</T>
-    <T numberOfLines={1} style={{fontSize:10.5,fontWeight:'600',color:t.muted,marginTop:2}}>{b.author}</T>
+    <T numberOfLines={1} style={{fontSize:10.5,fontWeight:'600',color:t.muted,marginTop:2}}>{b.author_name||b.author}</T>
   </Pressable>;
 }
 function BookList(p:C&{title:string;ids:string[]}){return <Page theme={p.theme}><Back title={p.title} theme={p.theme} onPress={()=>p.goBack()}/><T style={{color:p.theme.muted,marginBottom:15}}>{p.ids.length}টি বই</T>{p.ids.length?<View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>{p.ids.map(id=>{const b=p.allBooks.find(x=>x.id===id);return b&&<GridBookCard key={id} book={b} theme={p.theme} onPress={()=>p.open(id)}/>})}</View>:<Empty theme={p.theme}/>}</Page>}
@@ -3348,6 +3348,7 @@ function WriterStories({token,theme:t,lang,categories,setScreen,onRefresh}:{toke
         <View style={{width:8,height:8,borderRadius:4,backgroundColor:statusColor(s.status),marginRight:8}}/>
         <T numberOfLines={1} style={{flex:1,fontSize:14,fontWeight:'800',color:t.ink}}>{s.title}</T>
         {(s as any).pdf_url?<View style={{paddingHorizontal:6,paddingVertical:2,borderRadius:4,backgroundColor:'#8B5CF6'+'18',marginRight:6}}><T style={{fontSize:9,fontWeight:'800',color:'#8B5CF6'}}>PDF</T></View>:null}
+        {(s as any).author_name?<T numberOfLines={1} style={{fontSize:10,fontWeight:'700',color:t.muted,marginRight:6}}>{(s as any).author_name}</T>:null}
         <View style={{paddingHorizontal:8,paddingVertical:3,borderRadius:6,backgroundColor:statusColor(s.status)+'18'}}>
           <T style={{fontSize:10,fontWeight:'700',color:statusColor(s.status)}}>{copy(lang,s.status)}</T>
         </View>
@@ -3676,7 +3677,7 @@ const shimX=shim.interpolate({inputRange:[0,1],outputRange:[-40,100]});return <P
         <Animated.View pointerEvents="none" style={{position:'absolute',top:-4,bottom:-4,width:22,backgroundColor:'#ffffff59',transform:[{translateX:shimX},{rotate:'18deg'}]}}/>
       </View>
       <T numberOfLines={2} style={{fontSize:15,fontWeight:'800',color:theme.ink,lineHeight:20}}>{book.title}</T>
-      <T numberOfLines={1} style={{color:theme.muted,fontSize:11,marginTop:4}}>{isPdf?(book.category||'পিডিএফ'):`পর্ব ${book.chapters.length}: ${c?.title||'—'}`}</T>
+      <T numberOfLines={1} style={{color:theme.muted,fontSize:11,marginTop:4}}>{isPdf?(book.author_name||book.author||book.category||'পিডিএফ'):`পর্ব ${book.chapters.length}: ${c?.title||'—'}`}</T>
     </View>
   </LinearGradient>
 </Pressable>}
