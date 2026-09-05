@@ -15,6 +15,12 @@ let RewardedAdEventType: any = null;
 let TestIds: any = null;
 let adsAvailable = false;
 
+// Master switch: keep false until Play Store production + verified AdMob.
+// When false: SDK never initializes, no ad request/show happens.
+// All ad logic (rewarded unlock, interstitial interval, show_ads flags)
+// stays intact — only gated by this flag. Future: set true to enable.
+export const ADS_ENABLED = false;
+
 async function loadAdsModule(): Promise<boolean> {
   if (adsAvailable) return true;
   try {
@@ -66,7 +72,7 @@ function loadAppOpenAd(): void {
 }
 
 export function showAppOpenAd(): void {
-  if (!adsAvailable) return;
+  if (!ADS_ENABLED || !adsAvailable) return;
   try {
     const now = Date.now();
     if (now - lastAppOpenShownAt < AD_CONFIG.appOpenCooldownMs) return;
@@ -104,7 +110,7 @@ function loadInterstitialAd(): void {
 }
 
 export function maybeShowInterstitial(): boolean {
-  if (!adsAvailable) return false;
+  if (!ADS_ENABLED || !adsAvailable) return false;
   try {
     chaptersSinceLastInterstitial++;
     if (chaptersSinceLastInterstitial < AD_CONFIG.interstitialChapterInterval) return false;
@@ -147,7 +153,7 @@ function loadRewardedAd(): void {
 
 export function showRewardedAd(): Promise<boolean> {
   return new Promise((resolve) => {
-    if (!adsAvailable || !rewardedAd || !rewardedReady) { resolve(true); return; }
+    if (!ADS_ENABLED || !adsAvailable || !rewardedAd || !rewardedReady) { resolve(true); return; }
     try {
       pendingRewardCallback = () => resolve(true);
       rewardedAd.show();
@@ -155,7 +161,7 @@ export function showRewardedAd(): Promise<boolean> {
   });
 }
 
-export function isRewardedAdReady(): boolean { return adsAvailable && rewardedReady; }
+export function isRewardedAdReady(): boolean { return ADS_ENABLED && adsAvailable && rewardedReady; }
 
 export function resetAdSession(): void {
   interstitialSessionCount = 0;
@@ -165,7 +171,7 @@ export function resetAdSession(): void {
 // PDF download: show interstitial only once per session
 let pdfAdShown = false;
 export async function showPdfAd(): Promise<boolean> {
-  if (!adsAvailable || pdfAdShown) return false;
+  if (!ADS_ENABLED || !adsAvailable || pdfAdShown) return false;
   try {
     if (!interstitialAd || !interstitialReady) return false;
     pdfAdShown = true;
@@ -176,6 +182,7 @@ export async function showPdfAd(): Promise<boolean> {
 export function isPdfAdShown(): boolean { return pdfAdShown; }
 
 export async function initAllAds(): Promise<void> {
+  if (!ADS_ENABLED) return;
   const ok = await loadAdsModule();
   if (!ok) return;
   try { mobileAds().initialize(); } catch {}
