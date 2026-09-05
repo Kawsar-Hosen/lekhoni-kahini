@@ -1,8 +1,55 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { LocalState, Book, WriterProfile } from './types';
 
 const KEY = '@lekhoni/state/v1';
 const HOME_CACHE_KEY = '@lekhoni/homeCache/v1';
+const WT_KEY = 'lekhoni_writer_token';
+const UT_KEY = 'lekhoni_user_token';
+const TOKENS_FALLBACK_KEY = '@lekhoni/tokens/v1';
+
+// Auth tokens live in SecureStore (encrypted), never in plaintext AsyncStorage.
+export async function saveTokens(t: { writerToken?: string | null; userToken?: string | null }) {
+  try {
+    if (t.writerToken !== undefined) {
+      if (t.writerToken) await SecureStore.setItemAsync(WT_KEY, t.writerToken);
+      else await SecureStore.deleteItemAsync(WT_KEY);
+    }
+    if (t.userToken !== undefined) {
+      if (t.userToken) await SecureStore.setItemAsync(UT_KEY, t.userToken);
+      else await SecureStore.deleteItemAsync(UT_KEY);
+    }
+  } catch {
+    try {
+      const cur = await loadTokensFallback();
+      await AsyncStorage.setItem(TOKENS_FALLBACK_KEY, JSON.stringify({
+        writerToken: t.writerToken !== undefined ? (t.writerToken || null) : cur.writerToken,
+        userToken: t.userToken !== undefined ? (t.userToken || null) : cur.userToken,
+      }));
+    } catch { /* ignore */ }
+  }
+}
+async function loadTokensFallback(): Promise<{ writerToken: string | null; userToken: string | null }> {
+  try {
+    const raw = await AsyncStorage.getItem(TOKENS_FALLBACK_KEY);
+    if (!raw) return { writerToken: null, userToken: null };
+    const p = JSON.parse(raw);
+    return { writerToken: p.writerToken || null, userToken: p.userToken || null };
+  } catch { return { writerToken: null, userToken: null }; }
+}
+export async function loadTokens(): Promise<{ writerToken: string | null; userToken: string | null }> {
+  try {
+    const w = await SecureStore.getItemAsync(WT_KEY);
+    const u = await SecureStore.getItemAsync(UT_KEY);
+    if (w || u) return { writerToken: w, userToken: u };
+    return loadTokensFallback();
+  } catch { return loadTokensFallback(); }
+}
+export async function clearTokens() {
+  try { await SecureStore.deleteItemAsync(WT_KEY); } catch {}
+  try { await SecureStore.deleteItemAsync(UT_KEY); } catch {}
+  try { await AsyncStorage.removeItem(TOKENS_FALLBACK_KEY); } catch {}
+}
 
 function generateDeviceId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -24,21 +71,33 @@ export const initialState: LocalState = {
 export async function loadState(): Promise<LocalState> {
   try {
     const saved = await AsyncStorage.getItem(KEY);
-    if (!saved) return initialState;
+    if (!saved) {
+      const tk = await loadTokens();
+      return { ...initialState, writerToken: tk.writerToken, userToken: tk.userToken };
+    }
     const parsed = JSON.parse(saved);
     const loadedSettings = { ...initialState.settings, ...parsed.settings };
     if (typeof loadedSettings.eyeComfort === 'boolean') loadedSettings.eyeComfort = loadedSettings.eyeComfort ? 50 : 0;
-    return { ...initialState, ...parsed, deviceId: parsed.deviceId || generateDeviceId(), settings: loadedSettings, remoteBooks: parsed.remoteBooks || [], online: false, writer: parsed.writer || null, writerToken: parsed.writerToken || null, user: parsed.user || null, userToken: parsed.userToken || null, followedWriters: parsed.followedWriters || [], readingActivity: parsed.readingActivity || {}, unlockedChapters: parsed.unlockedChapters || [] };
+    // Tokens: SecureStore wins; migrate legacy plaintext tokens once, then strip.
+    const tk = await loadTokens();
+    let writerToken = tk.writerToken, userToken = tk.userToken;
+    if (!writerToken && parsed.writerToken) { writerToken = parsed.writerToken; saveTokens({ writerToken }).catch(() => {}); }
+    if (!userToken && parsed.userToken) { userToken = parsed.userToken; saveTokens({ userToken }).catch(() => {}); }
+    return { ...initialState, ...parsed, deviceId: parsed.deviceId || generateDeviceId(), settings: loadedSettings, remoteBooks: parsed.remoteBooks || [], online: false, writer: parsed.writer || null, writerToken, user: parsed.user || null, userToken, followedWriters: parsed.followedWriters || [], readingActivity: parsed.readingActivity || {}, unlockedChapters: parsed.unlockedChapters || [] };
   } catch { return initialState; }
 }
 export async function saveState(state: LocalState) {
   try {
-    const toSave = { ...state, online: false, remoteBooks: [] };
+    // Never persist secrets to plaintext storage; tokens live in SecureStore.
+    const { writerToken, userToken, ...rest } = state as LocalState & { writerToken?: string | null; userToken?: string | null };
+    void writerToken; void userToken;
+    const toSave = { ...rest, online: false, remoteBooks: [] };
     await AsyncStorage.setItem(KEY, JSON.stringify(toSave));
   } catch { /* The bundled catalog remains usable if storage is unavailable. */ }
 }
 export async function clearState() {
   try { await AsyncStorage.removeItem(KEY); } catch { /* ignore */ }
+  await clearTokens();
 }
 
 export type HomeCache = { allBooks: Book[]; homeData: any; allCategories: [string, string, string, string | null][]; publicWriters: WriterProfile[]; savedAt: string };

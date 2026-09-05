@@ -13,14 +13,13 @@ import * as Speech from 'expo-speech';
 import * as Device from 'expo-device';
 import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
 import * as DocumentPicker from 'expo-document-picker';
-import { WebView } from 'react-native-webview';
 import * as LFS from 'expo-file-system/legacy';
 import Pdf from 'react-native-pdf';
 
-import { initialState, loadState, saveState, clearState, saveHomeCache, loadHomeCache } from './src/storage';
+import { initialState, loadState, saveState, clearState, saveTokens, clearTokens, saveHomeCache, loadHomeCache } from './src/storage';
 import { Book, LocalState, Language } from './src/types';
 import { copy, CopyKey } from './src/i18n';
-import { fetchRemoteBooks, fetchRemoteBook, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, fetchFollowedWriters, writerSignup, writerLogin, writerGoogleAuth, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, updateWriterStory, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchRemoteComments, submitComment, fetchCommentsConfig, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionsData, fetchWriterFollowers, fetchAbout, deleteWriterAccount, submitReport, userSignup, userLogin, verifyUserToken, registerPushToken, updateUserProfile, uploadWriterPdf, validateWriterSignup, verifyWriterCode, resendWriterCode, forgotWriterPassword, resetWriterPassword, requestDeleteCode } from './src/api';
+import { fetchRemoteBooks, fetchRemoteBook, fetchRemoteCategories, fetchRemoteNotifications, trackEvent, fetchFollowedWriters, writerSignup, writerLogin, writerGoogleAuth, verifyWriterToken, fetchWriterStats, fetchWriterStories, createWriterStory, updateWriterProfile, followWriter, unfollowWriter, fetchWriterDashboard, fetchWriterNotifications, markWriterNotificationsRead, deleteWriterNotification, submitStoryForReview, submitStoryForReviewEx, updateWriterStory, updateWriterStoryEx, deleteWriterStory, fetchWriterStoryDetail, createStoryChapter, deleteStoryChapter, fetchPublicWriters, fetchRemoteComments, submitComment, fetchCommentsConfig, toggleBookLike, fetchHomeSections, fetchUserState, saveUserState, HomeSectionsData, fetchWriterFollowers, fetchAbout, deleteWriterAccount, deleteReaderData, submitReport, userSignup, userLogin, verifyUserToken, registerPushToken, updateUserProfile, uploadWriterPdf, validateWriterSignup, verifyWriterCode, resendWriterCode, forgotWriterPassword, resetWriterPassword, requestDeleteCode, onSessionExpired } from './src/api';
 import { pickAndResizeImage } from './src/imageUpload';
 import { saveBookOffline, loadBookOffline, removeBookOffline, isBookOffline, getOfflineBookIds } from './src/offlineStorage';
 import { initAllAds, showAppOpenAd, maybeShowInterstitial, showRewardedAd, isRewardedAdReady, resetAdSession } from './src/ads';
@@ -76,7 +75,7 @@ function SplashScreen({theme}:{theme:Theme}){
 
 function SkeletonPulse({width,height:ht,borderRadius=8,style}:{width:number|string;height:number|string;borderRadius?:number;style?:any}){
   const anim=useRef(new Animated.Value(0.3)).current;
-  useEffect(()=>{Animated.loop(Animated.sequence([Animated.timing(anim,{toValue:0.8,duration:800,useNativeDriver:true}),Animated.timing(anim,{toValue:0.3,duration:800,useNativeDriver:true})])).start()},[]);
+  useEffect(()=>{const l=Animated.loop(Animated.sequence([Animated.timing(anim,{toValue:0.8,duration:800,useNativeDriver:true}),Animated.timing(anim,{toValue:0.3,duration:800,useNativeDriver:true})]));l.start();return()=>l.stop()},[]);
   return <Animated.View style={[{width,height:ht,borderRadius,backgroundColor:'#D1D5DB',opacity:anim},style]}/>;
 }
 
@@ -165,9 +164,9 @@ async function registerForPushNotificationsAsync(handler:(n:any)=>void){
     }
     if(finalStatus!=='granted'){return}
     const token=(await ExpoNotifications.getExpoPushTokenAsync({projectId:'659b4215-d07c-41f8-881b-c3e7cd7e951a'})).data;
-    if(Platform.OS==='android'){ExpoNotifications.setNotificationChannelAsync('default',{name:'default',importance:ExpoNotifications.AndroidImportance.MAX,vibrationPattern:[0,250,250,250],lightColor:'#FF231F7C'});}
+    if(Platform.OS==='android'){ExpoNotifications.setNotificationChannelAsync('default',{name:'default',importance:ExpoNotifications.AndroidImportance.DEFAULT,vibrationPattern:[0,250,250,250],lightColor:'#FF231F7C'});}
     const sub=ExpoNotifications.addNotificationReceivedListener(handler);
-    return{sub};
+    return{sub,token};
   }catch{return}
 }
 
@@ -184,25 +183,36 @@ const sameScreen=(a:Screen,b:Screen)=>JSON.stringify(a)===JSON.stringify(b); con
   const [dlBooks,setDlBooks]=useState<Record<string,Book>>({});
   useEffect(()=>{getOfflineBookIds().then(async ids=>{const loaded:Record<string,Book>={};for(const id of ids){const b=await loadBookOffline(id);if(b)loaded[id]=b}try{const pdfDir=(LFS.documentDirectory||'')+'pdfs/';const di=await LFS.getInfoAsync(pdfDir);if(di.exists){const files=await LFS.readDirectoryAsync(pdfDir);for(const f of files){if(f.endsWith('.json')){try{const raw=await LFS.readAsStringAsync(pdfDir+f);const m=JSON.parse(raw);if(m&&m.id&&!loaded[m.id])loaded[m.id]={...m,chapters:[]}}catch{}}}}}catch{}setDlBooks(loaded);setState(s=>{const keep=s.downloads.filter(id=>loaded[id]);return keep.length===s.downloads.length?s:{...s,downloads:keep}})}).catch(()=>{})},[]);
   const persistDl=(next:Record<string,Book>)=>{setDlBooks(next)};
-  const markDownloaded=(bk:Book)=>{persistDl({...dlBooks,[bk.id]:bk});setState(s=>s.downloads.includes(bk.id)?s:{...s,downloads:[...s.downloads,bk.id]})};
+  const markDownloaded=(bk:Book)=>{setDlBooks(prev=>({...prev,[bk.id]:bk}));setState(s=>s.downloads.includes(bk.id)?s:{...s,downloads:[...s.downloads,bk.id]})};
   const downloadBook=async(id:string)=>{const existing=dlBooks[id];if(existing)return;const full=await fetchRemoteBook(id);if(!full||!full.chapters.length)return;await saveBookOffline(full);markDownloaded(full)};
-  const removeDownload=async(id:string)=>{await removeBookOffline(id);try{const d=(LFS.documentDirectory||'')+'pdfs/';await LFS.deleteAsync(d+id+'.pdf',{idempotent:true});await LFS.deleteAsync(d+id+'.json',{idempotent:true})}catch{}const n={...dlBooks};delete n[id];persistDl(n);setState(s=>({...s,downloads:s.downloads.filter(x=>x!==id)}))};
+  const removeDownload=async(id:string)=>{await removeBookOffline(id);try{const d=(LFS.documentDirectory||'')+'pdfs/';await LFS.deleteAsync(d+id+'.pdf',{idempotent:true});await LFS.deleteAsync(d+id+'.json',{idempotent:true})}catch{}setDlBooks(prev=>{if(!prev[id])return prev;const n={...prev};delete n[id];return n});setState(s=>({...s,downloads:s.downloads.filter(x=>x!==id)}))};
   const resolveBook=(id:string):Book|undefined=>dlBooks[id]||allBooks.find(b=>b.id===id);
-  useEffect(()=>{loadState().then(async v=>{const id=v.deviceId;if(id){try{const r=await fetchUserState(id);if(r&&r.synced&&r.state){const st=r.state;const remoteSettings=st.settings&&typeof st.settings==='object'?(st.settings as any):null;v={...v,settings:remoteSettings?{...v.settings,...remoteSettings}:v.settings,history:Array.isArray(st.history)&&st.history.length?[...new Set([...(v.history||[]),...st.history])].slice(0,20):v.history,positions:st.positions&&typeof st.positions==='object'?{...v.positions,...(st.positions as any)}:v.positions,bookmarks:Array.isArray(st.bookmarks)&&st.bookmarks.length?[...new Set([...v.bookmarks,...(st.bookmarks as any[])])].slice(0,50):v.bookmarks}}}catch{}}if(v.userToken){try{const u=await verifyUserToken(v.userToken);if(u.ok)v.user=u.value;else if(u.reason==='invalid'){v.user=null;v.userToken=null;}}catch{}}if(v.writerToken){try{const wv=await verifyWriterToken(v.writerToken);if(wv.ok)v.writer={id:wv.value.id,username:wv.value.username,writer_name:wv.value.writer_name,avatar_url:wv.value.avatar_url||undefined,bio:wv.value.bio||undefined};else if(wv.reason==='invalid'){v.writer=null;v.writerToken=null;}}catch{}}if(v.writer&&!v.writer.id){v.writer=null;v.writerToken=null;}setState(v);setLoaded(true)})},[]); useEffect(()=>{if(loaded)saveState(state)},[state,loaded]);
+  useEffect(()=>{loadState().then(async v=>{const id=v.deviceId;if(id){try{const r=await fetchUserState(id);if(r&&r.synced&&r.state){const st=r.state;const remoteSettings=st.settings&&typeof st.settings==='object'?(st.settings as any):null;v={...v,settings:remoteSettings?{...v.settings,...remoteSettings}:v.settings,history:Array.isArray(st.history)&&st.history.length?[...new Set([...(v.history||[]),...st.history])].slice(0,20):v.history,positions:st.positions&&typeof st.positions==='object'?{...v.positions,...(st.positions as any)}:v.positions,bookmarks:Array.isArray(st.bookmarks)&&st.bookmarks.length?[...new Set([...v.bookmarks,...(st.bookmarks as any[])])].slice(0,50):v.bookmarks}}}catch{}}if(v.userToken){try{const u=await verifyUserToken(v.userToken);if(u.ok)v.user=u.value;else if(u.reason==='invalid'){v.user=null;v.userToken=null;await clearTokens();}}catch{}}if(v.writerToken){try{const wv=await verifyWriterToken(v.writerToken);if(wv.ok)v.writer={id:wv.value.id,username:wv.value.username,writer_name:wv.value.writer_name,avatar_url:wv.value.avatar_url||undefined,bio:wv.value.bio||undefined};else if(wv.reason==='invalid'){v.writer=null;v.writerToken=null;await clearTokens();}}catch{}}if(v.writer&&!v.writer.id){v.writer=null;v.writerToken=null;}setState(v);setLoaded(true)})},[]); useEffect(()=>{if(!loaded)return;const t=setTimeout(()=>{saveState(state)},1500);return()=>clearTimeout(t)},[state,loaded]);
   useEffect(()=>{if(loaded&&state.online&&dataLoaded&&allBooks.length){const t=setTimeout(()=>{saveHomeCache({allBooks,homeData,allCategories,publicWriters,savedAt:new Date().toISOString()}).catch(()=>{})},1500);return()=>clearTimeout(t)}},[loaded,state.online,dataLoaded,allBooks]);
-  useEffect(()=>{const sub=BackHandler.addEventListener('hardwareBackPress',()=>{if(screen.type!=='main'){goBack();return true}if(tab!=='home'){setTab('home');return true}setShowExitModal(true);return true});return()=>sub.remove()},[screen,tab]);
-  const syncRemote=useCallback(async()=>{if(syncRef.current)return;syncRef.current=true;try{const[remote,cats,notices,writers,hdata]=await Promise.all([fetchRemoteBooks(),fetchRemoteCategories(),fetchRemoteNotifications(state.deviceId),fetchPublicWriters(),fetchHomeSections()]);if(remote.length){setAllBooks(remote.map(b => b.views_visible !== false && (hdata?.viewsVisible !== false) ? { ...b, views_visible: true } : { ...b, views_visible: false }));if(cats.length)setAllCategories(cats.map(c=>[c.name,c.icon,c.color,c.cover_url||null] as [string,string,string,string|null]));if(notices.length)setRemoteNotices(notices.map(n=>({id:n.id,title:n.title,body:n.body,icon:n.icon||'bell',url:n.url||'',story_cover:n.story_cover||'',time:n.created_at})));if(writers.length)setPublicWriters(writers);if(hdata&&hdata.sections&&hdata.sections.length){setHomeData({...hdata,sections:(hdata.sections||[]).map(x=>({...x,books:(x.books||[]).map((b:any)=>({...b,views_visible:(b.views_visible!==false&&(hdata.viewsVisible!==false))}))}))});if(!writers.length&&hdata.writers&&hdata.writers.length)setPublicWriters(hdata.writers.map(w=>({id:w.id,username:w.username||w.writer_name,writer_name:w.writer_name,bio:w.bio,avatar_url:w.avatar_url,follower_count:w.follower_count,badge:w.badge||'none'})));}setState(s=>({...s,online:true,remoteBooks:remote,lastSync:new Date().toISOString()}));setDataLoaded(true)}else{setState(s=>({...s,online:false}))}}catch{setState(s=>({...s,online:false}));setIsOffline(true)}finally{syncRef.current=false}},[state.deviceId]);
-  useEffect(()=>{const id=setInterval(syncRemote,30000);syncRemote();return()=>clearInterval(id)},[syncRemote]);
+  // Persist auth tokens to SecureStore whenever they change (never plaintext).
+  useEffect(()=>{if(!loaded)return;saveTokens({writerToken:state.writerToken,userToken:state.userToken}).catch(()=>{})},[loaded,state.writerToken,state.userToken]);
+  // Mid-session 401: drop dead session, return home, tell the user to login again.
+  const langRef=useRef<Language>('bn');langRef.current=state.settings.language;
+  useEffect(()=>{onSessionExpired(()=>{clearTokens().catch(()=>{});setState(s=>({...s,writer:null,writerToken:null,user:null,userToken:null}));screenHistoryRef.current=[];_setScreen({type:'main'});setTab('home');const L=langRef.current;Alert.alert(L==='bn'?'সেশন শেষ হয়ে গেছে':L==='hi'?'सत्र समाप्त हो गया':'Session expired',L==='bn'?'আবার লগইন করুন':L==='hi'?'कृपया फिर से लॉगिन करें':'Please login again')});return()=>onSessionExpired(null)},[]);
+  // Topmost-modal dismiss registry for hardware back (screens register their open modal/sheet).
+  const topDismissRef=useRef<(() => boolean) | null>(null);
+  const registerTopDismiss=useCallback((fn:(() => boolean) | null)=>{topDismissRef.current=fn},[]);
+  useEffect(()=>{const sub=BackHandler.addEventListener('hardwareBackPress',()=>{try{if(topDismissRef.current&&topDismissRef.current())return true}catch{}if(screen.type!=='main'){goBack();return true}if(tab!=='home'){setTab('home');return true}setShowExitModal(true);return true});return()=>sub.remove()},[screen,tab]);
+  const syncFailRef=useRef(0); const isOfflineRef=useRef(false);
+  const syncRemote=useCallback(async()=>{if(syncRef.current)return;syncRef.current=true;try{const[remote,cats,notices,writers,hdata]=await Promise.all([fetchRemoteBooks(),fetchRemoteCategories(),fetchRemoteNotifications(state.deviceId),fetchPublicWriters(),fetchHomeSections()]);if(remote.length){setAllBooks(remote.map(b => b.views_visible !== false && (hdata?.viewsVisible !== false) ? { ...b, views_visible: true } : { ...b, views_visible: false }));if(cats.length)setAllCategories(cats.map(c=>[c.name,c.icon,c.color,c.cover_url||null] as [string,string,string,string|null]));if(notices.length)setRemoteNotices(notices.map(n=>({id:n.id,title:n.title,body:n.body,icon:n.icon||'bell',url:n.url||'',story_cover:n.story_cover||'',time:n.created_at})));if(writers.length)setPublicWriters(writers);if(hdata&&hdata.sections&&hdata.sections.length){setHomeData({...hdata,sections:(hdata.sections||[]).map(x=>({...x,books:(x.books||[]).map((b:any)=>({...b,views_visible:(b.views_visible!==false&&(hdata.viewsVisible!==false))}))}))});if(!writers.length&&hdata.writers&&hdata.writers.length)setPublicWriters(hdata.writers.map(w=>({id:w.id,username:w.username||w.writer_name,writer_name:w.writer_name,bio:w.bio,avatar_url:w.avatar_url,follower_count:w.follower_count,badge:w.badge||'none'})));}setState(s=>({...s,online:true,remoteBooks:remote,lastSync:new Date().toISOString()}));syncFailRef.current=0;setDataLoaded(true)}else{syncFailRef.current++;setState(s=>({...s,online:false}));setDataLoaded(true)}}catch{syncFailRef.current++;setState(s=>({...s,online:false}));setIsOffline(true);setDataLoaded(true)}finally{syncRef.current=false}},[state.deviceId]);
+  useEffect(()=>{const id=setInterval(()=>{if(isOfflineRef.current&&syncFailRef.current>=2)return;syncRemote()},30000);syncRemote();return()=>clearInterval(id)},[syncRemote]);
   // --- AdMob: Init all ads + App Open on resume ---
   useEffect(()=>{initAllAds().then(()=>{setTimeout(()=>{try{showAppOpenAd()}catch{}},3000)});const sub=AppState.addEventListener('change',(s)=>{if(s==='active')try{showAppOpenAd()}catch{}});return()=>sub.remove()},[]);
   useEffect(()=>{if(!loaded||!state.deviceId)return;const t=setTimeout(()=>{saveUserState(state.deviceId,{settings:{...state.settings,name:state.name} as any,favorites:state.favorites,downloads:state.downloads,history:state.history,positions:state.positions,bookmarks:state.bookmarks as any}).catch(()=>{})},2000);return()=>clearTimeout(t)},[loaded,state]);
   useEffect(()=>{_curLang=state.settings.language},[state.settings.language]);
   // Push notification registration
   useEffect(()=>{
-    if(!loaded||!state.deviceId)return;
+    if(!loaded||!state.deviceId||state.settings.notifications===false)return;
     let sub:any;
     registerForPushNotificationsAsync((n:any)=>{}).then(listeners=>{
       if(listeners)sub=listeners.sub;
+      const tk=(listeners as any)?.token;
+      if(tk)registerPushToken(state.deviceId,tk).catch(()=>{});
     }).catch(()=>{});
     return()=>{sub?.remove()};
   },[loaded,state.deviceId]);
@@ -221,20 +231,25 @@ const sameScreen=(a:Screen,b:Screen)=>JSON.stringify(a)===JSON.stringify(b); con
   },[]);
   // Redirect to main if reader book not found
   useEffect(()=>{if(screen.type==='reader'&&!resolveBook(screen.id)){screenHistoryRef.current=[];_setScreen({type:'main'});setTab('home')}},[screen,allBooks,dlBooks]);
-  const update=(p:Partial<LocalState>)=>setState(s=>({...s,...p})); const setScreen=(s:Screen)=>{const cur=screenRef.current;if(sameScreen(cur,s))return;if(s.type==='main'){screenHistoryRef.current=[];_setScreen(s);return}screenHistoryRef.current=[...screenHistoryRef.current,cur];_setScreen(s)}; const goBack=()=>{const prev=screenHistoryRef.current;const last=prev[prev.length-1];if(last){screenHistoryRef.current=prev.slice(0,-1);_setScreen(last);if(last.type==='main')setTab('home')}else{_setScreen({type:'main'});setTab('home')}}; const open=(id:string)=>{update({history:[id,...state.history.filter(x=>x!==id)].slice(0,20)});setScreen({type:'book',id})}; const read=(id:string,chapter:number)=>{const bk=allBooks.find((b:any)=>b.id===id);const ch=bk?.chapters?.[chapter];if(ch?.reward_ad&&!state.unlockedChapters.includes(ch.id))return;if(bk?.show_ads!==false)maybeShowInterstitial();setScreen({type:'reader',id,chapter})};
+  const update=(p:Partial<LocalState>)=>setState(s=>({...s,...p})); const setScreen=(s:Screen,replace?:boolean)=>{const cur=screenRef.current;if(sameScreen(cur,s))return;if(s.type==='main'||replace){if(s.type==='main')screenHistoryRef.current=[];_setScreen(s);return}screenHistoryRef.current=[...screenHistoryRef.current,cur];_setScreen(s)}; const goBack=()=>{const prev=screenHistoryRef.current;const last=prev[prev.length-1];if(last){screenHistoryRef.current=prev.slice(0,-1);_setScreen(last);if(last.type==='main')setTab('home')}else{_setScreen({type:'main'});setTab('home')}};   const open=(id:string)=>{setState(s=>({...s,history:[id,...s.history.filter(x=>x!==id)].slice(0,20)}));setScreen({type:'book',id})}; const read=(id:string,chapter:number)=>{const bk=allBooks.find((b:any)=>b.id===id)||dlBooks[id];const ch=bk?.chapters?.[chapter];if(ch?.reward_ad&&!state.unlockedChapters.includes(ch.id))return;if(bk&&bk.show_ads!==false)maybeShowInterstitial();const cur=screenRef.current;setScreen({type:'reader',id,chapter},cur.type==='reader'&&(cur as {id:string}).id===id)};
   const filteredWriters=React.useMemo(()=>state.writer?publicWriters.filter(w=>w.id!==state.writer!.id):publicWriters,[publicWriters,state.writer]);
   const [splashPhase,setSplashPhase]=useState<'splash'|'loading'|'done'>('splash');const [offlineMode,setOfflineMode]=useState(false);
   const [showNotifPrompt,setShowNotifPrompt]=useState(false);
   const [loadError,setLoadError]=useState<string|null>(null);
   const [isOffline,setIsOffline]=useState(false);
   const [retryCount,setRetryCount]=useState(0);
+  isOfflineRef.current=isOffline;
+  useEffect(()=>{if(showExitModal)topDismissRef.current=()=>{setShowExitModal(false);return true};else if(showNotifPrompt)topDismissRef.current=()=>{setShowNotifPrompt(false);return true};else topDismissRef.current=null},[showExitModal,showNotifPrompt]);
   useEffect(()=>{const t=setTimeout(()=>setSplashPhase('loading'),2200);return()=>clearTimeout(t)},[]);
   useEffect(()=>{if(splashPhase!=='loading')return;const t=setTimeout(()=>{if(!loaded&&!isOffline)setLoadError('timeout')},15000);return()=>clearTimeout(t)},[splashPhase,loaded,isOffline]);
-  // Real-time network detection (dynamic import for native module compat)
-  useEffect(()=>{const unsub=NetInfo.addEventListener((s:any)=>{const off=!s.isConnected||!s.isInternetReachable;setIsOffline(off)});return()=>{unsub()}},[]);
-  useEffect(()=>{NetInfo.fetch().then(async s=>{const off=!s.isConnected||!s.isInternetReachable;if(off){setTab('home');try{const c=await loadHomeCache();if(c&&c.allBooks.length){setAllBooks(c.allBooks);if(c.homeData)setHomeData(c.homeData);if(c.allCategories&&c.allCategories.length)setAllCategories(c.allCategories);if(c.publicWriters&&c.publicWriters.length)setPublicWriters(c.publicWriters)}}catch{}}}).catch(()=>{})},[]);
+  // Real-time network detection (dynamic import for native module compat).
+  // Strict false-compare: null (unknown/emulator first event) must not flash offline.
+  useEffect(()=>{const unsub=NetInfo.addEventListener((s:any)=>{setIsOffline(s.isConnected===false||s.isInternetReachable===false)});return()=>{unsub()}},[]);
+  useEffect(()=>{NetInfo.fetch().then(async s=>{const off=s.isConnected===false||s.isInternetReachable===false;if(off){setTab('home');try{const c=await loadHomeCache();if(c&&c.allBooks.length){setAllBooks(c.allBooks);if(c.homeData)setHomeData(c.homeData);if(c.allCategories&&c.allCategories.length)setAllCategories(c.allCategories);if(c.publicWriters&&c.publicWriters.length)setPublicWriters(c.publicWriters)}}catch{}}}).catch(()=>{})},[]);
+  // Hydrate home cache on every transition to offline (not just mount).
+  useEffect(()=>{if(!isOffline)return;let on=true;(async()=>{try{const c=await loadHomeCache();if(!on||!c||!c.allBooks.length)return;setAllBooks(prev=>prev.length?prev:c.allBooks);if(c.homeData)setHomeData(prev=>prev||c.homeData);if(c.allCategories&&c.allCategories.length)setAllCategories(prev=>prev.length?prev:c.allCategories);if(c.publicWriters&&c.publicWriters.length)setPublicWriters(prev=>prev.length?prev:c.publicWriters)}catch{}})();return()=>{on=false}},[isOffline]);
   useEffect(()=>{if(offlineMode&&!isOffline){setOfflineMode(false);try{const r=syncRemote();if(r&&typeof (r as any).catch==='function')(r as any).catch(()=>{})}catch{}}},[isOffline]);
-  const common=React.useMemo(()=>({theme,state,update,setScreen,goBack,open,read,allBooks,allCategories,publicWriters:filteredWriters,homeData,remoteNotices,dlBooks,downloadBook,markDownloaded,removeDownload,dataLoaded,syncRemote,openWithAnim,isOffline}),[theme,state,allBooks,allCategories,filteredWriters,homeData,remoteNotices,dlBooks,dataLoaded,syncRemote,isOffline]);
+  const common=React.useMemo(()=>({theme,state,update,setScreen,goBack,open,read,allBooks,allCategories,publicWriters:filteredWriters,homeData,remoteNotices,dlBooks,downloadBook,markDownloaded,removeDownload,dataLoaded,syncRemote,openWithAnim,isOffline,registerTopDismiss}),[theme,state,allBooks,allCategories,filteredWriters,homeData,remoteNotices,dlBooks,dataLoaded,syncRemote,isOffline,registerTopDismiss]);
   if(splashPhase==='splash')return <SplashScreen theme={theme}/>;
   if(splashPhase==='loading'){
     if(isOffline&&!offlineMode)return <ErrorScreen type="offline" theme={theme} onOffline={()=>{setOfflineMode(true);setTab('home')}} onRetry={()=>{setIsOffline(false);setLoadError(null);setRetryCount(c=>c+1);syncRemote()}}/>;
@@ -257,11 +272,12 @@ const sameScreen=(a:Screen,b:Screen)=>JSON.stringify(a)===JSON.stringify(b); con
   if(screen.type==='allWriters')body=<AllWritersList {...common}/>;
   if(screen.type==='newStory')body=<NewStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} categories={allCategories.map(c=>c[0])} onBack={goBack} onCreated={goBack} initialMode="text"/>;
   if(screen.type==='newPdfStory')body=<NewStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} categories={allCategories.map(c=>c[0])} onBack={goBack} onCreated={goBack} initialMode="pdf"/>;
-  if(screen.type==='pdfReader')body=<PDFReaderScreen theme={theme} lang={state.settings.language} pdfUrl={screen.pdfUrl} title={screen.title} onBack={goBack}/>;
+  if(screen.type==='pdfReader')body=<PDFReaderScreen theme={theme} lang={state.settings.language} pdfUrl={screen.pdfUrl} title={screen.title} onBack={goBack} registerTopDismiss={registerTopDismiss}/>;
   if(screen.type==='editStory')body=<EditStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} storyId={screen.id} initialTitle={screen.title} initialDesc={screen.desc} initialCover={screen.coverUrl} initialWriterStatus={screen.writerStatus} pdfUrl={screen.pdfUrl} onBack={goBack} onSaved={syncRemote}/>;
   if(screen.type==='aboutApp')body=<AboutAppScreen theme={theme} lang={state.settings.language} onBack={goBack}/>;
   if(screen.type==='terms')body=<TermsScreen theme={theme} lang={state.settings.language} onBack={goBack}/>;
-  if(screen.type==='guide')body=<GuideScreen theme={theme} lang={state.settings.language} onBack={goBack} onWriter={()=>setScreen({type:'writer'})} setScreen={setScreen}/>;
+  if(screen.type==='guide')body=<GuideScreen theme={theme} lang={state.settings.language} onBack={goBack} onWriter={()=>setScreen({type:'writer'},true)} setScreen={setScreen}/>;
+  if((screen.type==='book'||screen.type==='reader')&&!body)body=<Page theme={theme}><Back title={copy(state.settings.language,'details')} theme={theme} onPress={goBack}/><Empty theme={theme}/></Page>;
   const isNewTheme=['nilkantha','kashful','mala','meghdoot','bashanti','sona','rong','agun','swapna','prithvi'].includes(state.settings.themeId);
   const themeBg=isNewTheme?themeFor(state.settings.themeId,state.settings.dark).bg:theme.bg;
   return <View style={{flex:1,backgroundColor:themeBg}}>
@@ -305,7 +321,7 @@ const sameScreen=(a:Screen,b:Screen)=>JSON.stringify(a)===JSON.stringify(b); con
         </View>
       </View></View>}</View>;
 }
-type C={theme:Theme;state:LocalState;update:(p:Partial<LocalState>)=>void;setScreen:(s:Screen)=>void;goBack:()=>void;open:(id:string)=>void;read:(id:string,c:number)=>void;allBooks:Book[];allCategories:[string,string,string,string|null][];publicWriters:import('./src/types').WriterProfile[];homeData:HomeSectionsData|null;remoteNotices:{id:string;title:string;body:string;icon:string;url:string;story_cover:string;time:string}[];dlBooks:Record<string,Book>;downloadBook:(id:string)=>void;markDownloaded:(bk:Book)=>void;removeDownload:(id:string)=>void;dataLoaded:boolean;syncRemote?:()=>void;openWithAnim:(book:Book,fromX:number,fromY:number,fromW:number,fromH:number)=>void;isOffline:boolean};
+type C={theme:Theme;state:LocalState;update:(p:Partial<LocalState>)=>void;setScreen:(s:Screen,replace?:boolean)=>void;goBack:()=>void;open:(id:string)=>void;read:(id:string,c:number)=>void;allBooks:Book[];allCategories:[string,string,string,string|null][];publicWriters:import('./src/types').WriterProfile[];homeData:HomeSectionsData|null;remoteNotices:{id:string;title:string;body:string;icon:string;url:string;story_cover:string;time:string}[];dlBooks:Record<string,Book>;downloadBook:(id:string)=>void;markDownloaded:(bk:Book)=>void;removeDownload:(id:string)=>void;dataLoaded:boolean;syncRemote?:()=>void;openWithAnim:(book:Book,fromX:number,fromY:number,fromW:number,fromH:number)=>void;isOffline:boolean;registerTopDismiss?:(fn:(() => boolean) | null)=>void};
 const F_BN='HindSiliguriMedium';
 const F_EN='IMFellEnglish';
 let _curLang:import('./src/types').Language='bn';
@@ -601,7 +617,7 @@ function LibEmpty({tab,theme,lang,onBrowse}:{tab:'downloads'|'favorites'|'histor
     </Pressable>
   </Animated.View>;
 }
-function Library(p:C){const[libTab,setLibTab]=React.useState<'downloads'|'favorites'|'history'|'bookmarks'>('downloads');const[delId,setDelId]=useState<string|null>(null);
+function Library(p:C){const[libTab,setLibTab]=React.useState<'downloads'|'favorites'|'history'|'bookmarks'>('downloads');const[delId,setDelId]=useState<string|null>(null);useEffect(()=>{p.registerTopDismiss?.(delId?()=>{setDelId(null);return true}:null)},[delId]);
 const delLang=p.state.settings.language;const delBook=delId?(p.dlBooks[delId]||p.allBooks.find(x=>x.id===delId)):undefined;const delIsPdf=!!delBook?.pdf_url;const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const theme=p.theme;const[refreshing,setRefreshing]=useState(false);const doRefresh=async()=>{if(!p.syncRemote)return;setRefreshing(true);try{await p.syncRemote()}catch{}finally{setRefreshing(false)}};const tabs:{key:'downloads'|'favorites'|'history'|'bookmarks';icon:string;label:string;color:string}[]=[{key:'downloads',icon:'download-cloud',label:tr(p,'downloads'),color:'#0F766E'},{key:'favorites',icon:'heart',label:tr(p,'favorites'),color:'#E11D48'},{key:'history',icon:'clock',label:tr(p,'history'),color:'#B45309'},{key:'bookmarks',icon:'bookmark',label:tr(p,'bookmarks'),color:'#7C3AED'}];const tabIdx=tabs.findIndex(x=>x.key===libTab);const{width:sw}=useWindowDimensions();const tabW=(sw-36-8)/4;const slideAnim=React.useRef(new Animated.Value(tabIdx)).current;React.useEffect(()=>{Animated.timing(slideAnim,{toValue:tabIdx,duration:200,easing:Easing.bezier(0.25,0.1,0.25,1),useNativeDriver:true}).start()},[tabIdx]);const tabScales=React.useRef(tabs.map(()=>new Animated.Value(1))).current;const tabIn=(i:number)=>{Animated.spring(tabScales[i],{toValue:0.85,friction:5,tension:300,useNativeDriver:true}).start()};const tabOut=(i:number)=>{Animated.spring(tabScales[i],{toValue:1,friction:5,tension:300,useNativeDriver:true}).start()};const listFade=React.useRef(new Animated.Value(1)).current;React.useEffect(()=>{listFade.setValue(0.25);Animated.timing(listFade,{toValue:1,duration:260,useNativeDriver:true}).start()},[libTab]);const ids=libTab==='downloads'?p.state.downloads:libTab==='favorites'?p.state.favorites:libTab==='history'?p.state.history:p.state.bookmarks;return <Page theme={theme} onRefresh={doRefresh} refreshing={refreshing}><Header title={tr(p,'library')} sub={tr(p,'librarySub')} theme={theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/><View style={{backgroundColor:theme.tint,borderRadius:18,marginBottom:16,flexDirection:'row',padding:4,position:'relative'}}><Animated.View style={{position:'absolute',top:4,bottom:4,left:4,width:tabW,backgroundColor:'#fff',borderRadius:14,shadowColor:'#000',shadowOpacity:0.12,shadowRadius:6,shadowOffset:{width:0,height:2},elevation:3,transform:[{translateX:slideAnim.interpolate({inputRange:[0,1,2,3],outputRange:[0,tabW,tabW*2,tabW*3]})}]}}/>{tabs.map((t,i)=>{const act=libTab===t.key;return <Pressable key={t.key} onPress={()=>setLibTab(t.key)} onPressIn={()=>tabIn(i)} onPressOut={()=>tabOut(i)} style={{flex:1,alignItems:'center',justifyContent:'center',paddingVertical:9,zIndex:1}}><Animated.View style={{transform:[{scale:tabScales[i]}]}}><T numberOfLines={1} style={{fontSize:12,fontWeight:act?'800':'600',color:act?theme.primary:theme.muted}}>{t.label}</T></Animated.View></Pressable>})}</View><View style={{flexDirection:'row',justifyContent:'space-between',alignItems:'center',marginBottom:14}}><T style={{fontSize:17,fontWeight:'900',color:theme.ink}}>{tabs[tabIdx].label}</T><View style={{backgroundColor:theme.tint,borderRadius:8,paddingHorizontal:10,paddingVertical:4}}><T style={{color:theme.primary,fontSize:11,fontWeight:'700'}}>{ids.length}টি</T></View></View>{ids.length?<Animated.View style={{opacity:listFade}}>{ids.map(id=>{const b=p.allBooks.find(x=>x.id===id)||p.dlBooks[id];return b&&<LibBookCard key={id} book={b} theme={theme} cached={p.dlBooks[id]} onPress={()=>p.open(id)} showDelete={libTab==='downloads'} onDelete={()=>setDelId(id)}/> })}</Animated.View>:<LibEmpty tab={libTab} theme={theme} lang={p.state.settings.language} onBrowse={()=>p.setScreen({type:'search'})}/>}
     {delId?<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'transparent',justifyContent:'center',alignItems:'center',padding:24,zIndex:999,elevation:24}}>
       <Pressable onPress={()=>setDelId(null)} style={{position:'absolute',top:0,left:0,right:0,bottom:0}}/>
@@ -619,7 +635,7 @@ const delLang=p.state.settings.language;const delBook=delId?(p.dlBooks[delId]||p
       </View>
     </View>:null}</Page>}
 function Categories(p:C){const theme=p.theme;const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const[refreshing,setRefreshing]=useState(false);const doRefresh=async()=>{if(!p.syncRemote)return;setRefreshing(true);try{await p.syncRemote()}catch{}finally{setRefreshing(false)}};const skeletonColors=['#2AA876','#E85D75','#8B5CF6','#D97706','#3B82F6','#EC4899','#0891B2','#DC2626','#059669'];return <Page theme={theme} onRefresh={doRefresh} refreshing={refreshing}><Header title={tr(p,'categories')} sub={tr(p,'categoriesSub')} theme={theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/>{!p.dataLoaded&&!p.allCategories.length?<View style={styles.catGrid}>{skeletonColors.map((c,i)=><View key={i} style={[styles.catCard,{opacity:0.6}]}><View style={[styles.catImgWrap]}><SkeletonPulse width="100%" height={120} borderRadius={0} style={{backgroundColor:c+'44'}}/></View></View>)}</View>:!p.allCategories.length?<Empty theme={theme}/>:<View style={styles.catGrid}>{p.allCategories.map(c=>{const count=p.allBooks.filter(b=>b.category===c[0]).length;const hasImg=Boolean(c[3]);const bookWord=count===1?copy(p.state.settings.language,'book'):copy(p.state.settings.language,'books');return <Pressable key={c[0]} onPress={()=>p.setScreen({type:'list',title:c[0],ids:p.allBooks.filter(b=>b.category===c[0]).map(b=>b.id)})} style={styles.catCard}><View style={[styles.catImgWrap]}>{hasImg?<Image source={{uri:c[3]!}} style={styles.catImg}/>:<View style={[styles.catImgFallback,{backgroundColor:c[2]}]}><T style={{color:'#fff',fontSize:28,fontWeight:'900',opacity:0.5}}>{c[0][0]}</T></View>}<View style={styles.catImgOverlay}><T numberOfLines={1} style={styles.catImgName}>{c[0]}</T></View></View><View style={[styles.catBadge,{backgroundColor:theme.tint}]}><T style={[styles.catBadgeText,{color:theme.primary}]}>{count} {bookWord}</T></View></Pressable>})}</View>}</Page>}
-function Episodes(p:C){const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const[refreshing,setRefreshing]=useState(false);const doRefresh=async()=>{if(!p.syncRemote)return;setRefreshing(true);try{await p.syncRemote()}catch{}finally{setRefreshing(false)}};return <Page theme={p.theme} onRefresh={doRefresh} refreshing={refreshing}><Header title={tr(p,'episodes')} sub={tr(p,'episodesSub')} theme={p.theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/>{p.allBooks.map((b,i)=><Episode key={b.id} book={b} theme={p.theme} onPress={()=>{if(b.pdf_url)p.open(b.id);else p.read(b.id,b.chapters.length?(i+2)%b.chapters.length:0)}}/>)}</Page>}
+function Episodes(p:C){const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;const[refreshing,setRefreshing]=useState(false);const doRefresh=async()=>{if(!p.syncRemote)return;setRefreshing(true);try{await p.syncRemote()}catch{}finally{setRefreshing(false)}};return <Page theme={p.theme} onRefresh={doRefresh} refreshing={refreshing}><Header title={tr(p,'episodes')} sub={tr(p,'episodesSub')} theme={p.theme} onNotif={()=>p.setScreen({type:'notifications'})} unreadCount={un}/>{p.allBooks.length?p.allBooks.map((b)=><Episode key={b.id} book={b} theme={p.theme} onPress={()=>{if(b.pdf_url)p.open(b.id);else p.read(b.id,b.chapters.length?b.chapters.length-1:0)}}/>):<Empty theme={p.theme}/>}</Page>}
 function Profile(p:C){
   const un=p.remoteNotices.filter(n=>!p.state.readNotifications.includes(n.id)).length;
   const t=p.theme;
@@ -827,7 +843,7 @@ function ProfileDetails(p:C){
   ];
 
   const logout=()=>{
-    if(p.state.writer){p.update({writer:null,writerToken:null,followedWriters:[]})}
+    if(p.state.writer){clearTokens().catch(()=>{});p.update({writer:null,writerToken:null,followedWriters:[]})}
   };
 
   const titleText=isWriter?(lang==='hi'?'लेखक प्रोफ़ाइল':lang==='en'?'Writer Profile':'লেখক প্রোফাইল'):(isLoggedIn?(lang==='hi'?'नियमित पाठक':lang==='en'?'Regular Reader':'নিয়মিত পাঠক'):tr(p,'guestReader'));
@@ -1047,7 +1063,9 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
   const [liveFollowers,setLiveFollowers]=useState(w.follower_count||0);
   useEffect(()=>{setLiveFollowers(w.follower_count||0);fetch('https://lekhoni-admin-api.smdkawsar2.workers.dev/api/public/writers').then(r=>r.json()).then((writers:any)=>{const fw=writers.find((x:any)=>x.id===w.id);if(fw)setLiveFollowers(fw.follower_count||0);}).catch(()=>{});},[w.id,w.follower_count]);
   useEffect(()=>{setPhase(isFollowed?'followed':'idle')},[isFollowed]);
+  const isGuestWriter=String(w.id).startsWith('guest:');
   const doFollow=async()=>{
+    if(isGuestWriter)return;
     if(!p.state.writer&&!p.state.user){setShowAuth(true);return;}
     const now=Date.now();const log=followLog.current[w.id]||[];const recent=log.filter(t=>now-t<60000);
     if(recent.length>=4){Alert.alert(copy(p.state.settings.language,'reportSpam'),p.state.settings.language==='bn'?'অনুগ্রহ করে ১ মিনিট অপেক্ষা করুন।':p.state.settings.language==='hi'?'कृपया 1 मिनट प्रतीक्षा करें।':'Please wait 1 minute.');return;}
@@ -1089,7 +1107,7 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
   <View style={{width:1, height:36, backgroundColor:t.line}}/>
   <View style={{alignItems:'center',flex:1}}><T style={{fontSize:22,fontWeight:'900',color:t.ink}}>{liveFollowers}</T><T style={{fontSize:10,fontWeight:'700',color:t.muted,marginTop:2}}>অনুসারী</T></View>
 </View>
-      {phase==='spinning'?<View style={{marginHorizontal:16,height:48,borderRadius:14,backgroundColor:t.tint,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,marginBottom:6}}>
+      {isGuestWriter?null:phase==='spinning'?<View style={{marginHorizontal:16,height:48,borderRadius:14,backgroundColor:t.tint,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,marginBottom:6}}>
         <Animated.View style={{transform:[{rotate:spinDeg}]}}><Feather name="loader" size={16} color={t.primary}/></Animated.View>
         <T style={{fontSize:14,fontWeight:'800',color:t.primary}}>{tr(p,'follow')}</T>
       </View>:<Pressable onPress={phase==='followed'?doUnfollow:doFollow} style={{marginHorizontal:16,height:48,borderRadius:14,backgroundColor:phase==='followed'?t.bg:t.primary,borderWidth:phase==='followed'?1.5:0,borderColor:t.line,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,marginBottom:6}}>
@@ -1119,7 +1137,7 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
   </Page>}
 
 function Search(p:C){const [q,setQ]=useState('');const books=q?p.allBooks.filter(b=>`${b.title}${b.author}${b.category}`.includes(q)):p.allBooks.slice(0,3);const writers=q?p.publicWriters.filter(w=>`${w.writer_name}${w.username||''}`.includes(q)):[];return <Page theme={p.theme}><Back title="অনুসন্ধান" theme={p.theme} onPress={()=>p.goBack()}/>{p.isOffline&&<OfflineBanner theme={p.theme} onRetry={()=>p.syncRemote?.()}/>}<View style={[styles.search,{backgroundColor:p.theme.card,borderColor:p.theme.line}]}><Feather name="search" size={18} color={p.theme.muted}/><TextInput autoFocus value={q} onChangeText={setQ} placeholder="বই, লেখক বা বিভাগ খুঁজুন" placeholderTextColor={p.theme.muted} style={{flex:1,color:p.theme.ink,fontFamily:GF()}}/></View>{writers.length>0&&<><T style={[styles.group,{color:p.theme.muted}]}>লেখক</T>{writers.map(w=><Pressable key={w.id} onPress={()=>p.setScreen({type:'writerProfile',writer:w})} style={{flexDirection:'row',alignItems:'center',gap:12,backgroundColor:p.theme.card,borderRadius:14,padding:12,marginBottom:8,borderWidth:1,borderColor:p.theme.line}}>{w.avatar_url?<Image source={{uri:w.avatar_url}} style={{width:42,height:42,borderRadius:21}}/>:<View style={{width:42,height:42,borderRadius:21,backgroundColor:p.theme.tint,alignItems:'center',justifyContent:'center'}}><Feather name="user" size={18} color={p.theme.primary}/></View>}<View style={{flex:1}}><T numberOfLines={1} style={{color:p.theme.ink,fontWeight:'700',fontSize:14}}>{w.writer_name}</T><T numberOfLines={1} style={{color:p.theme.muted,fontSize:12,marginTop:2}}>{w.bio||'লেখক'}</T></View><Feather name="chevron-right" size={16} color={p.theme.muted}/></Pressable>)}</>}<T style={[styles.group,{color:p.theme.muted}]}>{q?`${books.length}টি ফলাফল`:'জনপ্রিয় বই'}</T>{books.map(b=><Row key={b.id} book={b} theme={p.theme} onPress={()=>{p.update({searchHistory:[q,...p.state.searchHistory.filter(x=>x!==q)].filter(Boolean)});p.open(b.id)}}/>)}{!books.length&&!writers.length&&<Empty theme={p.theme}/>}</Page>}
-function Notifications(p:C){const t=p.theme;const[selNotif,setSelNotif]=useState<{id:string;title:string;body:string;icon:string;url:string;story_cover:string;time:string}|null>(null);const allNotices=p.remoteNotices.map(n=>({id:n.id,title:n.title,body:n.body,icon:n.icon,url:n.url,story_cover:n.story_cover||'',time:n.time}));const iconBg=t.primary+'22';
+function Notifications(p:C){const t=p.theme;const[selNotif,setSelNotif]=useState<{id:string;title:string;body:string;icon:string;url:string;story_cover:string;time:string}|null>(null);useEffect(()=>{p.registerTopDismiss?.(selNotif?()=>{setSelNotif(null);return true}:null)},[selNotif]);const allNotices=p.remoteNotices.map(n=>({id:n.id,title:n.title,body:n.body,icon:n.icon,url:n.url,story_cover:n.story_cover||'',time:n.time}));const iconBg=t.primary+'22';
   const openDetail=(n:{id:string;title:string;body:string;icon:string;url:string;story_cover:string;time:string})=>{p.update({readNotifications:[...new Set([...p.state.readNotifications,n.id])]});setSelNotif(n)};
   const hasLink=selNotif?.url&&selNotif.url.trim();
   const openLink=()=>{if(!selNotif)return;let u=selNotif.url.trim();if(u&&!/^https?:\/\//i.test(u))u='https://'+u;Linking.openURL(u).catch(()=>{})};
@@ -1162,7 +1180,7 @@ function GridBookCard({book:b,theme:t,onPress}:{book:Book;theme:Theme;onPress:()
     <T numberOfLines={1} style={{fontSize:10.5,fontWeight:'600',color:t.muted,marginTop:2}}>{b.author_name||b.author}</T>
   </Pressable>;
 }
-function BookList(p:C&{title:string;ids:string[]}){return <Page theme={p.theme}><Back title={p.title} theme={p.theme} onPress={()=>p.goBack()}/><T style={{color:p.theme.muted,marginBottom:15}}>{p.ids.length}টি বই</T>{p.ids.length?<View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>{p.ids.map(id=>{const b=p.allBooks.find(x=>x.id===id);return b&&<GridBookCard key={id} book={b} theme={p.theme} onPress={()=>p.open(id)}/>})}</View>:<Empty theme={p.theme}/>}</Page>}
+function BookList(p:C&{title:string;ids:string[]}){const resolved=p.ids.map(id=>p.dlBooks[id]||p.allBooks.find(x=>x.id===id)).filter(Boolean) as Book[];return <Page theme={p.theme}><Back title={p.title} theme={p.theme} onPress={()=>p.goBack()}/>{p.isOffline&&<OfflineBanner theme={p.theme} onRetry={()=>p.syncRemote?.()}/>}<T style={{color:p.theme.muted,marginBottom:15}}>{resolved.length}টি বই</T>{resolved.length?<View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>{resolved.map(b=><GridBookCard key={b.id} book={b} theme={p.theme} onPress={()=>p.open(b.id)}/>)}</View>:<Empty theme={p.theme}/>}</Page>}
 const dStyles=StyleSheet.create({
  hero:{borderRadius:26,overflow:'hidden',marginBottom:18,elevation:5,shadowColor:'#000',shadowOpacity:.28,shadowRadius:12,shadowOffset:{width:0,height:6}},
  heroHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,paddingTop:14,zIndex:3},
@@ -1233,10 +1251,11 @@ const dStyles=StyleSheet.create({
   avatar:{width:36,height:36,borderRadius:12,alignItems:'center',justifyContent:'center'}
   });
 function PdfDetailsScreen(p:C&{book:Book}){
-  const b0=p.book;if(!b0)return <Page theme={p.theme}><Back title={tr(p,'details')} theme={p.theme} onPress={()=>p.goBack()}/><Empty theme={p.theme}/></Page>;
-  const[fullBook,setFullBook]=useState<Book|null>(null);const b=fullBook||b0;
-  useEffect(()=>{fetchRemoteBook(b0.id).then(r=>{if(r)setFullBook(r)}).catch(()=>{})},[b0.id]);
+  const b0=p.book;const b0Missing=!b0;
+  const[fullBook,setFullBook]=useState<Book|null>(null);const b=fullBook||b0||{} as Book;
+  useEffect(()=>{if(b0Missing)return;let alive=true;const id=b0.id;fetchRemoteBook(id).then(r=>{if(alive&&r)setFullBook(r)}).catch(()=>{});return()=>{alive=false}},[b0Missing,b0&&b0.id]);
   useEffect(()=>{if(fullBook&&rxn===undefined){setLikes(fullBook.likes||0)}},[fullBook?.id]);
+  if(b0Missing)return <Page theme={p.theme}><Back title={tr(p,'details')} theme={p.theme} onPress={()=>p.goBack()}/><Empty theme={p.theme}/></Page>;
   const t=p.theme,accent=b.accent||'#C9972B',base=b.color||'#4A1220',dark=shade(base,-34);
   const fav=p.state.favorites.includes(b.id);
   const rxn=p.state.reactions[b.id];
@@ -1251,6 +1270,7 @@ function PdfDetailsScreen(p:C&{book:Book}){
   const pdfLocalPath=()=>b.id&&(LFS.documentDirectory||'')+`pdfs/${b.id}.pdf`;
   const checkPdfDownloaded=useCallback(async()=>{try{const u=pdfLocalPath();const info=await LFS.getInfoAsync(u);if(info.exists){setPdfLocalUri(u);setPdfPct(100);countPdfPages(u).then(n=>{if(n)setPdfPages(n)});persistPdfMeta();ensurePdfRegistered()}}catch{}},[b.id]);
   useEffect(()=>{checkPdfDownloaded()},[b.id]);
+  useEffect(()=>()=>{try{const t=downloadRef.current;if(t&&t.cancel)t.cancel()}catch{}},[]);
   const countPdfPages=async(uri:string):Promise<number|null>=>{
     try{
       const info=await LFS.getInfoAsync(uri);
@@ -1279,6 +1299,7 @@ function PdfDetailsScreen(p:C&{book:Book}){
       const dir=(LFS.documentDirectory||'')+'pdfs/';
       const di=await LFS.getInfoAsync(dir);
       if(!di.exists)await LFS.makeDirectoryAsync(dir,{intermediates:true});
+      try{const free=await (LFS as any).getFreeDiskStorageAsync?.();if(typeof free==='number'&&free<20*1024*1024){setDlFailed(true);return}}catch{}
       setDlFailed(false);setDownloading(true);
       let last=0;
       const task=LFS.createDownloadResumable(b.pdf_url!,uri,{},(pr:any)=>{const t2=pr.totalBytesExpectedToWrite,w=pr.totalBytesWritten;if(t2>0){const pc=Math.min(99,Math.floor(w/t2*100));if(pc>=last){last=pc;setPdfPct(pc)}}});
@@ -1287,11 +1308,12 @@ function PdfDetailsScreen(p:C&{book:Book}){
       downloadRef.current=null;
       const fi=await LFS.getInfoAsync(uri).catch(()=>null);
       if(res&&res.status===200&&fi&&fi.exists&&(fi.size||0)>1024){setPdfLocalUri(uri);setPdfPct(100);setDownloading(false);Vibration.vibrate([0,40,40,80]);countPdfPages(uri).then(n=>{if(n)setPdfPages(n)});persistPdfMeta();ensurePdfRegistered();setTimeout(()=>openPdf(uri),400)}
-      else{setDownloading(false);setDlFailed(true);setPdfPct(null);setTimeout(()=>setDlFailed(false),3000)}
-    }catch{setDownloading(false);setDlFailed(true);setPdfPct(null);downloadRef.current=null;setTimeout(()=>setDlFailed(false),3000)}
+      else{setDownloading(false);setDlFailed(true);setPdfPct(null)}
+    }catch{setDownloading(false);setDlFailed(true);setPdfPct(null);downloadRef.current=null}
   };
   const [showMoreMenu,setShowMoreMenu]=useState(false);
   const [showReport,setShowReport]=useState(false);
+  useEffect(()=>{p.registerTopDismiss?.(showReport?()=>{setShowReport(false);return true}:showMoreMenu?()=>{setShowMoreMenu(false);return true}:null)},[showReport,showMoreMenu]);
   const [reportReason,setReportReason]=useState('');
   const [reportDetails,setReportDetails]=useState('');
   const [reportSent,setReportSent]=useState(false);
@@ -1439,11 +1461,12 @@ function ChaptersEmptyState({theme:t,offline}:{theme:Theme;offline?:boolean}){
   </View>;
 }
 
-function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.theme}><Back title={tr(p,'details')} theme={p.theme} onPress={()=>p.goBack()}/><Empty theme={p.theme}/></Page>;
+function Details(p:C&{book:Book}){const b0=p.book;const b0Missing=!b0;
   const[fullBook,setFullBook]=useState<Book|null>(null);
-  const b=fullBook||b0;
-  useEffect(()=>{if(b0.chapters.length===0&&b0.id){fetchRemoteBook(b0.id).then(r=>{if(r)setFullBook(r)}).catch(()=>{})}},[b0.id]);
+  const b=fullBook||b0||{} as Book;
+  useEffect(()=>{if(b0Missing||!b0)return;let alive=true;const id=b0.id;if(b0.chapters.length===0&&id){fetchRemoteBook(id).then(r=>{if(alive&&r)setFullBook(r)}).catch(()=>{})}return()=>{alive=false}},[b0Missing,b0&&b0.id]);
   useEffect(()=>{if(fullBook&&rxn===undefined){setLikes(fullBook.likes||0)}},[fullBook?.id]);
+  if(b0Missing)return <Page theme={p.theme}><Back title={tr(p,'details')} theme={p.theme} onPress={()=>p.goBack()}/><Empty theme={p.theme}/></Page>;
   const t=p.theme,accent=b.accent||'#C9972B',base=b.color||'#4A1220',dark=shade(base,-34);const heroBC=b.accent||b.color||'#D9A407';const heroDK=shade(heroBC,-40);
   const fav=p.state.favorites.includes(b.id),isOffline=!!p.dlBooks[b.id],down=p.state.downloads.includes(b.id)||isOffline;
   const haveContent=b.chapters.length>0&&b.chapters.some(c=>c.body&&c.body.trim().length>0);
@@ -1460,13 +1483,13 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
   const doLike=()=>{if(liked){setLiked(false);setLikes(l=>Math.max(0,l-1));setRxn(undefined);Vibration.vibrate(30);toggleBookLike(p.state.deviceId,b.id,false).then(r=>{if(r>=0)setLikes(r)});}else{setLiked(true);setDisliked(false);setLikes(l=>l+1);setRxn('like');Vibration.vibrate([0,40,40,80]);bumpLike();toggleBookLike(p.state.deviceId,b.id,true).then(r=>{if(r>=0)setLikes(r)});}};
   const doDislike=()=>{if(disliked){setDisliked(false);setRxn(undefined);}else{setDisliked(true);setLiked(false);setRxn('dislike');Vibration.vibrate([0,40]);}};
   const likeScale=likeAnim.interpolate({inputRange:[0,1],outputRange:[0.5,1]});
-  React.useEffect(()=>{if(dlPct!==null&&dlPct<100){dlSpinAnim.setValue(0);Animated.loop(Animated.timing(dlSpinAnim,{toValue:1,duration:1000,easing:Easing.linear,useNativeDriver:true})).start()}else{dlSpinAnim.setValue(0)}},[dlPct]);
+  React.useEffect(()=>{if(dlPct!==null&&dlPct<100){dlSpinAnim.setValue(0);const l=Animated.loop(Animated.timing(dlSpinAnim,{toValue:1,duration:1000,easing:Easing.linear,useNativeDriver:true}));l.start();return()=>l.stop()}dlSpinAnim.setValue(0);return undefined},[dlPct]);
   const dlSpin=dlSpinAnim.interpolate({inputRange:[0,1],outputRange:['0deg','360deg']});
-  const doDownload=async()=>{if(dlPct!==null)return;setDlFailed(false);Vibration.vibrate(30);setDlPct(2);try{const full=await fetchRemoteBook(b.id);if(!full||!full.chapters.length){setDlPct(null);setDlFailed(true);setShowNoChapters(true);return}setDlPct(6);await saveBookOffline(full,pct=>setDlPct(6+Math.floor(pct*0.92)));p.markDownloaded(full);setDlPct(100);Vibration.vibrate([0,40,40,80]);setTimeout(()=>setDlPct(null),2000)}catch{setDlPct(null);setDlFailed(true);setTimeout(()=>setDlFailed(false),3000)}};
+  const doDownload=async()=>{if(dlPct!==null)return;setDlFailed(false);Vibration.vibrate(30);setDlPct(2);try{const full=await fetchRemoteBook(b.id);if(!full){setDlPct(null);setDlFailed(true);return}if(!full.chapters.length){setDlPct(null);setShowNoChapters(true);return}setDlPct(6);await saveBookOffline(full,pct=>setDlPct(6+Math.floor(pct*0.92)));p.markDownloaded(full);setDlPct(100);setDlFailed(false);Vibration.vibrate([0,40,40,80]);setTimeout(()=>setDlPct(null),2000)}catch{setDlPct(null);setDlFailed(true)}};
   const goComments=()=>p.setScreen({type:'comments',id:b.id});const readAll=()=>p.read(b.id,0);
   const writer=p.publicWriters.find((x:import('./src/types').WriterProfile)=>x.writer_name===b.author);
   const toggleFav=()=>{Vibration.vibrate(20);fav?p.update({favorites:p.state.favorites.filter(x=>x!==b.id)}):p.update({favorites:[...p.state.favorites,b.id]})};
-  const goWriter=()=>{if(writer){p.setScreen({type:'writerProfile',writer})}else{p.setScreen({type:'writerProfile',writer:{id:b.id,username:b.author,writer_name:b.author,bio:'',avatar_url:null,follower_count:0,badge:'none'}})}};
+  const goWriter=()=>{if(writer){p.setScreen({type:'writerProfile',writer})}else{p.setScreen({type:'writerProfile',writer:{id:'guest:'+b.author,username:b.author,writer_name:b.author,bio:'',avatar_url:null,follower_count:0,badge:'none'}})}};
   const lastChapter=p.state.positions?.[b.id+'_lastChapter']??-1;const hasStarted=lastChapter>=0;const continueIdx=hasStarted?lastChapter:0;
   const freshShim=useRef(new Animated.Value(0)).current;
   useEffect(()=>{const l=Animated.loop(Animated.timing(freshShim,{toValue:1,duration:2400,easing:Easing.linear,useNativeDriver:true}));l.start();return()=>l.stop()},[]);
@@ -1476,6 +1499,7 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
   const rpIns=useSafeAreaInsets();
   const [reportReason,setReportReason]=useState('');
   const [pendingUnlock,setPendingUnlock]=useState<{bookId:string;chapterId:string;chapterIndex:number}|null>(null);
+  useEffect(()=>{p.registerTopDismiss?.(pendingUnlock?()=>{setPendingUnlock(null);return true}:null)},[pendingUnlock]);
   const [unlocking,setUnlocking]=useState(false);
   const [reportDetails,setReportDetails]=useState('');
   const [reportSent,setReportSent]=useState(false);
@@ -1621,7 +1645,7 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
       </Pressable>
     </Modal>
   </Page>}
-function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x=>x.id===p.bookId)||p.dlBooks[p.bookId];const [items,setItems]=useState<{id:string;display_name:string;body:string;created_at:string;avatar_url:string}[]>([]);const [draft,setDraft]=useState('');const[focused,setFocused]=useState(false);const sendScale=useRef(new Animated.Value(1)).current;const sendIn=()=>{Animated.spring(sendScale,{toValue:0.88,friction:5,tension:300,useNativeDriver:true}).start()};const sendOut=()=>{Animated.spring(sendScale,{toValue:1,friction:5,tension:300,useNativeDriver:true}).start()};const [posting,setPosting]=useState(false);const [loading,setLoading]=useState(true);const[showSuccess,setShowSuccess]=useState(false);const[approvalRequired,setApprovalRequired]=useState(true);const spinAnim=useRef(new Animated.Value(0)).current;const scaleAnim=useRef(new Animated.Value(0)).current;const checkAnim=useRef(new Animated.Value(0)).current;
+function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x=>x.id===p.bookId)||p.dlBooks[p.bookId];const [items,setItems]=useState<{id:string;display_name:string;body:string;created_at:string;avatar_url:string}[]>([]);const [draft,setDraft]=useState('');const[focused,setFocused]=useState(false);const sendScale=useRef(new Animated.Value(1)).current;const sendIn=()=>{Animated.spring(sendScale,{toValue:0.88,friction:5,tension:300,useNativeDriver:true}).start()};const sendOut=()=>{Animated.spring(sendScale,{toValue:1,friction:5,tension:300,useNativeDriver:true}).start()};const [posting,setPosting]=useState(false);const [loading,setLoading]=useState(true);const[showSuccess,setShowSuccess]=useState(false);const[postErr,setPostErr]=useState('');const[approvalRequired,setApprovalRequired]=useState(true);const spinAnim=useRef(new Animated.Value(0)).current;const scaleAnim=useRef(new Animated.Value(0)).current;const checkAnim=useRef(new Animated.Value(0)).current;
   const cmtColors=['#E8F5E9','#FFF3E0','#E3F2FD','#F3E5F5','#E0F7FA','#FFF8E1','#FCE4EC','#E8EAF6','#F1F8E9','#FBE9E7'];
   const isWriter=Boolean(p.state.writer);const isUser=Boolean(p.state.user);
   const commenterName=isWriter?p.state.writer!.writer_name:isUser?p.state.user!.display_name:p.state.name||'পাঠক';
@@ -1629,7 +1653,7 @@ function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x
   const load=()=>fetchRemoteComments(p.bookId).then(c=>{if(c&&Array.isArray(c))setItems(c as any)}).finally(()=>setLoading(false));
   useEffect(()=>{load();fetchCommentsConfig().then(r=>setApprovalRequired(r.comments_approval)).catch(()=>{});},[p.bookId]);
   useEffect(()=>{if(showSuccess){spinAnim.setValue(0);scaleAnim.setValue(0);checkAnim.setValue(0);Animated.sequence([Animated.parallel([Animated.timing(spinAnim,{toValue:1,duration:800,easing:Easing.out(Easing.cubic),useNativeDriver:true}),Animated.spring(scaleAnim,{toValue:1,friction:5,useNativeDriver:true})]),Animated.timing(checkAnim,{toValue:1,duration:400,useNativeDriver:true})]).start();const timer=setTimeout(()=>setShowSuccess(false),3000);return()=>clearTimeout(timer)}},[showSuccess]);
-  const post=async()=>{const x=draft.trim();if(!x||posting)return;setPosting(true);Vibration.vibrate(30);const res=await submitComment(p.bookId,p.state.deviceId,commenterName,x,commenterAvatar);setPosting(false);if(res.ok){setDraft('');setShowSuccess(true);load()}};
+  const post=async()=>{const x=draft.trim();if(!x||posting)return;setPosting(true);setPostErr('');Vibration.vibrate(30);try{const res=await submitComment(p.bookId,p.state.deviceId,commenterName,x,commenterAvatar);if(res.ok){setDraft('');setShowSuccess(true);load()}else setPostErr(p.state.settings.language==='bn'?'মন্তব্য পোস্ট হয়নি। আবার চেষ্টা করুন।':p.state.settings.language==='hi'?'टिप्पणी पोस्ट नहीं हुई। पुनः प्रयास करें।':'Comment failed. Please try again.')}catch{setPostErr(p.state.settings.language==='bn'?'মন্তব্য পোস্ট হয়নি। আবার চেষ্টা করুন।':p.state.settings.language==='hi'?'टिप्पणी पोस्ट नहीं हुई। पुनः प्रयास करें।':'Comment failed. Please try again.')}setPosting(false)};
   const insets=useSafeAreaInsets();
   return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={Platform.OS==='ios'?0:0}>
     <View style={{flex:1,backgroundColor:t.bg}}>
@@ -1661,7 +1685,8 @@ function Comments(p:C&{bookId:string}){const t=p.theme;const b=p.allBooks.find(x
       <View style={{position:'absolute',bottom:0,left:0,right:0,paddingHorizontal:14,paddingBottom:insets.bottom+12,paddingTop:8,backgroundColor:'transparent',pointerEvents:'box-none'}}>
         <View style={{flexDirection:'row',alignItems:'center',gap:10,backgroundColor:t.card,borderRadius:22,borderWidth:1.5,borderColor:focused?'#C9972B':t.line,padding:8,paddingLeft:12,shadowColor:'#000',shadowOpacity:focused?0.12:0.06,shadowRadius:focused?14:8,shadowOffset:{width:0,height:3},elevation:4}}>
           {commenterAvatar?<Image source={{uri:commenterAvatar}} style={{width:36,height:36,borderRadius:18,backgroundColor:t.tint,borderWidth:1.5,borderColor:'#C9972B66'}}/>:<View style={{width:36,height:36,borderRadius:18,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',borderWidth:1.5,borderColor:'#C9972B66'}}><T style={{color:t.primary,fontWeight:'900',fontSize:13}}>{(commenterName||'?')[0]}</T></View>}
-          <TextInput value={draft} onChangeText={setDraft} onFocus={()=>setFocused(true)} onBlur={()=>setFocused(false)} placeholder={tr(p,'writeComment')} placeholderTextColor={t.muted} multiline style={{flex:1,color:t.ink,fontSize:14,maxHeight:100,paddingVertical:8,fontFamily:GF()}}/>
+          {postErr?<T style={{color:'#EF4444',fontSize:12,fontWeight:'700',marginBottom:6}}>{postErr}</T>:null}
+          <TextInput value={draft} onChangeText={(v)=>{setDraft(v);if(postErr)setPostErr('')}} onFocus={()=>setFocused(true)} onBlur={()=>setFocused(false)} placeholder={tr(p,'writeComment')} placeholderTextColor={t.muted} multiline style={{flex:1,color:t.ink,fontSize:14,maxHeight:100,paddingVertical:8,fontFamily:GF()}}/>
           <Animated.View style={{transform:[{scale:sendScale}]}}><Pressable disabled={!draft.trim()||posting} onPress={post} onPressIn={sendIn} onPressOut={sendOut} style={{width:44,height:44,borderRadius:22,backgroundColor:!draft.trim()?'#90A4AE':'#7B1E2B',alignItems:'center',justifyContent:'center',opacity:posting?.6:1,elevation:2,shadowColor:'#7B1E2B',shadowOpacity:!draft.trim()?0:0.3,shadowRadius:6,shadowOffset:{width:0,height:2}}}><Svg width={19} height={19} viewBox="0 0 24 24" fill="none"><Path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke={!draft.trim()?'#fff':'#EAC97A'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"/></Svg></Pressable></Animated.View>
         </View>
       </View>
@@ -1779,7 +1804,7 @@ function splitBody(body:string):{sents:string[];groups:{text:string;start:number
   return{sents,groups};
 }
 
-function Reader(p:C&{book:Book;chapter:number}){const insets=useSafeAreaInsets();const {width}=useWindowDimensions();const c=p.book.chapters[p.chapter];if(!c)return <View style={{flex:1,backgroundColor:p.theme.reader,alignItems:'center',justifyContent:'center',padding:30}}><Feather name="book-open" size={40} color={p.theme.muted}/><T style={{color:p.theme.ink,fontWeight:'800',fontSize:16,textAlign:'center',marginTop:14}}>এই বইয়ে এখনো কোনো অধ্যায় নেই।</T><Button title="ফিরে যান" icon="arrow-left" onPress={()=>p.setScreen({type:'book',id:p.book.id})}/></View>;const key=c.id,progress=p.state.positions[key]||0;
+function Reader(p:C&{book:Book;chapter:number}){const insets=useSafeAreaInsets();const {width}=useWindowDimensions();const c=p.book.chapters[p.chapter];const cMissing=!c;const key=c?c.id:'';const progress=key?p.state.positions[key]||0:0;
 const [showSettings,setShowSettings]=useState(false);
 const[speaking,setSpeaking]=useState(false);
 const[spokenIdx,setSpokenIdx]=useState(-1);
@@ -1825,13 +1850,14 @@ const autoScrollRef=useRef<ReturnType<typeof setInterval>|null>(null);
 const scrollRef=useRef<ScrollView>(null);
 const autoOffsetRef=useRef(0);
 const s=p.state.settings;
+const stRef=useRef(p.state);stRef.current=p.state;
 useEffect(()=>{setReadSeconds(0);stopSpeak()},[p.chapter]);
 useEffect(()=>()=>{try{Speech.stop()}catch{}},[]);
 useEffect(()=>{let loop:any=null;if(speaking){loop=Animated.loop(Animated.sequence([Animated.timing(speakPulse,{toValue:1.18,duration:600,useNativeDriver:true}),Animated.timing(speakPulse,{toValue:1,duration:600,useNativeDriver:true})]));loop.start()}else{speakPulse.setValue(1)}return()=>{if(loop)loop.stop()}},[speaking]);
 useEffect(()=>{const timer=setInterval(()=>{setReadSeconds(prev=>prev+1)},60000);return()=>clearInterval(timer)},[]);
 useEffect(()=>{if(s.keepScreenOn)activateKeepAwake('lekhoni');else deactivateKeepAwake();return()=>{deactivateKeepAwake().catch(()=>{})}},[s.keepScreenOn]);
-useEffect(()=>{const timer=setInterval(()=>{const today=new Date().toISOString().slice(0,10);const prev=p.state.readingActivity[today]||{minutes:0,episodes:0};p.update({readingActivity:{...p.state.readingActivity,[today]:{minutes:(prev.minutes||0)+1,episodes:prev.episodes||0}}})},60000);return()=>clearInterval(timer)},[]);
-useEffect(()=>{p.update({positions:{...p.state.positions,[p.book.id+'_lastChapter']:p.chapter}});},[p.chapter]);
+useEffect(()=>{const timer=setInterval(()=>{const today=new Date().toISOString().slice(0,10);const cur=stRef.current.readingActivity[today]||{minutes:0,episodes:0};p.update({readingActivity:{...stRef.current.readingActivity,[today]:{minutes:(cur.minutes||0)+1,episodes:cur.episodes||0}}})},60000);return()=>clearInterval(timer)},[]);
+useEffect(()=>{p.update({positions:{...stRef.current.positions,[p.book.id+'_lastChapter']:p.chapter}});},[p.chapter]);
 useEffect(()=>{trackEvent(p.state.deviceId,p.book.id,'view').catch(()=>{});},[p.book.id]);
 const change=(patch:Partial<LocalState['settings']>)=>p.update({settings:{...p.state.settings,...patch}});
 useEffect(()=>{if(autoScrollRef.current){clearInterval(autoScrollRef.current);autoScrollRef.current=null}if(s.autoScroll){const ms=Math.max(30,120-s.autoScrollSpeed*20);autoScrollRef.current=setInterval(()=>{autoOffsetRef.current+=2;scrollRef.current?.scrollTo({y:autoOffsetRef.current,animated:false})},ms)}return()=>{if(autoScrollRef.current){clearInterval(autoScrollRef.current);autoScrollRef.current=null}}},[s.autoScroll,s.autoScrollSpeed]);
@@ -1848,13 +1874,15 @@ const sidePadding=Math.max(18,Math.min(30,Math.round(width*.07)));
 const formatTime=(mins:number)=>{if(mins<60)return `${mins} ${tr(p,'minutesShort')}`;const h=Math.floor(mins/60);const m=mins%60;return m>0?`${h}h ${m}m`:`${h}h`};
 const CustomSliderLegacy=({value,min,max,step,onValueChange}:{value:number;min:number;max:number;step:number;onValueChange:(v:number)=>void})=>{const pct=(value-min)/(max-min);const steps=Math.round((max-min)/step);const trackW=useRef(0);const setFromX=(x:number)=>{const w=trackW.current||1;const r=Math.max(0,Math.min(1,x/w));const raw=min+r*(max-min);const stepped=Math.round(raw/step)*step;onValueChange(Math.round(Math.max(min,Math.min(max,stepped))*10)/10);};const pan=useRef(PanResponder.create({onStartShouldSetPanResponder:()=>true,onMoveShouldSetPanResponder:()=>true,onPanResponderGrant:(e:any)=>setFromX(e.nativeEvent.locationX),onPanResponderMove:(e:any)=>setFromX(e.nativeEvent.locationX)})).current;return <View style={{flexDirection:'row',alignItems:'center',gap:8}}><Pressable onPress={()=>{const nv=Math.max(min,value-step);onValueChange(Math.round(nv*10)/10)}} style={{width:32,height:32,borderRadius:16,backgroundColor:readerCardBg,borderWidth:1,borderColor:readerLineBg,alignItems:'center',justifyContent:'center'}}><Feather name="minus" size={16} color={readerPrimary}/></Pressable><View onLayout={(e)=>{trackW.current=e.nativeEvent.layout.width}} {...pan.panHandlers} style={{flex:1,height:32,justifyContent:'center'}}><View style={{height:4,borderRadius:2,backgroundColor:readerLineBg,overflow:'hidden'}}><View style={{height:4,borderRadius:2,backgroundColor:readerPrimary,width:`${pct*100}%`}}/></View>{Array.from({length:steps+1}).map((_,i)=>{const x=i/steps;return <View key={i} style={{position:'absolute',left:`${x*100}%`,width:6,height:6,borderRadius:3,backgroundColor:Math.abs(pct-x)<0.01?readerPrimary:readerLineBg,top:13,marginLeft:-3}}/>})}</View><Pressable onPress={()=>{const nv=Math.min(max,value+step);onValueChange(Math.round(nv*10)/10)}} style={{width:32,height:32,borderRadius:16,backgroundColor:readerCardBg,borderWidth:1,borderColor:readerLineBg,alignItems:'center',justifyContent:'center'}}><Feather name="plus" size={16} color={readerPrimary}/></Pressable></View>};
 const Toggle=({value,onValueChange}:{value:boolean;onValueChange:(v:boolean)=>void})=><Pressable onPress={()=>onValueChange(!value)} style={{width:50,height:28,borderRadius:14,backgroundColor:value?readerPrimary:readerLineBg,justifyContent:'center',paddingHorizontal:2}}><View style={{width:24,height:24,borderRadius:12,backgroundColor:'#fff',alignSelf:value?'flex-end':'flex-start',shadowColor:'#000',shadowOpacity:0.15,shadowRadius:3,shadowOffset:{width:0,height:1},elevation:2}}/></Pressable>;
-const segs=spokenIdx>=0?splitBody(c.body||''):null;
+const segs=spokenIdx>=0?splitBody((c&&c.body)||''):null;
 const totalProgress=Math.round(((p.chapter*100+progress)/Math.max(1,p.book.chapters.length*100))*100);
+useEffect(()=>{p.registerTopDismiss?.(showChapters?()=>{setShowChapters(false);return true}:showSettings?()=>{setShowSettings(false);return true}:showVoice?()=>{setShowVoice(false);return true}:null)},[showChapters,showSettings,showVoice]);
+if(cMissing)return <View style={{flex:1,backgroundColor:p.theme.reader,alignItems:'center',justifyContent:'center',padding:30}}><Feather name="book-open" size={40} color={p.theme.muted}/><T style={{color:p.theme.ink,fontWeight:'800',fontSize:16,textAlign:'center',marginTop:14}}>এই বইয়ে এখনো কোনো অধ্যায় নেই।</T><Button title="ফিরে যান" icon="arrow-left" onPress={()=>p.goBack()}/></View>;
 return <View style={{flex:1,backgroundColor:readerBg}}>
 {s.eyeComfort>0&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:`rgba(255,180,50,${s.eyeComfort/500})`,zIndex:50,pointerEvents:'none'}}/>}
 {s.brightness<100&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:`rgba(0,0,0,${(100-s.brightness)/200})`,zIndex:51,pointerEvents:'none'}}/>}
 <View style={[styles.readerHead,{borderBottomColor:readerLineBg,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:readerBg}]}>
-<Pressable hitSlop={10} onPress={()=>p.setScreen({type:'book',id:p.book.id})}><Feather name="arrow-left" size={22} color={readerInk}/></Pressable>
+<Pressable hitSlop={10} onPress={()=>p.goBack()}><Feather name="arrow-left" size={22} color={readerInk}/></Pressable>
 <View style={{flex:1,marginLeft:16}}>
 <T allowFontScaling={false} numberOfLines={1} style={{color:readerInk,fontWeight:'900'}}>{c.title}</T>
 <T allowFontScaling={false} numberOfLines={1} style={{color:readerMuted,fontSize:10}}>{p.book.title}{readSeconds>0?` · ${tr(p,'readingTime')} ${formatTime(readSeconds)}`:''}</T>
@@ -1865,7 +1893,7 @@ return <View style={{flex:1,backgroundColor:readerBg}}>
 <Pressable hitSlop={10} onPress={()=>setShowSettings(true)}><Feather name="settings" size={20} color={readerInk}/></Pressable></View>
 </View>
 <View style={{height:2,backgroundColor:readerLineBg}}><View style={{height:2,backgroundColor:readerPrimary,width:`${totalProgress}%`}}/></View>
-<ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} onScroll={e=>{const n=e.nativeEvent;const v=Math.round(n.contentOffset.y/Math.max(1,n.contentSize.height-n.layoutMeasurement.height)*100);if(Math.abs(v-progress)>5)p.update({positions:{...p.state.positions,[key]:v}});autoOffsetRef.current=n.contentOffset.y}} scrollEventThrottle={800} contentContainerStyle={[styles.readerBody,{paddingHorizontal:sidePadding,paddingBottom:insets.bottom+110}]}><T allowFontScaling={false} style={{color:readerPrimary,textAlign:'center',fontWeight:'900'}}>অধ্যায় {p.chapter+1}</T><T allowFontScaling={false} style={[styles.readerTitle,{color:readerInk,fontSize:Math.min(30,Math.max(25,width*.075))}]}>{c.title}</T>{segs&&s.voiceHighlight!==false?(()=>{return <T allowFontScaling={false} style={{color:readerInk,fontSize:readerSize,lineHeight:readerLine,fontFamily:readerFont,maxWidth:680,alignSelf:'center'}}>{segs.sents.map((s,i)=><T key={i} style={i===spokenIdx?{backgroundColor:readerPrimary+'22'}:undefined}>{s}</T>)}</T>})():<T allowFontScaling={false} style={{color:readerInk,fontSize:readerSize,lineHeight:readerLine,fontFamily:readerFont,maxWidth:680,alignSelf:'center'}}>{c.body}</T>}<T allowFontScaling={false} style={{textAlign:'center',color:readerPrimary,fontSize:25,marginTop:30}}>❦</T></ScrollView>
+<ScrollView ref={scrollRef} showsVerticalScrollIndicator={false} onScroll={e=>{const n=e.nativeEvent;const v=Math.round(n.contentOffset.y/Math.max(1,n.contentSize.height-n.layoutMeasurement.height)*100);if(Math.abs(v-progress)>5)p.update({positions:{...stRef.current.positions,[key]:v}});autoOffsetRef.current=n.contentOffset.y}} scrollEventThrottle={800} contentContainerStyle={[styles.readerBody,{paddingHorizontal:sidePadding,paddingBottom:insets.bottom+110}]}><T allowFontScaling={false} style={{color:readerPrimary,textAlign:'center',fontWeight:'900'}}>অধ্যায় {p.chapter+1}</T><T allowFontScaling={false} style={[styles.readerTitle,{color:readerInk,fontSize:Math.min(30,Math.max(25,width*.075))}]}>{c.title}</T>{segs&&s.voiceHighlight!==false?(()=>{return <T allowFontScaling={false} style={{color:readerInk,fontSize:readerSize,lineHeight:readerLine,fontFamily:readerFont,maxWidth:680,alignSelf:'center'}}>{segs.sents.map((s,i)=><T key={i} style={i===spokenIdx?{backgroundColor:readerPrimary+'22'}:undefined}>{s}</T>)}</T>})():<T allowFontScaling={false} style={{color:readerInk,fontSize:readerSize,lineHeight:readerLine,fontFamily:readerFont,maxWidth:680,alignSelf:'center'}}>{c.body}</T>}<T allowFontScaling={false} style={{textAlign:'center',color:readerPrimary,fontSize:25,marginTop:30}}>❦</T></ScrollView>
 <View style={[styles.readerTools,{backgroundColor:readerCardBg,borderTopColor:readerLineBg,paddingBottom:Math.max(8,insets.bottom),paddingTop:10}]}><Pressable hitSlop={8} disabled={p.chapter===0} onPress={()=>p.read(p.book.id,p.chapter-1)}><T allowFontScaling={false} style={{color:readerInk,fontSize:12,fontWeight:'700',opacity:p.chapter===0?.3:1}}>← আগের</T></Pressable><Pressable hitSlop={8} onPress={()=>change({fontSize:Math.max(15,s.fontSize-1)})}><T allowFontScaling={false} style={{color:readerPrimary,fontWeight:'900'}}>A−</T></Pressable><Pressable hitSlop={8} onPress={()=>change({fontSize:Math.min(28,s.fontSize+1)})}><T allowFontScaling={false} style={{color:readerPrimary,fontWeight:'900'}}>A+</T></Pressable><Pressable hitSlop={8} onPress={()=>change({dark:!s.dark})}><Feather name="moon" size={19} color={readerPrimary}/></Pressable><Pressable hitSlop={8} disabled={p.chapter===p.book.chapters.length-1} onPress={()=>p.read(p.book.id,p.chapter+1)}><T allowFontScaling={false} style={{color:readerInk,fontSize:12,fontWeight:'700',opacity:p.chapter===p.book.chapters.length-1?.3:1}}>পরের →</T></Pressable></View>
       {showVoice&&<VoiceSheet rc={{bg:readerBg,card:readerCardBg,ink:readerInk,muted:readerMuted,primary:readerPrimary,line:readerLineBg}} lang={s.language} voiceId={s.voiceId} voiceRate={s.voiceRate||1} voicePitch={s.voicePitch||1} highlight={s.voiceHighlight!==false} onPick={(id,lg)=>p.update({settings:{...s,voiceId:id,voiceLang:lg}})} onRate={(r)=>p.update({settings:{...s,voiceRate:r}})} onPitch={(pz)=>p.update({settings:{...s,voicePitch:pz}})} onToggleHighlight={(v)=>p.update({settings:{...s,voiceHighlight:v}})} onClose={()=>setShowVoice(false)} onTest={testVoice}/>}
       {showSettings&&<Pressable onPress={()=>setShowSettings(false)} style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.4)',zIndex:100}}><Pressable onPress={()=>{}} style={{position:'absolute',bottom:0,left:0,right:0,backgroundColor:readerCardBg,borderTopLeftRadius:24,borderTopRightRadius:24,paddingHorizontal:20,paddingTop:16,paddingBottom:Math.max(20,insets.bottom),maxHeight:'80%'}}><View style={{width:40,height:4,borderRadius:2,backgroundColor:readerLineBg,alignSelf:'center',marginBottom:14}}/><T style={{fontSize:17,fontWeight:'900',color:readerInk,marginBottom:16}}>{tr(p,'readerSettings')}</T>
@@ -1905,11 +1933,12 @@ function AnimatedToggle({value,onChange,color,track}:{value:boolean;onChange:(v:
     </Animated.View>
   </Pressable>;
 }
-function ConfirmModal({theme:t,lang,kind,onClose,onConfirm}:{theme:Theme;lang:Language;kind:'search'|'downloads'|'reset'|'syncOk'|'syncFail';onClose:()=>void;onConfirm:()=>void}){
+function ConfirmModal({theme:t,lang,kind,onClose,onConfirm}:{theme:Theme;lang:Language;kind:'search'|'downloads'|'reset'|'deleteData'|'syncOk'|'syncFail';onClose:()=>void;onConfirm:()=>void}){
   const cfg={
     search:{icon:'search',bg:'#E0E7FF',fg:'#3730A3',title:copy(lang,'settingsClearSearch'),msg:lang==='bn'?'সার্চ ইতিহাস মুছে যাবে। নিশ্চিত?':lang==='hi'?'खोज इतिहास मिट जाएगा। पक्का?':'Search history will be cleared. Sure?',ok:lang==='bn'?'মুছুন':lang==='hi'?'साफ़ करें':'Clear',danger:false,single:false},
     downloads:{icon:'download-cloud',bg:'#D9F0EA',fg:'#0F766E',title:copy(lang,'settingsClearAll'),msg:lang==='bn'?'সব ডাউনলোড মুছে ফেলা হবে। নিশ্চিত?':lang==='hi'?'सभी डाउनलोड हटा दिए जाएंगे। पक्का?':'All downloads will be cleared. Sure?',ok:lang==='bn'?'মুছুন':lang==='hi'?'हटाएँ':'Clear',danger:true,single:false},
     reset:{icon:'hard-drive',bg:'#FEE2E2',fg:'#B91C1C',title:copy(lang,'settingsReset'),msg:lang==='bn'?'থিম, বুকমার্ক, ইতিহাস — সব ডেটা মুছে যাবে। নিশ্চিত?':lang==='hi'?'थीम, बुकमार्क, इतिहास — सब डेटा मिटा दिया जाएगा। पक्का?':'Theme, bookmarks, history — all data will be deleted. Sure?',ok:lang==='bn'?'রিসেট':lang==='hi'?'रीसेट':'Reset',danger:true,single:false},
+    deleteData:{icon:'trash-2',bg:'#FEE2E2',fg:'#B91C1C',title:lang==='bn'?'সার্ভার ডেটা মুছুন':lang==='hi'?'सर्वर डेटा हटाएँ':'Delete server data',msg:lang==='bn'?'এই ডিভাইসের সব সার্ভার ডেটা (মন্তব্য, ফলো, পড়ার তথ্য) স্থায়ীভাবে মুছে যাবে। নিশ্চিত?':lang==='hi'?'इस डिवाइस का सभी सर्वर डेटा स्थायी रूप से हट जाएगा। पक्का?':'All server data for this device (comments, follows, reading data) will be permanently deleted. Sure?',ok:lang==='bn'?'মুছে ফেলুন':lang==='hi'?'हटा दें':'Delete',danger:true,single:false},
     syncOk:{icon:'check-circle',bg:'#DEF7EC',fg:'#059669',title:lang==='bn'?'সিঙ্ক সম্পন্ন':lang==='hi'?'सिंक पूर्ण':'Sync completed',msg:lang==='bn'?'সব কনটেন্ট আপডেট আছে।':lang==='hi'?'सब कंटेंट अपडेट है।':'All content is up to date.',ok:lang==='bn'?'ঠিক আছে':lang==='hi'?'ठीक है':'OK',danger:false,single:true},
     syncFail:{icon:'wifi-off',bg:'#FEE2E2',fg:'#B91C1C',title:lang==='bn'?'সিঙ্ক হয়নি':lang==='hi'?'सिंक नहीं हुआ':'Sync failed',msg:copy(lang,'networkError'),ok:lang==='bn'?'ঠিক আছে':lang==='hi'?'ठीक है':'OK',danger:false,single:true},
   }[kind];
@@ -1940,7 +1969,7 @@ function Settings(p:C){
   const t=p.theme;
   const currentThemeId=p.state.settings.themeId||'katagolap';
   const darkMode=p.state.settings.dark;
-  const[confirm,setConfirm]=useState<null|{kind:'search'|'downloads'|'reset'|'syncOk'|'syncFail'}>(null);
+  const[confirm,setConfirm]=useState<null|{kind:'search'|'downloads'|'reset'|'deleteData'|'syncOk'|'syncFail'}>(null);
 
   const themes:{id:ThemeId;nameBn:string;nameEn:string;colors:string[]}[]=[
     {id:'nilkantha',nameBn:'নীলকণ্ঠ',nameEn:'Blue Jay',colors:['#2563EB','#1E293B']},
@@ -2125,6 +2154,15 @@ function Settings(p:C){
           <T style={{color:'#B91C1C',fontWeight:'900',fontSize:12}}>{language==='bn'?'রিসেট':language==='hi'?'रीसेट':'Reset'}</T>
         </View>
       </Row>
+      <Row icon="trash-2" onPress={()=>setConfirm({kind:'deleteData'})}>
+        <View style={{flex:1}}>
+          <T style={[styles.rowTitle,{color:'#B91C1C'}]}>{language==='bn'?'সার্ভার ডেটা মুছুন':language==='hi'?'सर्वर डेटा हटाएँ':'Delete server data'}</T>
+          <T style={{fontSize:11,color:t.muted,marginTop:1}}>{language==='bn'?'মন্তব্য, ফলো ও পড়ার তথ্য সার্ভার থেকে মুছুন':language==='hi'?'टिप्पणियाँ, फ़ॉलो और पठन डेटा सर्वर से हटाएँ':'Remove comments, follows and reading data from server'}</T>
+        </View>
+        <View style={{backgroundColor:'#FEE2E2',borderRadius:10,paddingVertical:8,paddingHorizontal:12}}>
+          <T style={{color:'#B91C1C',fontWeight:'900',fontSize:12}}>{language==='bn'?'মুছুন':language==='hi'?'हटाएँ':'Delete'}</T>
+        </View>
+      </Row>
     </Section>
 
     {/* About */}
@@ -2148,7 +2186,7 @@ function Settings(p:C){
         </View>
          <T style={{color:t.primary,fontSize:12,fontWeight:'700'}}>v1.1.0</T></View></View>
     </Section>
-  </Page>{confirm&&<ConfirmModal theme={t} lang={language} kind={confirm.kind} onClose={()=>setConfirm(null)} onConfirm={async()=>{const k=confirm.kind;if(k==='search')p.update({searchHistory:[]});else if(k==='downloads')p.update({downloads:[]});else if(k==='reset'){p.update(initialState);await clearState();}setConfirm(null);}}/>}</View>}
+  </Page>{confirm&&<ConfirmModal theme={t} lang={language} kind={confirm.kind} onClose={()=>setConfirm(null)} onConfirm={async()=>{const k=confirm.kind;if(k==='search')p.update({searchHistory:[]});else if(k==='downloads')p.update({downloads:[]});else if(k==='reset'){p.update(initialState);await clearState();}else if(k==='deleteData'){try{const r=await deleteReaderData(p.state.deviceId);if(!r.ok){Alert.alert('ত্রুটি',r.error||copy(language,'networkError'));return}}catch{Alert.alert('ত্রুটি',copy(language,'networkError'));return}p.update(initialState);await clearState();}setConfirm(null);}}/>}</View>}
 function GoogleSignInButton({onResult,onError,theme:t,lang}:{onResult:(w:any,token:string)=>void;onError:(msg:string)=>void;theme:Theme;lang:Language}){
   const[loading,setLoading]=useState(false);
 
@@ -2167,7 +2205,8 @@ function GoogleSignInButton({onResult,onError,theme:t,lang}:{onResult:(w:any,tok
       const tokens=await GoogleSignin.getTokens();
       if(tokens.idToken){
         const w=await writerGoogleAuth(tokens.idToken);
-        if(w)onResult(w,w.token);
+        if(w&&'writer'in w&&w.token)onResult(w,w.token);
+        else if(w&&'error'in w)onError(w.error);
         else onError(copy(lang,'networkError'));
       }else onError('No ID token received');
     }catch(e:any){
@@ -2207,6 +2246,7 @@ function Writer(p:C){
   const[unreadCount,setUnreadCount]=useState(0);
   const[showLogoutConfirm,setShowLogoutConfirm]=useState(false);
   const[showDeleteConfirm,setShowDeleteConfirm]=useState(false);
+  useEffect(()=>{p.registerTopDismiss?.(showDeleteConfirm?()=>{setShowDeleteConfirm(false);return true}:showLogoutConfirm?()=>{setShowLogoutConfirm(false);return true}:null)},[showDeleteConfirm,showLogoutConfirm]);
   const[isOnline,setIsOnline]=useState(true);
   const[checkingNet,setCheckingNet]=useState(true);
   const t=p.theme;
@@ -2214,7 +2254,7 @@ function Writer(p:C){
   const token=p.state.writerToken||'';
   const lang=p.state.settings.language;
   useEffect(()=>{if(authPhase!=='verify'||resendIn<=0)return;const t=setTimeout(()=>setResendIn(s=>s-1),1000);return()=>clearTimeout(t)},[authPhase,resendIn]);
-  const verifyErrKey=(e?:string):CopyKey=>{switch(e){case 'invalid_username':return 'invalidUsername';case 'invalid_writer_name':return 'invalidWriterName';case 'invalid_email':return 'invalidEmail';case 'weak_password':return 'weakPassword';case 'temp_mail':return 'tempMailBlocked';case 'username_taken':return 'usernameTaken';case 'email_taken':return 'accountExists';case 'too_many_attempts':return 'tooManyAttempts';case 'email_unverified':return 'emailUnverified';case 'code_invalid':return 'codeInvalid';case 'code_expired':return 'codeExpired';case 'code_blocked':return 'codeBlocked';case 'resend_cooldown':return 'resendCooldown';case 'already_verified':return 'accountExists';case 'not_found':return 'noAccountFound';default:return 'accountExists';}};
+  const verifyErrKey=(e?:string):CopyKey=>{switch(e){case 'invalid_username':return 'invalidUsername';case 'invalid_writer_name':return 'invalidWriterName';case 'invalid_email':return 'invalidEmail';case 'weak_password':return 'weakPassword';case 'temp_mail':return 'tempMailBlocked';case 'username_taken':return 'usernameTaken';case 'email_taken':return 'accountExists';case 'too_many_attempts':return 'tooManyAttempts';case 'email_unverified':return 'emailUnverified';case 'code_invalid':return 'codeInvalid';case 'code_expired':return 'codeExpired';case 'code_blocked':return 'codeBlocked';case 'resend_cooldown':return 'resendCooldown';case 'already_verified':return 'accountExists';case 'not_found':return 'noAccountFound';default:return 'networkError';}};
   const onDigit=(i:number,v:string)=>{
     const clean=v.replace(/[^0-9]/g,'');
     if(clean.length>1){const nd=[...digits];for(let k=0;k<clean.length&&i+k<6;k++)nd[i+k]=clean[k];setDigits(nd);if(nd.every(Boolean))digitRefs.current[5]?.blur();else digitRefs.current[Math.min(i+clean.length,5)]?.focus();return}
@@ -2472,7 +2512,7 @@ function Writer(p:C){
       </Pressable>)}
     </View>
     {studioTab==='dashboard'&&<WriterDashboard token={token} theme={t} lang={lang}/>}
-    {studioTab==='stories'&&<WriterStories token={token} theme={t} lang={lang} categories={p.allCategories.map(c=>c[0])} setScreen={p.setScreen} onRefresh={p.syncRemote}/>}
+    {studioTab==='stories'&&<WriterStories token={token} theme={t} lang={lang} categories={p.allCategories.map(c=>c[0])} setScreen={p.setScreen} onRefresh={p.syncRemote} registerTopDismiss={p.registerTopDismiss}/>}
     {studioTab==='profile'&&<WriterProfileStudio token={token} theme={t} writer={p.state.writer} lang={lang} onUpdate={(patch)=>p.update({writer:{...p.state.writer!,...patch}})} onDeleteAccount={()=>setShowDeleteConfirm(true)}/>}
     {studioTab==='notifications'&&<WriterNotifs token={token} theme={t} lang={lang} deviceID={p.state.deviceId} p={p}/>}
     </>}
@@ -2491,13 +2531,13 @@ function Writer(p:C){
           <Pressable onPress={()=>setShowLogoutConfirm(false)} style={{flex:1,height:48,borderRadius:14,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
             <T style={{color:t.primary,fontWeight:'800',fontSize:14}}>{lang==='bn'?'বাতিল':lang==='hi'?'रद्द करें':'Cancel'}</T>
           </Pressable>
-          <Pressable onPress={()=>{setShowLogoutConfirm(false);p.update({writer:null,writerToken:null,followedWriters:[]})}} style={{flex:1,height:48,borderRadius:14,backgroundColor:'#EF4444',alignItems:'center',justifyContent:'center'}}>
+          <Pressable onPress={()=>{setShowLogoutConfirm(false);clearTokens().catch(()=>{});p.update({writer:null,writerToken:null,followedWriters:[]})}} style={{flex:1,height:48,borderRadius:14,backgroundColor:'#EF4444',alignItems:'center',justifyContent:'center'}}>
             <T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{lang==='bn'?'হ্যাঁ, লগ আউট':lang==='hi'?'हाँ, लॉग आउट':'Yes, Log out'}</T>
           </Pressable>
         </View>
       </View>
     </View>}
-    {showDeleteConfirm&&<DeleteAccountModal token={token} theme={t} lang={lang} onClose={()=>setShowDeleteConfirm(false)} onDeleted={()=>{setShowDeleteConfirm(false);p.update({writer:null,writerToken:null,followedWriters:[]})}}/>}
+    {showDeleteConfirm&&<DeleteAccountModal token={token} theme={t} lang={lang} onClose={()=>setShowDeleteConfirm(false)} onDeleted={()=>{setShowDeleteConfirm(false);clearTokens().catch(()=>{});p.update({writer:null,writerToken:null,followedWriters:[]})}}/>}
   </Page>}
 
 function DashStat({c,i,t}:{c:{icon:string;label:string;value:number;color:string;bg:string};i:number;t:Theme}){
@@ -2526,7 +2566,7 @@ function DashStat({c,i,t}:{c:{icon:string;label:string;value:number;color:string
 function WriterDashboard({token,theme:t,lang}:{token:string;theme:Theme;lang:Language}){
   const[d,setD]=useState<any>({stories:0,totalViews:0,followers:0,published:0,pending:0,publishedStories:[],todayViews:0,weekViews:0,monthViews:0});
   const[loading,setLoading]=useState(true);
-  useEffect(()=>{fetchWriterDashboard(token).then(s=>{if(s){const ps=s.publishedStories||[];const now=Date.now();const dayMs=86400000;const computedTotal=ps.reduce((sum:number,st:any)=>sum+(st.views||0),0);const computedToday=ps.filter((st:any)=>new Date(st.updated_at).getTime()>now-dayMs).reduce((sum:number,st:any)=>sum+(st.views||0),0);const computedWeek=ps.filter((st:any)=>new Date(st.updated_at).getTime()>now-7*dayMs).reduce((sum:number,st:any)=>sum+(st.views||0),0);const computedMonth=ps.filter((st:any)=>new Date(st.updated_at).getTime()>now-30*dayMs).reduce((sum:number,st:any)=>sum+(st.views||0),0);s.totalViews=Math.max(s.totalViews||0,computedTotal);s.todayViews=Math.max(s.todayViews||0,computedToday);s.weekViews=Math.max(s.weekViews||0,computedWeek);s.monthViews=Math.max(s.monthViews||0,computedMonth);setD(s)}}).finally(()=>setLoading(false))},[token]);
+  useEffect(()=>{let alive=true;fetchWriterDashboard(token).then(s=>{if(!alive||!s)return;const ps=s.publishedStories||[];const now=Date.now();const dayMs=86400000;const computedTotal=ps.reduce((sum:number,st:any)=>sum+(st.views||0),0);const computedToday=ps.filter((st:any)=>new Date(st.updated_at).getTime()>now-dayMs).reduce((sum:number,st:any)=>sum+(st.views||0),0);const computedWeek=ps.filter((st:any)=>new Date(st.updated_at).getTime()>now-7*dayMs).reduce((sum:number,st:any)=>sum+(st.views||0),0);const computedMonth=ps.filter((st:any)=>new Date(st.updated_at).getTime()>now-30*dayMs).reduce((sum:number,st:any)=>sum+(st.views||0),0);s.totalViews=Math.max(s.totalViews||0,computedTotal);s.todayViews=Math.max(s.todayViews||0,computedToday);s.weekViews=Math.max(s.weekViews||0,computedWeek);s.monthViews=Math.max(s.monthViews||0,computedMonth);setD(s)}).finally(()=>{if(alive)setLoading(false)});return()=>{alive=false}},[token]);
   if(loading)return <View style={{alignItems:'center',paddingVertical:60}}><ActivityIndicator size="large" color={t.primary}/></View>;
   const isEligible=d.followers>=500&&d.totalViews>=5000;
   const bal=Math.floor((d.totalViews||0)/1000*100);
@@ -2693,7 +2733,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   const TITLE_MAX=60;const DESC_MAX=500;
   const missingFields:string[]=[];
   if(mode!=='pdf'&&!title.trim())missingFields.push(copy(lang,'storyTitle'));
-  if(mode==='text'&&!chTitle.trim()&&!chBody.trim())missingFields.push(copy(lang,'firstChapter'));
+  if(mode==='text'&&(!chTitle.trim()||!chBody.trim()))missingFields.push(copy(lang,'firstChapter'));
   if(mode==='pdf'&&!pdfFile)missingFields.push('PDF ফাইল');
   if(mode==='pdf'&&!title.trim())missingFields.push('শিরোনাম');
   if(mode==='pdf'&&!authorName.trim())missingFields.push('লেখকের নাম');
@@ -2701,7 +2741,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   if(!category&&localCats.length>0)missingFields.push(copy(lang,'selectCategory'));
   const canPublish=missingFields.length===0;
   const pickCover=async()=>{setUploadingImg(true);setCoverError(null);try{const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}else{setCoverError('failed')}}catch(e:any){if(e?.message?.includes('Network')||e?.message?.includes('fetch'))setCoverError('noInternet');else setCoverError('failed')}finally{setUploadingImg(false)}};
-  const pickPdf=async()=>{try{const r=await DocumentPicker.getDocumentAsync({type:'application/pdf',copyToCacheDirectory:true});if(!r.canceled&&r.assets?.length){const uri=r.assets[0].uri;const name=r.assets[0].name;const extracted=await extractPdfTitle(uri);setPdfFile({uri,name});if(extracted&&!title.trim())setTitle(extracted)}}catch{}};
+  const pickPdf=async()=>{try{const r=await DocumentPicker.getDocumentAsync({type:'application/pdf',copyToCacheDirectory:true});if(!r.canceled&&r.assets?.length){const uri=r.assets[0].uri;const name=r.assets[0].name;try{const info=await LFS.getInfoAsync(uri);if(info.exists&&(info.size||0)>50*1024*1024){Alert.alert('ত্রুটি','PDF ফাইল 50MB-এর বেশি হতে পারবে না।');return}}catch{}const extracted=await extractPdfTitle(uri);setPdfFile({uri,name});if(extracted&&!title.trim())setTitle(extracted)}}catch{}};
   const handleCreate=async()=>{
     if(!canPublish)return;setSaving(true);
     const finalTitle=title.trim();
@@ -2970,11 +3010,8 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
 }
 
 
-function LazyWebView(props:any){
-  return <WebView {...props}/>;
-}
 
-function PDFReaderScreen({theme:t,lang,pdfUrl,title,onBack}:{theme:Theme;lang:Language;pdfUrl:string;title:string;onBack:()=>void}){
+function PDFReaderScreen({theme:t,lang,pdfUrl,title,onBack,registerTopDismiss}:{theme:Theme;lang:Language;pdfUrl:string;title:string;onBack:()=>void;registerTopDismiss?:(fn:(() => boolean) | null)=>void}){
   const insets=useSafeAreaInsets();
   const[pdfErr,setPdfErr]=useState('');
   const[page,setPage]=useState(1);
@@ -2985,6 +3022,7 @@ function PDFReaderScreen({theme:t,lang,pdfUrl,title,onBack}:{theme:Theme;lang:La
   const[dragY,setDragY]=useState(0);
   const railH=useRef(0);
   const[showJump,setShowJump]=useState(false);
+  useEffect(()=>{registerTopDismiss?.(showJump?()=>{setShowJump(false);return true}:null)},[showJump]);
   const[jumpText,setJumpText]=useState('');
   const isLocal=!pdfUrl.startsWith('http');
   const source=isLocal?{uri:pdfUrl}:{uri:pdfUrl,cache:true};
@@ -3250,7 +3288,7 @@ function EditStoryScreen({token,theme:t,lang,storyId,initialTitle,initialDesc,in
   const[saved,setSaved]=useState(false);
   const[uploadingImg,setUploadingImg]=useState(false);
   const pickCover=async()=>{setUploadingImg(true);try{const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}}catch{}setUploadingImg(false)};
-  const save=async()=>{if(!title.trim())return;setSaving(true);try{let pdfUrl=newPdfUrl||undefined;if(pdfFile&&!newPdfUrl){setUploadingPdf(true);try{const uploaded=await uploadWriterPdf(token,pdfFile.uri,pdfFile.name);if(uploaded){pdfUrl=uploaded;setNewPdfUrl(uploaded)}else{Alert.alert('ত্রুটি','PDF আপলোড ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');setUploadingPdf(false);setSaving(false);return}}catch{Alert.alert('ত্রুটি','PDF আপলোড ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');setUploadingPdf(false);setSaving(false);return}setUploadingPdf(false)}await updateWriterStory(token,storyId,{title:title.trim(),description:desc.trim(),cover_url:cover||undefined,writer_status:writerStatus||undefined,...(pdfUrl?{pdf_url:pdfUrl}:{})});onSaved();setSaved(true);setTimeout(()=>onBack(),1200)}catch(e){}finally{setSaving(false)}};
+  const save=async()=>{if(!title.trim())return;setSaving(true);try{let pdfUrl=newPdfUrl||undefined;if(pdfFile&&!newPdfUrl){setUploadingPdf(true);try{const uploaded=await uploadWriterPdf(token,pdfFile.uri,pdfFile.name);if(uploaded){pdfUrl=uploaded;setNewPdfUrl(uploaded)}else{Alert.alert('ত্রুটি','PDF আপলোড ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');setUploadingPdf(false);setSaving(false);return}}catch{Alert.alert('ত্রুটি','PDF আপলোড ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');setUploadingPdf(false);setSaving(false);return}setUploadingPdf(false)}const ok=await updateWriterStoryEx(token,storyId,{title:title.trim(),description:desc.trim(),cover_url:cover||undefined,writer_status:writerStatus||undefined,...(pdfUrl?{pdf_url:pdfUrl}:{})});if(!ok.ok){Alert.alert('ত্রুটি',ok.error||'সংরক্ষণ ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');setSaving(false);return}onSaved();setSaved(true);setTimeout(()=>onBack(),1200)}catch(e){Alert.alert('ত্রুটি','সংরক্ষণ ব্যর্থ হয়েছে। আবার চেষ্টা করুন।')}finally{setSaving(false)}};
   return <View style={{flex:1,backgroundColor:t.bg}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
       <Pressable onPress={onBack} style={{flexDirection:'row',alignItems:'center',gap:4}}>
@@ -3307,7 +3345,7 @@ function EditStoryScreen({token,theme:t,lang,storyId,initialTitle,initialDesc,in
   </View>;
 }
 
-function WriterStories({token,theme:t,lang,categories,setScreen,onRefresh}:{token:string;theme:Theme;lang:Language;categories:string[];setScreen:(s:Screen)=>void;onRefresh?:()=>void}){
+function WriterStories({token,theme:t,lang,categories,setScreen,onRefresh,registerTopDismiss}:{token:string;theme:Theme;lang:Language;categories:string[];setScreen:(s:Screen)=>void;onRefresh?:()=>void;registerTopDismiss?:(fn:(() => boolean) | null)=>void}){
   const insets=useSafeAreaInsets();
   const[stories,setStories]=useState<any[]>([]);
   const[loading,setLoading]=useState(true);
@@ -3320,7 +3358,9 @@ function WriterStories({token,theme:t,lang,categories,setScreen,onRefresh}:{toke
   const[storyStatuses,setStoryStatuses]=useState<Record<string,string>>({});
   const[writerStatuses,setWriterStatuses]=useState<Record<string,string>>({});
   const[deleteId,setDeleteId]=useState<string|null>(null);
-  const load=()=>{fetchWriterStories(token).then(s=>{setStories(s||[]);const m:Record<string,string>={};const w:Record<string,string>={};(s||[]).forEach((x:any)=>{if(x.display_status)m[x.id]=x.display_status;if(x.writer_status)w[x.id]=x.writer_status});setStoryStatuses(m);setWriterStatuses(w)}).finally(()=>setLoading(false))};
+  useEffect(()=>{registerTopDismiss?.(deleteId?()=>{setDeleteId(null);return true}:null)},[deleteId]);
+  const load=()=>{fetchWriterStories(token).then(s=>{if(!loadAlive.current)return;setStories(s||[]);const m:Record<string,string>={};const w:Record<string,string>={};(s||[]).forEach((x:any)=>{if(x.display_status)m[x.id]=x.display_status;if(x.writer_status)w[x.id]=x.writer_status});setStoryStatuses(m);setWriterStatuses(w)}).finally(()=>{if(loadAlive.current)setLoading(false)})};
+  const loadAlive=useRef(true);useEffect(()=>{loadAlive.current=true;return()=>{loadAlive.current=false}},[]);
   useEffect(()=>{load()},[token]);
   const filtered=filter==='all'?stories:filter==='pdf'?stories.filter(s=>(s as any).pdf_url):stories.filter(s=>s.status===filter);
   const statusColor=(s:string)=>s==='published'?'#10B981':s==='pending'?'#F59E0B':s==='rejected'?'#EF4444':'#9CA3AF';
@@ -3329,21 +3369,26 @@ function WriterStories({token,theme:t,lang,categories,setScreen,onRefresh}:{toke
     setExpanded(id);setChapters([]);
     try{const detail=await fetchWriterStoryDetail(token,id);if(detail?.chapters)setChapters(detail.chapters)}catch{}
   };
+  const studioFail=(msg?:string)=>{Alert.alert('ত্রুটি',msg||(lang==='bn'?'ব্যর্থ হয়েছে। আবার চেষ্টা করুন।':lang==='hi'?'विफल रहा। पुनः प्रयास करें।':'Failed. Please try again.'))};
   const addChapter=async(storyId:string)=>{
     if(!chTitle.trim())return;setChSaving(true);
-    const r=await createStoryChapter(token,storyId,chTitle.trim(),chBody);
-    if(r){setChapters(c=>[...c,r]);setChTitle('');setChBody('')}
+    try{
+      const r=await createStoryChapter(token,storyId,chTitle.trim(),chBody);
+      if(r){setChapters(c=>[...c,r]);setChTitle('');setChBody('')}
+      else studioFail();
+    }catch{studioFail()}
     setChSaving(false);
   };
   const removeChapter=async(storyId:string,chapterId:string)=>{
-    await deleteStoryChapter(token,storyId,chapterId);
+    const prev=chapters;
     setChapters(c=>c.filter(x=>x.id!==chapterId));
+    try{const ok=await deleteStoryChapter(token,storyId,chapterId);if(!ok){setChapters(prev);studioFail()}}catch{setChapters(prev);studioFail()}
   };
-  const handleSubmit=async(id:string)=>{await submitStoryForReview(token,id);load()};
+  const handleSubmit=async(id:string)=>{try{const r=await submitStoryForReviewEx(token,id);if(r.ok){Alert.alert('সফল',r.status==='published'?(lang==='bn'?'গল্প প্রকাশিত হয়েছে।':lang==='hi'?'कहानी प्रकाशित हो गई।':'Story published.'):copy(lang,'submitReview'));load()}else studioFail(r.error)}catch{studioFail()}};
   const handleDelete=async(id:string)=>{setDeleteId(id)};
-  const confirmDelete=async()=>{if(deleteId){await deleteWriterStory(token,deleteId);setDeleteId(null);load();onRefresh?.()}};
-  const toggleDisplayStatus=async(id:string,status:string)=>{const newStatus=storyStatuses[id]===status?'':status;setStoryStatuses(s=>({...s,[id]:newStatus}));await updateWriterStory(token,id,{display_status:newStatus});setStories(s=>s.map(x=>x.id===id?{...x,display_status:newStatus}:x))};
-  const toggleWriterStatus=async(id:string,status:string)=>{const newStatus=writerStatuses[id]===status?'':status;setWriterStatuses(s=>({...s,[id]:newStatus}));await updateWriterStory(token,id,{writer_status:newStatus});setStories(s=>s.map(x=>x.id===id?{...x,writer_status:newStatus}:x))};
+  const confirmDelete=async()=>{if(deleteId){try{const ok=await deleteWriterStory(token,deleteId);if(!ok){studioFail();return}setDeleteId(null);load();onRefresh?.()}catch{studioFail()}}};
+  const toggleDisplayStatus=async(id:string,status:string)=>{const newStatus=storyStatuses[id]===status?'':status;const prev=storyStatuses[id];setStoryStatuses(s=>({...s,[id]:newStatus}));try{const ok=await updateWriterStory(token,id,{display_status:newStatus});if(ok)setStories(s=>s.map(x=>x.id===id?{...x,display_status:newStatus}:x));else{setStoryStatuses(s=>({...s,[id]:prev}));studioFail()}}catch{setStoryStatuses(s=>({...s,[id]:prev}));studioFail()}};
+  const toggleWriterStatus=async(id:string,status:string)=>{const newStatus=writerStatuses[id]===status?'':status;const prev=writerStatuses[id];setWriterStatuses(s=>({...s,[id]:newStatus}));try{const ok=await updateWriterStory(token,id,{writer_status:newStatus});if(ok)setStories(s=>s.map(x=>x.id===id?{...x,writer_status:newStatus}:x));else{setWriterStatuses(s=>({...s,[id]:prev}));studioFail()}}catch{setWriterStatuses(s=>({...s,[id]:prev}));studioFail()}};
   const startEdit=(s:any)=>{setScreen({type:'editStory',id:s.id,title:s.title,desc:s.description||'',coverUrl:s.cover_url||null,writerStatus:s.writer_status||'',pdfUrl:(s as any).pdf_url||''})};
   return <View style={{flex:1}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
@@ -3622,6 +3667,7 @@ function WriterNotifs({token,theme:t,lang,deviceID,p}:{token:string;theme:Theme;
   const[notifs,setNotifs]=useState<{id:string;title:string;body:string;type:string;is_read:boolean;url?:string;avatar_url?:string;story_title?:string;story_cover?:string;created_at:string}[]>([]);
   const[loading,setLoading]=useState(true);
   const[selNotif,setSelNotif]=useState<{id:string;title:string;body:string;type:string;is_read:boolean;url?:string;avatar_url?:string;story_title?:string;story_cover?:string;created_at:string}|null>(null);
+  useEffect(()=>{p.registerTopDismiss?.(selNotif?()=>{setSelNotif(null);return true}:null)},[selNotif]);
   const[followedBack,setFollowedBack]=useState<Record<string,boolean>>({});
   useEffect(()=>{fetchWriterNotifications(token).then(n=>setNotifs(n||[])).finally(()=>setLoading(false))},[token]);
   const markAll=async()=>{await markWriterNotificationsRead(token);setNotifs(n=>n.map(x=>({...x,is_read:true})))};

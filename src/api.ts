@@ -11,7 +11,7 @@ type RemoteComment = { id:string; book_id:string; display_name:string; body:stri
 type RemoteNotification = { id:string; title:string; body:string; icon:string|null; url:string|null; story_cover?:string; created_at:string };
 type RemoteEvent = { device_id:string; book_id:string; event_type:'view'|'like'|'dislike'; created_at:string };
 
-async function apiFetch<T>(path: string, init?: RequestInit, opts?: { timeout?: number; errorBody?: boolean }): Promise<T | null> {
+async function apiFetch<T>(path: string, init?: RequestInit, opts?: { timeout?: number; errorBody?: boolean; authRoute?: boolean }): Promise<T | null> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), opts?.timeout ?? TIMEOUT);
@@ -21,6 +21,7 @@ async function apiFetch<T>(path: string, init?: RequestInit, opts?: { timeout?: 
     if (init?.headers) Object.assign(headers, init.headers);
     const response = await fetch(`${API_BASE}${path}`, { ...init, signal: controller.signal, headers });
     clearTimeout(timer);
+    if (response.status === 401 && opts?.authRoute) { try { sessionExpiredHandler?.(); } catch {} }
     if (!response.ok) {
       if (!opts?.errorBody) return null;
       try { return await response.json() as T; } catch { return null; }
@@ -28,6 +29,12 @@ async function apiFetch<T>(path: string, init?: RequestInit, opts?: { timeout?: 
     return await response.json() as T;
   } catch { return null; }
 }
+
+// Mid-session 401 (expired/revoked writer or user token): App subscribes once
+// and clears the session + routes to login instead of failing silently.
+type SessionExpiredHandler = () => void;
+let sessionExpiredHandler: SessionExpiredHandler | null = null;
+export function onSessionExpired(h: SessionExpiredHandler | null) { sessionExpiredHandler = h; }
 
 function toBookColor(id: string): string {
   const palette: Record<string, string> = { nodi: '#4A1220', megh: '#6D3B46', ghori: '#292E3D', jochona: '#383655', shohor: '#185366', kobita: '#276250', ekattor: '#59412E', chaya: '#232F32' };
@@ -263,11 +270,13 @@ export async function writerLogin(emailOrUsername: string, password: string): Pr
   return null;
 }
 
-export async function writerGoogleAuth(credential: string): Promise<{ writer: Writer; token: string } | null> {
+export async function writerGoogleAuth(credential: string): Promise<{ writer: Writer; token: string } | { error: string } | null> {
   const r = await apiFetch<{ writer?: Writer; token?: string; error?: string }>('/api/public/writers/google', {
     method: 'POST', body: JSON.stringify({ credential }),
-  });
-  if (r?.writer && r?.token) return { writer: r.writer, token: r.token };
+  }, { timeout: 15000, errorBody: true });
+  if (!r) return null;
+  if (r.writer && r.token) return { writer: r.writer, token: r.token };
+  if (r.error) return { error: r.error };
   return null;
 }
 
@@ -350,8 +359,8 @@ export type StoryChapter = { id: string; title: string; body: string; position: 
 export type WriterStats = { stories: number; views: number; followers: number; activities: { id: string; type: string; data: any; created_at: string }[] };
 export type WriterProfileFull = Writer & { email?: string; bio?: string };
 
-async function writerApiFetch<T>(path: string, token: string, init?: RequestInit): Promise<T | null> {
-  return apiFetch<T>(path, { ...init, headers: { Authorization: `Bearer ${token}`, ...init?.headers } });
+async function writerApiFetch<T>(path: string, token: string, init?: RequestInit, timeout?: number): Promise<T | null> {
+  return apiFetch<T>(path, { ...init, headers: { Authorization: `Bearer ${token}`, ...init?.headers } }, { timeout, authRoute: true });
 }
 
 export async function fetchWriterStats(token: string): Promise<WriterStats | null> {
@@ -365,7 +374,7 @@ export async function fetchWriterStories(token: string): Promise<Story[]> {
 export async function createWriterStory(token: string, title: string, description: string, category: string, coverUrl?: string, displayStatus?: string, writerStatus?: string, hideTitleOnCover?: boolean, pdfUrl?: string, dedication?: string, authorName?: string): Promise<Story | null> {
   return writerApiFetch<Story>('/api/writer/stories', token, {
     method: 'POST', body: JSON.stringify({ title, description, category, cover_url: coverUrl, display_status: displayStatus, writer_status: writerStatus, hide_title_on_cover: hideTitleOnCover, pdf_url: pdfUrl, dedication, author_name: authorName }),
-  });
+  }, 25000);
 }
 
 export async function uploadWriterPdf(token: string, fileUri: string, fileName: string): Promise<string | null> {
@@ -378,8 +387,17 @@ export async function uploadWriterPdf(token: string, fileUri: string, fileName: 
 export async function updateWriterStory(token: string, storyId: string, patch: { title?: string; description?: string; status?: string; category?: string; display_status?: string; writer_status?: string; cover_url?: string; pdf_url?: string }): Promise<boolean> {
   const r = await writerApiFetch<{ ok: boolean }>(`/api/writer/stories/${storyId}`, token, {
     method: 'PUT', body: JSON.stringify(patch),
-  });
+  }, 15000);
   return Boolean(r?.ok);
+}
+
+export async function updateWriterStoryEx(token: string, storyId: string, patch: { title?: string; description?: string; status?: string; category?: string; display_status?: string; writer_status?: string; cover_url?: string; pdf_url?: string }): Promise<{ ok: boolean; error?: string }> {
+  const r = await apiFetch<{ ok?: boolean; error?: string }>(`/api/writer/stories/${storyId}`, {
+    method: 'PUT', body: JSON.stringify(patch), headers: { Authorization: `Bearer ${token}` },
+  }, { timeout: 15000, errorBody: true, authRoute: true });
+  if (!r) return { ok: false, error: 'Network error' };
+  if (r.ok) return { ok: true };
+  return { ok: false, error: r.error || 'Save failed' };
 }
 
 export async function deleteWriterStory(token: string, storyId: string): Promise<boolean> {
@@ -488,17 +506,41 @@ export async function fetchWriterFollowers(token: string): Promise<WriterFollowe
 export async function submitStoryForReview(token: string, storyId: string): Promise<boolean> {
   const r = await writerApiFetch<{ ok: boolean; status: string }>(`/api/writer/stories/${storyId}/submit`, token, {
     method: 'POST',
-  });
+  }, 15000);
   return Boolean(r?.ok);
+}
+
+export async function submitStoryForReviewEx(token: string, storyId: string): Promise<{ ok: boolean; status?: string; error?: string }> {
+  const r = await apiFetch<{ ok?: boolean; status?: string; error?: string }>(`/api/writer/stories/${storyId}/submit`, {
+    method: 'POST', headers: { Authorization: `Bearer ${token}` },
+  }, { timeout: 15000, errorBody: true, authRoute: true });
+  if (!r) return { ok: false, error: 'Network error' };
+  if (r.ok) return { ok: true, status: r.status };
+  return { ok: false, error: r.error || 'Submit failed' };
+}
+
+export async function deleteReaderData(deviceKey: string): Promise<{ ok: boolean; error?: string }> {
+  const r = await apiFetch<{ ok?: boolean; error?: string }>('/api/public/account', {
+    method: 'DELETE', body: JSON.stringify({ device_key: deviceKey }),
+  }, { timeout: 15000, errorBody: true });
+  if (!r) return { ok: false, error: 'Network error' };
+  if (r.ok) return { ok: true };
+  return { ok: false, error: r.error || 'Delete failed' };
 }
 
 export async function submitReport(bookId: string, reason: string, details: string, deviceId: string, reporterName: string): Promise<{ ok: boolean; error?: string }> {
   try {
-    const r = await fetch(`${API_BASE}/api/reports`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ book_id: bookId, reason, details, device_id: deviceId, reporter_name: reporterName }),
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 15000);
+    let r: Response;
+    try {
+      r = await fetch(`${API_BASE}/api/reports`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ book_id: bookId, reason, details, device_id: deviceId, reporter_name: reporterName }),
+        signal: controller.signal,
+      });
+    } finally { clearTimeout(timer); }
     const data = await r.json();
     return { ok: Boolean(data?.ok), error: data?.error };
   } catch { return { ok: false, error: 'Network error' }; }

@@ -36,10 +36,15 @@ export async function pickAndResizeImage(type: 'avatar' | 'cover'): Promise<stri
 
   let uploadRes: Response;
   try {
-    uploadRes = await fetch(`${API_BASE}/api/media`, {
-      method: 'POST',
-      body: formData,
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 25000);
+    try {
+      uploadRes = await fetch(`${API_BASE}/api/media`, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
+    } finally { clearTimeout(timer); }
   } catch (e: any) {
     throw new Error('Network error');
   }
