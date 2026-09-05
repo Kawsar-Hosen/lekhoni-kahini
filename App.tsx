@@ -113,7 +113,7 @@ function SkeletonScreen({theme}:{theme:Theme}){
   </View>;
 }
 
-function ErrorScreen({type,onRetry,theme}:{type:'offline'|'error';theme:Theme;onRetry:()=>void}){
+function ErrorScreen({type,onRetry,onOffline,theme}:{type:'offline'|'error';theme:Theme;onRetry:()=>void;onOffline?:()=>void}){
   const isOffline=type==='offline';
   const{height}=useWindowDimensions();
   return <View style={{flex:1,backgroundColor:theme.bg,alignItems:'center',justifyContent:'center',paddingHorizontal:40}}>
@@ -121,10 +121,10 @@ function ErrorScreen({type,onRetry,theme}:{type:'offline'|'error';theme:Theme;on
       <Feather name={isOffline?'wifi-off':'alert-circle'} size={36} color={isOffline?'#D97706':'#DC2626'}/>
     </View>
     <T style={{fontSize:20,fontWeight:'900',color:theme.ink,marginBottom:8,textAlign:'center'}}>{isOffline?'ইন্টারনেট সংযোগ নেই':'কিছু ভুল হয়েছে'}</T>
-    <T style={{fontSize:14,fontWeight:'500',color:theme.muted,textAlign:'center',lineHeight:22,marginBottom:32}}>{isOffline?'ইন্টারনেট সংযোগ দিন এবং পুনরায় চেষ্টা করুন':'পুনরায় চেষ্টা করুন'}</T>
-    <Pressable onPress={onRetry} style={{backgroundColor:'#7B1E2B',paddingHorizontal:32,paddingVertical:14,borderRadius:14,flexDirection:'row',alignItems:'center',gap:8}}>
-      <Feather name="refresh-cw" size={18} color="#fff"/>
-      <T style={{color:'#fff',fontSize:16,fontWeight:'800'}}>পুনরায় চেষ্টা করুন</T>
+    <T style={{fontSize:14,fontWeight:'500',color:theme.muted,textAlign:'center',lineHeight:22,marginBottom:32}}>{isOffline?'ডাউনলোড করা বইগুলো ইন্টারনেট ছাড়াই পড়া যাবে':'পুনরায় চেষ্টা করুন'}</T>
+    <Pressable onPress={()=>{if(isOffline){if(onOffline)onOffline()}else onRetry()}} style={{backgroundColor:'#7B1E2B',paddingHorizontal:32,paddingVertical:14,borderRadius:14,flexDirection:'row',alignItems:'center',gap:8}}>
+      <Feather name={isOffline?"book-open":"refresh-cw"} size={18} color="#fff"/>
+      <T style={{color:'#fff',fontSize:16,fontWeight:'800'}}>{isOffline?'অফলাইন পড়ুন':'পুনরায় চেষ্টা করুন'}</T>
     </Pressable>
   </View>;
 }
@@ -211,7 +211,7 @@ function AppShell(){
   useEffect(()=>{if(screen.type==='reader'&&!resolveBook(screen.id)){screenHistoryRef.current=[];_setScreen({type:'main'});setTab('home')}},[screen,allBooks,dlBooks]);
   const update=(p:Partial<LocalState>)=>setState(s=>({...s,...p})); const setScreen=(s:Screen)=>{screenHistoryRef.current=[...screenHistoryRef.current,screen];_setScreen(s)}; const goBack=()=>{const prev=screenHistoryRef.current;const last=prev[prev.length-1];if(last){screenHistoryRef.current=prev.slice(0,-1);_setScreen(last)}else{_setScreen({type:'main'});setTab('home')}}; const open=(id:string)=>{update({history:[id,...state.history.filter(x=>x!==id)].slice(0,20)});setScreen({type:'book',id})}; const read=(id:string,chapter:number)=>{const bk=allBooks.find((b:any)=>b.id===id);const ch=bk?.chapters?.[chapter];if(ch?.reward_ad&&!state.unlockedChapters.includes(ch.id))return;if(bk?.show_ads!==false)maybeShowInterstitial();setScreen({type:'reader',id,chapter})};
   const filteredWriters=React.useMemo(()=>state.writer?publicWriters.filter(w=>w.id!==state.writer!.id):publicWriters,[publicWriters,state.writer]);
-  const [splashPhase,setSplashPhase]=useState<'splash'|'loading'|'done'>('splash');
+  const [splashPhase,setSplashPhase]=useState<'splash'|'loading'|'done'>('splash');const [offlineMode,setOfflineMode]=useState(false);
   const [showNotifPrompt,setShowNotifPrompt]=useState(false);
   const [loadError,setLoadError]=useState<string|null>(null);
   const [isOffline,setIsOffline]=useState(false);
@@ -221,10 +221,11 @@ function AppShell(){
   // Real-time network detection (dynamic import for native module compat)
   useEffect(()=>{const unsub=NetInfo.addEventListener((s:any)=>{const off=!s.isConnected||!s.isInternetReachable;setIsOffline(off)});return()=>{unsub()}},[]);
   useEffect(()=>{NetInfo.fetch().then(s=>{if(!s.isConnected||!s.isInternetReachable)setTab('library')}).catch(()=>{})},[]);
+  useEffect(()=>{if(offlineMode&&!isOffline){setOfflineMode(false);try{const r=syncRemote();if(r&&typeof (r as any).catch==='function')(r as any).catch(()=>{})}catch{}}},[isOffline]);
   const common=React.useMemo(()=>({theme,state,update,setScreen,goBack,open,read,allBooks,allCategories,publicWriters:filteredWriters,homeData,remoteNotices,dlBooks,downloadBook,markDownloaded,removeDownload,dataLoaded,syncRemote,openWithAnim,isOffline}),[theme,state,allBooks,allCategories,filteredWriters,homeData,remoteNotices,dlBooks,dataLoaded,syncRemote,isOffline]);
   if(splashPhase==='splash')return <SplashScreen theme={theme}/>;
   if(splashPhase==='loading'){
-    if(isOffline)return <ErrorScreen type="offline" theme={theme} onRetry={()=>{setIsOffline(false);setLoadError(null);setRetryCount(c=>c+1);syncRemote()}}/>;
+    if(isOffline&&!offlineMode)return <ErrorScreen type="offline" theme={theme} onOffline={()=>{setOfflineMode(true);setTab('library')}} onRetry={()=>{setIsOffline(false);setLoadError(null);setRetryCount(c=>c+1);syncRemote()}}/>;
     if(loadError==='timeout')return <ErrorScreen type="error" theme={theme} onRetry={()=>{setLoadError(null);setRetryCount(c=>c+1);syncRemote()}}/>;
     if(!loaded)return <SkeletonScreen theme={theme}/>;
   }
