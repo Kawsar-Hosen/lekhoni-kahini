@@ -2674,6 +2674,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   if(mode!=='pdf'&&!title.trim())missingFields.push(copy(lang,'storyTitle'));
   if(mode==='text'&&!chTitle.trim()&&!chBody.trim())missingFields.push(copy(lang,'firstChapter'));
   if(mode==='pdf'&&!pdfFile)missingFields.push('PDF ফাইল');
+  if(mode==='pdf'&&!authorName.trim())missingFields.push('লেখকের নাম');
   if(!category&&localCats.length>0)missingFields.push(copy(lang,'selectCategory'));
   const canPublish=missingFields.length===0;
   const pickCover=async()=>{setUploadingImg(true);setCoverError(null);try{const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}else{setCoverError('failed')}}catch(e:any){if(e?.message?.includes('Network')||e?.message?.includes('fetch'))setCoverError('noInternet');else setCoverError('failed')}finally{setUploadingImg(false)}};
@@ -2687,7 +2688,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
       try{const uploaded=await uploadWriterPdf(token,pdfFile.uri,pdfFile.name);if(uploaded)pdfUrl=uploaded;else{Alert.alert('ত্রুটি','PDF আপলোড ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');setUploadingPdf(false);setSaving(false);return}}catch{Alert.alert('ত্রুটি','PDF আপলোড ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');setUploadingPdf(false);setSaving(false);return}
       setUploadingPdf(false);
     }
-    const r=await createWriterStory(token,finalTitle,desc.trim(),category||localCats[0]||'',cover||undefined,mode==='pdf'?'complete':(displayStatus==='ongoing'?'ongoing':'complete'),mode==='pdf'?'complete':(displayStatus==='ongoing'?'ongoing':'complete'),hideTitle,pdfUrl,dedication,authorName);
+    const r=await createWriterStory(token,finalTitle,desc.trim(),category||localCats[0]||'',cover||undefined,mode==='pdf'?'complete':(displayStatus==='ongoing'?'ongoing':'complete'),mode==='pdf'?'complete':(displayStatus==='ongoing'?'ongoing':'complete'),hideTitle,pdfUrl,dedication,authorName.trim());
     if(r){
       if(mode==='text'&&chTitle.trim()&&chBody.trim())await createStoryChapter(token,r.id,chTitle.trim(),chBody.trim());
       onCreated();
@@ -2926,8 +2927,8 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
           )}
         </View>
         <View style={{marginBottom:16}}>
-          <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>লেখক নাম</T>
-          <TextInput value={authorName} onChangeText={setAuthorName} placeholder={lang==='bn'?'লেখকের নাম (ঐচ্ছিক)':'Author name (optional)'} placeholderTextColor={t.muted+'88'} style={{color:t.ink,fontSize:13,backgroundColor:t.card,borderWidth:1,borderColor:t.line,borderRadius:12,padding:12,fontFamily:GF()}}/>
+          <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>লেখকের নাম *</T>
+          <TextInput value={authorName} onChangeText={setAuthorName} placeholder={lang==='bn'?'লেখকের নাম লিখুন':'Author name'} placeholderTextColor={t.muted+'88'} style={{color:t.ink,fontSize:13,backgroundColor:t.card,borderWidth:1,borderColor:authorName.trim()?t.primary:t.line,borderRadius:12,padding:12,fontFamily:GF()}}/>
         </View>
         <View style={{marginBottom:16}}>
           <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>উৎসর্গ (ঐচ্ছিক)</T>
