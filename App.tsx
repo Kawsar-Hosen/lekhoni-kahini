@@ -563,7 +563,7 @@ function LibBookCard({book,theme,onPress,showDelete,onDelete,cached}:{book:Book;
     </View>
     <View style={{flex:1}}>
       <T numberOfLines={2} style={{fontSize:15,fontWeight:'800',color:theme.ink,lineHeight:20}}>{book.title}</T>
-      <T numberOfLines={1} style={{fontSize:12,fontWeight:'600',color:theme.primary,marginTop:5}}>{book.author}</T>
+      <T numberOfLines={1} style={{fontSize:12,fontWeight:'600',color:theme.primary,marginTop:5}}>{book.author_name||book.author}</T>
       <View style={{flexDirection:'row',alignItems:'center',gap:6,marginTop:8}}>
         <View style={{flexDirection:'row',alignItems:'center',gap:3}}><Feather name="eye" size={11} color={theme.muted}/><T style={{color:theme.muted,fontSize:11}}>{book.views_visible !== false ? book.views : ''}</T></View>
         <View style={{width:3,height:3,borderRadius:1.5,backgroundColor:theme.muted,opacity:0.4}}/>
@@ -1155,7 +1155,7 @@ function Notifications(p:C){const t=p.theme;const[selNotif,setSelNotif]=useState
 function GridBookCard({book:b,theme:t,onPress}:{book:Book;theme:Theme;onPress:()=>void}){
   return <Pressable onPress={onPress} style={{width:'31%'}}>
     <View style={{width:'100%',aspectRatio:3/4,borderRadius:10,backgroundColor:b.color||'#4A1220',overflow:'hidden',marginBottom:6,borderWidth:1,borderColor:t.line}}>
-      {b.cover_url?<Image source={{uri:b.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0}} resizeMode="cover"/>:<View style={{flex:1,alignItems:'center',justifyContent:'center',padding:6}}><T numberOfLines={3} style={{color:'#fff',fontWeight:'800',fontSize:10,textAlign:'center',lineHeight:14}}>{b.title}</T></View>}
+      {b.cover_url?<Image source={{uri:b.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0}} resizeMode="cover"/>:<View style={{flex:1,alignItems:'center',justifyContent:'center',padding:6}}>{b.pdf_url?<Feather name="book-open" size={16} color="#C9972B"/>:<T numberOfLines={3} style={{color:'#fff',fontWeight:'800',fontSize:10,textAlign:'center',lineHeight:14}}>{b.title}</T>}</View>}
       {b.views_visible!==false?<View style={{position:'absolute',left:5,bottom:5,flexDirection:'row',alignItems:'center',gap:3,backgroundColor:'rgba(0,0,0,0.55)',borderRadius:7,paddingHorizontal:6,paddingVertical:3}}><Feather name="eye" size={9} color="#fff"/><T style={{color:'#fff',fontSize:9,fontWeight:'700'}}>{b.views}</T></View>:null}
     </View>
     <T numberOfLines={2} style={{fontSize:12,fontWeight:'800',color:t.ink,lineHeight:16}}>{b.title}</T>
@@ -1501,7 +1501,7 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
             <T numberOfLines={2} style={{fontSize:15,fontWeight:'800',color:'#fff',lineHeight:20,marginBottom:4}}>{b.title}</T>
             <Pressable onPress={goWriter} style={{flexDirection:'row',alignItems:'center',gap:6,marginBottom:9,alignSelf:'flex-start',backgroundColor:'#ffffff12',borderWidth:1,borderColor:'#C9972B88',borderRadius:18,paddingLeft:5,paddingRight:10,paddingVertical:4}}>
               {writer?.avatar_url?<Image source={{uri:writer.avatar_url}} style={{width:22,height:22,borderRadius:11,borderWidth:1.5,borderColor:'#C9972B'}}/>:null}
-              <T numberOfLines={1} style={{fontSize:11,fontWeight:'700',color:'#fff'}}>{b.author}</T>
+              <T numberOfLines={1} style={{fontSize:11,fontWeight:'700',color:'#fff'}}>{b.author_name||b.author}</T>
               <BadgeIcon badge={writer?.badge} size={13}/>
               <Feather name="chevron-right" size={11} color="#C9972B"/>
             </Pressable>
@@ -1516,7 +1516,7 @@ function Details(p:C&{book:Book}){const b0=p.book;if(!b0)return <Page theme={p.t
               <Pressable onPress={toggleFav} hitSlop={8} style={{width:34,height:34,borderRadius:17,borderWidth:1.5,borderColor:fav?'#C9972B':'#ffffff44',backgroundColor:fav?'#C9972B33':'transparent',alignItems:'center',justifyContent:'center'}}>
                 <Feather name="heart" size={14} color={fav?'#C9972B':'#fff'}/>
               </Pressable>
-              <Pressable onPress={()=>{Share.share({message:`${b.title} - ${b.author}`})}} hitSlop={8} style={{width:34,height:34,borderRadius:17,borderWidth:1.5,borderColor:'#ffffff44',backgroundColor:'transparent',alignItems:'center',justifyContent:'center'}}>
+              <Pressable onPress={()=>{Share.share({message:`${b.title} - ${b.author_name||b.author}`})}} hitSlop={8} style={{width:34,height:34,borderRadius:17,borderWidth:1.5,borderColor:'#ffffff44',backgroundColor:'transparent',alignItems:'center',justifyContent:'center'}}>
                 <Feather name="share-2" size={14} color="#fff"/>
               </Pressable>
               <Pressable onPress={()=>{setShowReport(true)}} hitSlop={8} style={{width:34,height:34,borderRadius:17,borderWidth:1.5,borderColor:'#ffffff44',backgroundColor:'transparent',alignItems:'center',justifyContent:'center'}}>
@@ -3662,7 +3662,7 @@ function WriterNotifs({token,theme:t,lang,deviceID,p}:{token:string;theme:Theme;
 
 function Back({title,theme,onPress}:{title:string;theme:Theme;onPress:()=>void}){return <View style={styles.back}><Pressable onPress={onPress}><Feather name="arrow-left" size={22} color={theme.ink}/></Pressable><T style={[styles.backTitle,{color:theme.ink}]}>{title}</T><View style={{width:22}}/></View>}
 function Section({title,theme,action,seeAllText}:{title:string;theme:Theme;action?:()=>void;seeAllText?:string}){return <View style={styles.section}><T style={[styles.sectionTitle,{color:theme.ink}]}>{title}</T>{action&&<Pressable onPress={action}><T style={{color:theme.primary,fontWeight:'800',fontSize:12}}>{seeAllText||'See all →'}</T></Pressable>}</View>}
-function Cover({book,large}:{book:Book;large?:boolean}){const hideAll=book.hide_title_on_cover&&book.cover_url;return <View style={[styles.cover,large&&styles.coverLarge,{backgroundColor:book.color}]}>{book.cover_url?<Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:large?16:9}} resizeMode="cover"/>:null}{!hideAll&&book.cover_url&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:large?16:9,backgroundColor:'rgba(0,0,0,0.15)'}}/>}{!hideAll&&<Feather name={I(book.categoryIcon)} size={large?27:20} color={book.accent}/>}{!hideAll&&!book.hide_title_on_cover&&<T numberOfLines={3} style={[styles.coverTitle,large&&{fontSize:17}]}>{book.title}</T>}{!hideAll&&!book.hide_title_on_cover&&<View style={{height:2,width:24,backgroundColor:book.accent,marginVertical:7}}/>}{!hideAll&&<T style={styles.coverAuthor}>{book.author}</T>}</View>}
+function Cover({book,large}:{book:Book;large?:boolean}){const isPdf=!!book.pdf_url;const hideAll=(book.hide_title_on_cover||isPdf)&&book.cover_url;return <View style={[styles.cover,large&&styles.coverLarge,{backgroundColor:book.color}]}>{book.cover_url?<Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:large?16:9}} resizeMode="cover"/>:null}{!hideAll&&book.cover_url&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,borderRadius:large?16:9,backgroundColor:'rgba(0,0,0,0.15)'}}/>}{!hideAll&&<Feather name={I(book.categoryIcon)} size={large?27:20} color={book.accent}/>}{!hideAll&&!book.hide_title_on_cover&&<T numberOfLines={3} style={[styles.coverTitle,large&&{fontSize:17}]}>{book.title}</T>}{!hideAll&&!book.hide_title_on_cover&&<View style={{height:2,width:24,backgroundColor:book.accent,marginVertical:7}}/>}{!hideAll&&<T style={styles.coverAuthor}>{book.author}</T>}</View>}
 function Episode({book,theme,onPress}:{book:Book;theme:Theme;onPress:()=>void}){const c=book.chapters[book.chapters.length-1];const isPdf=!!book.pdf_url;
 const shim=useRef(new Animated.Value(0)).current;
 useEffect(()=>{const l=Animated.loop(Animated.timing(shim,{toValue:1,duration:2400,easing:Easing.linear,useNativeDriver:true}));l.start();return()=>l.stop()},[]);
@@ -3670,7 +3670,7 @@ const shimX=shim.interpolate({inputRange:[0,1],outputRange:[-40,100]});return <P
   <LinearGradient colors={[theme.card,theme.tint]} start={{x:0,y:0}} end={{x:1,y:1}} style={{flexDirection:'row',alignItems:'center',padding:10,paddingLeft:13,gap:12}}>
     <View style={{position:'absolute',left:0,top:0,bottom:0,width:4,backgroundColor:theme.primary}}/>
     <View style={{width:64,height:86,borderRadius:10,backgroundColor:book.color||'#4A1220',overflow:'hidden',borderWidth:1,borderColor:theme.line}}>
-      {book.cover_url?<Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0}} resizeMode="cover"/>:<View style={{flex:1,alignItems:'center',justifyContent:'center',padding:5}}><T numberOfLines={2} style={{color:'#fff',fontWeight:'800',fontSize:9,textAlign:'center'}}>{book.title}</T></View>}
+      {book.cover_url?<Image source={{uri:book.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0}} resizeMode="cover"/>:<View style={{flex:1,alignItems:'center',justifyContent:'center',padding:5}}>{isPdf?<Feather name="book-open" size={16} color="#C9972B"/>:<T numberOfLines={2} style={{color:'#fff',fontWeight:'800',fontSize:9,textAlign:'center'}}>{book.title}</T>}</View>}
     </View>
     <View style={{flex:1}}>
       <View style={{alignSelf:'flex-start',backgroundColor:theme.primary+'1F',borderRadius:7,paddingHorizontal:8,paddingVertical:3,marginBottom:5,borderWidth:1,borderColor:theme.primary+'55',overflow:'hidden'}}>
