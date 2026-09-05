@@ -2669,6 +2669,9 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   const[uploadingPdf,setUploadingPdf]=useState(false);
   const[dedication,setDedication]=useState('');
   const[authorName,setAuthorName]=useState('');
+  const formScroll=useRef<ScrollView|null>(null);
+  const scrollFormEnd=()=>{try{formScroll.current?.scrollToEnd({animated:true})}catch{}};
+  const onDedicationChange=(v:string)=>{const w=v.trim()?v.trim().split(/\s+/):[];if(w.length<=50)setDedication(v);else setDedication(w.slice(0,50).join(' ')+(v.endsWith(' ')||v.endsWith('\n')?' ':''))};
   const TITLE_MAX=60;const DESC_MAX=500;
   const missingFields:string[]=[];
   if(mode!=='pdf'&&!title.trim())missingFields.push(copy(lang,'storyTitle'));
@@ -2715,7 +2718,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
         {saving||uploadingPdf?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:11}}>{uploadingPdf?'PDF আপলোড...':copy(lang,'publishStory')}</T>}
       </Pressable>
     </View>
-    <ScrollView contentContainerStyle={{padding:14,paddingBottom:50}} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={formScroll} contentContainerStyle={{padding:14,paddingBottom:50}} keyboardShouldPersistTaps="handled">
       {!mode&&<View style={{marginBottom:20}}>
         <T style={{fontSize:16,fontWeight:'900',color:t.ink,marginBottom:12}}>নতুন গল্প তৈরি করুন</T>
         <View style={{flexDirection:'row',gap:12}}>
@@ -2928,11 +2931,11 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
         </View>
         <View style={{marginBottom:16}}>
           <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>লেখকের নাম *</T>
-          <TextInput value={authorName} onChangeText={setAuthorName} placeholder={lang==='bn'?'লেখকের নাম লিখুন':'Author name'} placeholderTextColor={t.muted+'88'} style={{color:t.ink,fontSize:13,backgroundColor:t.card,borderWidth:1,borderColor:authorName.trim()?t.primary:t.line,borderRadius:12,padding:12,fontFamily:GF()}}/>
+          <TextInput value={authorName} onChangeText={setAuthorName} onFocus={scrollFormEnd} placeholder={lang==='bn'?'লেখকের নাম লিখুন':'Author name'} placeholderTextColor={t.muted+'88'} style={{color:t.ink,fontSize:13,backgroundColor:t.card,borderWidth:1,borderColor:authorName.trim()?t.primary:t.line,borderRadius:12,padding:12,fontFamily:GF()}}/>
         </View>
         <View style={{marginBottom:16}}>
-          <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>উৎসর্গ (ঐচ্ছিক)</T>
-          <TextInput value={dedication} onChangeText={setDedication} placeholder={lang==='bn'?'যাকে উৎসর্গ করতে চান...':'Who is this dedicated to...'} placeholderTextColor={t.muted+'88'} style={{color:t.ink,fontSize:13,backgroundColor:t.card,borderWidth:1,borderColor:t.line,borderRadius:12,padding:12,fontFamily:GF()}}/>
+          <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:6}}><T style={{fontSize:11,fontWeight:'700',color:t.muted}}>উৎসর্গ (ঐচ্ছিক)</T><T style={{fontSize:10,color:t.muted}}>{dedication.trim()?dedication.trim().split(/\s+/).length:0}/50 শব্দ</T></View>
+          <TextInput value={dedication} onChangeText={onDedicationChange} onFocus={scrollFormEnd} placeholder={lang==='bn'?'যাকে উৎসর্গ করতে চান...':'Who is this dedicated to...'} placeholderTextColor={t.muted+'88'} style={{color:t.ink,fontSize:13,backgroundColor:t.card,borderWidth:1,borderColor:t.line,borderRadius:12,padding:12,fontFamily:GF()}}/>
         </View>
       </View>}
     </ScrollView>
