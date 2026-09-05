@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LocalState } from './types';
+import { LocalState, Book, WriterProfile } from './types';
 
 const KEY = '@lekhoni/state/v1';
+const HOME_CACHE_KEY = '@lekhoni/homeCache/v1';
 
 function generateDeviceId(): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
@@ -37,4 +38,20 @@ export async function saveState(state: LocalState) {
 }
 export async function clearState() {
   try { await AsyncStorage.removeItem(KEY); } catch { /* ignore */ }
+}
+
+export type HomeCache = { allBooks: Book[]; homeData: any; allCategories: [string, string, string, string | null][]; publicWriters: WriterProfile[]; savedAt: string };
+
+export async function saveHomeCache(c: HomeCache) {
+  try { await AsyncStorage.setItem(HOME_CACHE_KEY, JSON.stringify(c)); } catch { /* ignore */ }
+}
+
+export async function loadHomeCache(): Promise<HomeCache | null> {
+  try {
+    const raw = await AsyncStorage.getItem(HOME_CACHE_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (!p || !Array.isArray(p.allBooks) || !p.allBooks.length) return null;
+    return p as HomeCache;
+  } catch { return null; }
 }
