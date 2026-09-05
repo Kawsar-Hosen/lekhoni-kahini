@@ -2678,6 +2678,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   if(mode==='text'&&!chTitle.trim()&&!chBody.trim())missingFields.push(copy(lang,'firstChapter'));
   if(mode==='pdf'&&!pdfFile)missingFields.push('PDF ফাইল');
   if(mode==='pdf'&&!authorName.trim())missingFields.push('লেখকের নাম');
+  if(mode==='pdf'&&!cover)missingFields.push('কভার ছবি');
   if(!category&&localCats.length>0)missingFields.push(copy(lang,'selectCategory'));
   const canPublish=missingFields.length===0;
   const pickCover=async()=>{setUploadingImg(true);setCoverError(null);try{const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}else{setCoverError('failed')}}catch(e:any){if(e?.message?.includes('Network')||e?.message?.includes('fetch'))setCoverError('noInternet');else setCoverError('failed')}finally{setUploadingImg(false)}};
@@ -2871,7 +2872,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
       </>)}
       {mode==='pdf'&&<View>
         <View style={{marginBottom:16}}>
-          <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>কভার ছবি (ঐচ্ছিক কিন্তু সুন্দর দেখাবে)</T>
+          <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>কভার ছবি *</T>
           <Pressable onPress={async()=>{try{const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}}catch{}}} style={{backgroundColor:t.card,borderWidth:1.5,borderColor:cover?'#10B981':t.line,borderRadius:12,padding:16,flexDirection:'row',alignItems:'center',gap:12}}>
             {coverPreview?<Image source={{uri:coverPreview}} style={{width:50,height:65,borderRadius:8}}/>:<View style={{width:50,height:65,borderRadius:8,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}><Feather name="image" size={20} color={t.muted}/></View>}
             <View style={{flex:1}}>
