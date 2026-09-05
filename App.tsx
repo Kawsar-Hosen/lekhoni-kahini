@@ -677,7 +677,7 @@ function Profile(p:C){
       <View style={{flex:1,marginLeft:12}}>
         <T numberOfLines={1} style={{fontSize:17,fontWeight:'900',color:'#fff'}}>{p.state.user?.display_name||p.state.writer?.writer_name||p.state.name}</T>
         <View style={{alignSelf:'flex-start',backgroundColor:'#C9972B2E',borderRadius:7,paddingHorizontal:8,paddingVertical:2,marginTop:4}}>
-          <T style={{fontSize:10,fontWeight:'800',color:'#EAC97A'}}>{p.state.writer?tr(p,'writerStudio'):tr(p,'regularReader')}</T>
+          <T style={{fontSize:10,fontWeight:'800',color:'#EAC97A'}}>{p.state.writer?tr(p,'writerStudio'):(p.state.user?tr(p,'regularReader'):tr(p,'guestReader'))}</T>
         </View>
       </View>
       <View style={{width:32,height:32,borderRadius:16,backgroundColor:'#ffffff1A',alignItems:'center',justifyContent:'center'}}>
@@ -839,12 +839,15 @@ function ProfileDetails(p:C){
       <View style={[styles.profileCard,{backgroundColor:t.card}]}>
         {profileAvatar?<Image source={{uri:profileAvatar}} style={{width:56,height:56,borderRadius:28,marginBottom:8}}/>:<View style={[styles.avatarBig,{backgroundColor:t.tint}]}><T style={{fontSize:28,fontWeight:'900',color:t.primary}}>{(profileName)[0]?.toUpperCase()||'?'}</T></View>}
         <T style={[styles.profileNameBig,{color:t.ink}]}>{profileName}</T>
-        <T style={[styles.profileBadge,{color:t.muted}]}>{isLoggedInAsWriter?`@${profileUsername||''}`:tr(p,'regularReader')}</T>
+        <T style={[styles.profileBadge,{color:t.muted}]}>{isLoggedInAsWriter?`@${profileUsername||''}`:(p.state.user?tr(p,'regularReader'):tr(p,'guestReader'))}</T>
         {isLoggedIn&&<Pressable onPress={logout} style={{marginTop:6,paddingHorizontal:12,paddingVertical:6,borderRadius:8,borderWidth:1,borderColor:'#EF4444'}}>
           <T style={{fontSize:11,fontWeight:'700',color:'#EF4444'}}>{lang==='hi'?'लॉग आउट':lang==='en'?'Logout':'লগআউট'}</T>
         </Pressable>}
         {!isLoggedIn&&!isWriter&&<Pressable onPress={()=>p.setScreen({type:'writer'})} style={{marginTop:6,paddingHorizontal:16,paddingVertical:8,borderRadius:10,backgroundColor:t.primary}}>
           <T style={{fontSize:12,fontWeight:'700',color:'#fff'}}>{lang==='hi'?'लॉग इन / साइन अप':lang==='en'?'Login / Sign Up':'লগইন / সাইনআপ'}</T>
+        </Pressable>}
+        {!p.state.writer&&!p.state.user&&<Pressable onPress={()=>{setNameInput(p.state.name);setEditing(true)}} style={{marginTop:8,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:6,backgroundColor:t.tint,borderRadius:12,paddingHorizontal:14,paddingVertical:8}}>
+          <Feather name="edit-2" size={14} color={t.primary}/><T style={{color:t.primary,fontWeight:'800',fontSize:13}}>{tr(p,'editName')}</T>
         </Pressable>}
         <View style={[styles.profileStats,{backgroundColor:t.bg}]}>
           <View style={styles.profileStat}><T style={[styles.profileStatNum,{color:t.primary}]}>{favs}</T><T style={[styles.profileStatLabel,{color:t.muted}]}>{tr(p,'favorites')}</T></View>
@@ -868,6 +871,19 @@ function ProfileDetails(p:C){
           <Feather name="chevron-right" size={18} color={t.muted}/>
         </View>
       </Pressable>)}
+      <Modal visible={editing} transparent animationType="fade" onRequestClose={()=>setEditing(false)}>
+        <Pressable onPress={()=>setEditing(false)} style={{flex:1,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24}}>
+          <Pressable onPress={()=>{}} style={{width:'100%',maxWidth:340,backgroundColor:t.card,borderRadius:20,padding:22,alignItems:'center',borderWidth:1,borderColor:t.line}}>
+            <View style={{width:52,height:52,borderRadius:26,backgroundColor:t.tint,alignItems:'center',justifyContent:'center',marginBottom:12}}><Feather name="edit-2" size={22} color={t.primary}/></View>
+            <T style={{fontSize:16,fontWeight:'900',color:t.ink,marginBottom:12}}>{tr(p,'editName')}</T>
+            <TextInput value={nameInput} onChangeText={setNameInput} placeholder={p.state.name} placeholderTextColor={t.muted+'88'} maxLength={30} style={{width:'100%',backgroundColor:t.bg,borderWidth:1,borderColor:t.line,borderRadius:12,padding:12,color:t.ink,fontSize:15,fontWeight:'600',marginBottom:14}}/>
+            <View style={{flexDirection:'row',gap:10,width:'100%'}}>
+              <Pressable onPress={()=>setEditing(false)} style={{flex:1,height:46,borderRadius:13,backgroundColor:t.bg,borderWidth:1,borderColor:t.line,alignItems:'center',justifyContent:'center'}}><T style={{color:t.muted,fontWeight:'800',fontSize:14}}>{lang==='hi'?'रद्द करें':lang==='en'?'Cancel':'বাতিল'}</T></Pressable>
+              <Pressable disabled={!nameInput.trim()} onPress={()=>{p.update({name:nameInput.trim()});setEditing(false)}} style={{flex:1,height:46,borderRadius:13,backgroundColor:nameInput.trim()?t.primary:'#90A4AE',alignItems:'center',justifyContent:'center'}}><T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{lang==='hi'?'सहेजें':lang==='en'?'Save':'সংরক্ষণ'}</T></Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   </Page>}
 
