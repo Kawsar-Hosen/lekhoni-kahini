@@ -2939,7 +2939,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
         </View>
       </View>}
     </ScrollView>
-  </View>;
+  </KeyboardAvoidingView>;
 }
 
 
@@ -2970,11 +2970,11 @@ function PDFReaderScreen({theme:t,lang,pdfUrl,title,onBack}:{theme:Theme;lang:La
   const railMove=(y:number)=>{if(total<=1)return;const pg=Math.min(total,Math.max(1,Math.round(railRatio(y)*(total-1))+1));setDragPage(pg);setDragY(y)};
   const railEnd=()=>{if(dragging&&dragPage!==page)setPage(dragPage);setDragging(false)};
   const goJump=()=>{const n=parseInt(jumpText.replace(/[^0-9]/g,''),10);if(!n||n<1)return;setPage(total>0?Math.min(n,total):n);setShowJump(false)};
-  return <View style={{flex:1,backgroundColor:t.bg}}>
+  return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={insets.top}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
       <Pressable onPress={onBack} style={{flexDirection:'row',alignItems:'center',gap:4}}>
         <Feather name="arrow-left" size={18} color={t.primary}/>
-        <T style={{fontSize:13,fontWeight:'700',color:t.primary}}>{copy(lang,'back')}</T>
+        <T style={{fontSize:13,fontWeight:'700',color:t.primary}}>{copy(lang,'cancel')}</T>
       </Pressable>
       <T numberOfLines={1} style={{fontSize:13,fontWeight:'800',color:t.ink,flex:1,textAlign:'center',marginHorizontal:10}}>{title}</T>
       <View style={{width:50}}/>
