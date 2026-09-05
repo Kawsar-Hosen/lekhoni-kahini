@@ -553,7 +553,7 @@ function LibBookCard({book,theme,dark,onPress,showDelete,onDelete,cached}:{book:
   const strip=status==='dl'?'#10B981':'#C9972B';
   const open=()=>{if(sup.current){sup.current=false;return}onPress()};
   const del=()=>{sup.current=true;if(onDelete)onDelete()};
-  return <Pressable onPress={open} style={{borderRadius:18,borderWidth:1,borderColor:dark?strip+'44':theme.line,marginBottom:12,overflow:'hidden',shadowColor:'#000',shadowOpacity:0.06,shadowRadius:8,shadowOffset:{width:0,height:2},elevation:2}}>
+  return <Pressable onPress={open} style={{borderRadius:18,borderWidth:1,borderColor:dark?strip+'44':theme.line,marginBottom:12,overflow:'hidden'}}>
     <LinearGradient colors={grad} start={{x:0,y:0}} end={{x:1,y:1}} style={{flexDirection:'row',alignItems:'center',padding:12,paddingLeft:15,gap:14}}>
     <View style={{position:'absolute',left:0,top:0,bottom:0,width:4,backgroundColor:strip}}/>
     <View style={{width:72,height:96,borderRadius:12,backgroundColor:book.color,overflow:'hidden',justifyContent:'flex-end',padding:hideAll?0:8}}>
