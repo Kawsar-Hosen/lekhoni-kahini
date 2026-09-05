@@ -1136,7 +1136,16 @@ function Notifications(p:C){const t=p.theme;const[selNotif,setSelNotif]=useState
     {list.length?<ScrollView showsVerticalScrollIndicator={false}>{list}</ScrollView>:
     <View style={{alignItems:'center',justifyContent:'center',minHeight:400}}><Feather name="bell-off" size={32} color={t.line}/><T style={{color:t.muted,marginTop:10}}>{tr(p,'noNotifications')}</T></View>}
   </Page>}
-function BookList(p:C&{title:string;ids:string[]}){return <Page theme={p.theme}><Back title={p.title} theme={p.theme} onPress={()=>p.goBack()}/><T style={{color:p.theme.muted,marginBottom:15}}>{p.ids.length}টি বই</T>{p.ids.length?p.ids.map(id=>{const b=p.allBooks.find(x=>x.id===id);return b&&<Row key={id} book={b} theme={p.theme} onPress={()=>p.open(id)}/>}):<Empty theme={p.theme}/>}</Page>}
+function GridBookCard({book:b,theme:t,onPress}:{book:Book;theme:Theme;onPress:()=>void}){
+  return <Pressable onPress={onPress} style={{width:'31%'}}>
+    <View style={{width:'100%',aspectRatio:3/4,borderRadius:10,backgroundColor:b.color||'#4A1220',overflow:'hidden',marginBottom:6,borderWidth:1,borderColor:t.line}}>
+      {b.cover_url?<Image source={{uri:b.cover_url}} style={{position:'absolute',top:0,left:0,right:0,bottom:0}} resizeMode="cover"/>:<View style={{flex:1,alignItems:'center',justifyContent:'center',padding:6}}><T numberOfLines={3} style={{color:'#fff',fontWeight:'800',fontSize:10,textAlign:'center',lineHeight:14}}>{b.title}</T></View>}
+    </View>
+    <T numberOfLines={2} style={{fontSize:12,fontWeight:'800',color:t.ink,lineHeight:16}}>{b.title}</T>
+    <T numberOfLines={1} style={{fontSize:10.5,fontWeight:'600',color:t.muted,marginTop:2}}>{b.author}</T>
+  </Pressable>;
+}
+function BookList(p:C&{title:string;ids:string[]}){return <Page theme={p.theme}><Back title={p.title} theme={p.theme} onPress={()=>p.goBack()}/><T style={{color:p.theme.muted,marginBottom:15}}>{p.ids.length}টি বই</T>{p.ids.length?<View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>{p.ids.map(id=>{const b=p.allBooks.find(x=>x.id===id);return b&&<GridBookCard key={id} book={b} theme={p.theme} onPress={()=>p.open(id)}/>})}</View>:<Empty theme={p.theme}/>}</Page>}
 const dStyles=StyleSheet.create({
  hero:{borderRadius:26,overflow:'hidden',marginBottom:18,elevation:5,shadowColor:'#000',shadowOpacity:.28,shadowRadius:12,shadowOffset:{width:0,height:6}},
  heroHead:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:16,paddingTop:14,zIndex:3},
