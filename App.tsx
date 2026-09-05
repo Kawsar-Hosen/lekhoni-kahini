@@ -220,6 +220,7 @@ function AppShell(){
   useEffect(()=>{if(splashPhase!=='loading')return;const t=setTimeout(()=>{if(!loaded&&!isOffline)setLoadError('timeout')},15000);return()=>clearTimeout(t)},[splashPhase,loaded,isOffline]);
   // Real-time network detection (dynamic import for native module compat)
   useEffect(()=>{const unsub=NetInfo.addEventListener((s:any)=>{const off=!s.isConnected||!s.isInternetReachable;setIsOffline(off)});return()=>{unsub()}},[]);
+  useEffect(()=>{NetInfo.fetch().then(s=>{if(!s.isConnected||!s.isInternetReachable)setTab('library')}).catch(()=>{})},[]);
   const common=React.useMemo(()=>({theme,state,update,setScreen,goBack,open,read,allBooks,allCategories,publicWriters:filteredWriters,homeData,remoteNotices,dlBooks,downloadBook,markDownloaded,removeDownload,dataLoaded,syncRemote,openWithAnim,isOffline}),[theme,state,allBooks,allCategories,filteredWriters,homeData,remoteNotices,dlBooks,dataLoaded,syncRemote,isOffline]);
   if(splashPhase==='splash')return <SplashScreen theme={theme}/>;
   if(splashPhase==='loading'){
