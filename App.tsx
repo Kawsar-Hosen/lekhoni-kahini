@@ -2695,6 +2695,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   if(mode!=='pdf'&&!title.trim())missingFields.push(copy(lang,'storyTitle'));
   if(mode==='text'&&!chTitle.trim()&&!chBody.trim())missingFields.push(copy(lang,'firstChapter'));
   if(mode==='pdf'&&!pdfFile)missingFields.push('PDF ফাইল');
+  if(mode==='pdf'&&!title.trim())missingFields.push('শিরোনাম');
   if(mode==='pdf'&&!authorName.trim())missingFields.push('লেখকের নাম');
   if(mode==='pdf'&&!cover)missingFields.push('কভার ছবি');
   if(!category&&localCats.length>0)missingFields.push(copy(lang,'selectCategory'));
@@ -2703,7 +2704,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   const pickPdf=async()=>{try{const r=await DocumentPicker.getDocumentAsync({type:'application/pdf',copyToCacheDirectory:true});if(!r.canceled&&r.assets?.length){const uri=r.assets[0].uri;const name=r.assets[0].name;const extracted=await extractPdfTitle(uri);setPdfFile({uri,name});if(extracted&&!title.trim())setTitle(extracted)}}catch{}};
   const handleCreate=async()=>{
     if(!canPublish)return;setSaving(true);
-    const finalTitle=(mode==='pdf'&&!title.trim()&&pdfFile)?pdfFile.name.replace(/\.pdf$/i,''):title.trim();
+    const finalTitle=title.trim();
     let pdfUrl='';
     if(mode==='pdf'&&pdfFile){
       setUploadingPdf(true);
@@ -2889,6 +2890,13 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
       </View>}
       </>)}
       {mode==='pdf'&&<View>
+        <View style={{marginBottom:16}}>
+          <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
+            <T style={{fontSize:11,fontWeight:'700',color:t.muted}}>শিরোনাম *</T>
+            <T style={{fontSize:10,color:t.muted}}>{title.length}/{TITLE_MAX}</T>
+          </View>
+          <TextInput value={title} onChangeText={v=>{if(v.length<=TITLE_MAX)setTitle(v)}} placeholder={lang==='bn'?'বইয়ের শিরোনাম লিখুন':lang==='hi'?'पुस्तक का शीर्षक लिखें':'Enter book title'} placeholderTextColor={t.muted} style={{color:t.ink,fontSize:15,fontWeight:'700',backgroundColor:t.card,borderWidth:1.5,borderColor:title.length>0?t.primary:t.line,borderRadius:12,padding:12,fontFamily:GF()}}/>
+        </View>
         <View style={{marginBottom:16}}>
           <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>কভার ছবি *</T>
           <Pressable onPress={async()=>{try{const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}}catch{}}} style={{backgroundColor:t.card,borderWidth:1.5,borderColor:cover?'#10B981':t.line,borderRadius:12,padding:16,flexDirection:'row',alignItems:'center',gap:12}}>
