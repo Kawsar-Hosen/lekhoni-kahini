@@ -8,32 +8,21 @@ const API_BASE = 'https://lekhoni-admin-api.smdkawsar2.workers.dev';
 const COVER_ASPECT: [number, number] = [2, 3];
 const COVER_WIDTH = 800; // outputs 800×1200 (high quality)
 
-export async function pickAndResizeImage(type: 'avatar' | 'cover', token?: string): Promise<string | null> {
-  let permGranted = false;
-  try {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    permGranted = perm.granted;
-  } catch { permGranted = false; }
+export async function pickAndResizeImage(type: 'avatar' | 'cover'): Promise<string | null> {
+  const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!perm.granted) return null;
 
-  let asset;
-  try {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      quality: 0.85,
-      allowsEditing: true,
-      aspect: type === 'avatar' ? [1, 1] : COVER_ASPECT,
-    });
-    if (result.canceled || !result.assets?.[0]) throw new Error('cancelled');
-    asset = result.assets[0];
-  } catch (e: any) {
-    if (e?.message === 'cancelled') throw e;
-    if (!permGranted) throw new Error('permission');
-    throw e;
-  }
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ['images'],
+    quality: 0.85,
+    allowsEditing: true,
+    aspect: type === 'avatar' ? [1, 1] : COVER_ASPECT,
+  });
+  if (result.canceled || !result.assets?.[0]) return null;
 
   const size = type === 'avatar' ? 400 : COVER_WIDTH;
   const manipulated = await ImageManipulator.manipulateAsync(
-    asset.uri,
+    result.assets[0].uri,
     [{ resize: { width: size } }],
     { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
   );
@@ -47,24 +36,14 @@ export async function pickAndResizeImage(type: 'avatar' | 'cover', token?: strin
 
   let uploadRes: Response;
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 25000);
-    try {
-      uploadRes = await fetch(`${API_BASE}/api/media`, {
-        method: 'POST',
-        body: formData,
-        signal: controller.signal,
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-      });
-    } finally { clearTimeout(timer); }
+    uploadRes = await fetch(`${API_BASE}/api/media`, {
+      method: 'POST',
+      body: formData,
+    });
   } catch (e: any) {
     throw new Error('Network error');
   }
-  if (!uploadRes.ok) {
-    if (uploadRes.status === 401) throw new Error('unauthorized');
-    if (uploadRes.status === 413) throw new Error('too-large');
-    throw new Error('server');
-  }
+  if (!uploadRes.ok) return null;
   const data = await uploadRes.json();
   return data.url || null;
 }

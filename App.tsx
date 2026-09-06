@@ -2720,7 +2720,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   const[displayStatus,setDisplayStatus]=useState<'complete'|'ongoing'>('ongoing');
   const[saving,setSaving]=useState(false);
   const[uploadingImg,setUploadingImg]=useState(false);
-  const[coverError,setCoverError]=useState<'failed'|'noInternet'|'permission'|'unauthorized'|'too-large'|null>(null);
+  const[coverError,setCoverError]=useState<'failed'|'noInternet'|null>(null);
   const[showNewCat,setShowNewCat]=useState(false);
   const[newCatName,setNewCatName]=useState('');
   const[localCats,setLocalCats]=useState<string[]>(categories);
@@ -2746,7 +2746,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   if(mode==='pdf'&&!cover)missingFields.push('কভার ছবি');
   if(!category&&localCats.length>0)missingFields.push(copy(lang,'selectCategory'));
   const canPublish=missingFields.length===0;
-  const pickCover=async()=>{setUploadingImg(true);setCoverError(null);try{const url=await pickAndResizeImage('cover',token);if(url){setCover(url);setCoverPreview(url)}else{setCoverError('failed')}}catch(e:any){const m=e?.message||'';if(m==='cancelled'){setCoverError(null)}else if(m==='permission'){setCoverError('permission')}else if(m==='unauthorized'){setCoverError('unauthorized')}else if(m==='too-large'){setCoverError('too-large')}else if(m?.includes('Network')||m?.includes('fetch')||m?.includes('abort'))setCoverError('noInternet');else setCoverError('failed')}finally{setUploadingImg(false)}};
+  const pickCover=async()=>{setUploadingImg(true);setCoverError(null);try{const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}else{setCoverError('failed')}}catch(e:any){if(e?.message?.includes('Network')||e?.message?.includes('fetch'))setCoverError('noInternet');else setCoverError('failed')}finally{setUploadingImg(false)}};
   const pickPdf=async()=>{try{const r=await DocumentPicker.getDocumentAsync({type:'application/pdf',copyToCacheDirectory:true});if(!r.canceled&&r.assets?.length){const uri=r.assets[0].uri;const name=r.assets[0].name;try{const info=await LFS.getInfoAsync(uri);if(info.exists&&(info.size||0)>50*1024*1024){Alert.alert('ত্রুটি','PDF ফাইল 50MB-এর বেশি হতে পারবে না।');return}}catch{}const extracted=await extractPdfTitle(uri);setPdfFile({uri,name});if(extracted&&!title.trim())setTitle(extracted)}}catch{}};
   const handleCreate=async()=>{
     if(!canPublish)return;setSaving(true);
@@ -2849,7 +2849,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
           </View>:
           coverError?<View style={{height:140,alignItems:'center',justifyContent:'center',backgroundColor:t.card,gap:8}}>
             <View style={{width:50,height:50,borderRadius:25,backgroundColor:'#FEE2E2',alignItems:'center',justifyContent:'center'}}><Feather name={coverError==='noInternet'?'wifi-off':'alert-circle'} size={22} color="#EF4444"/></View>
-            <T style={{fontSize:13,fontWeight:'700',color:'#EF4444'}}>{coverError==='noInternet'?'ইন্টারনেট নেই':coverError==='permission'?'গ্যালারি অনুমতি দিন':coverError==='unauthorized'?'আবার লগইন করুন':coverError==='too-large'?'ছবি অনেক বড়':'আপলোড ব্যর্থ'}</T>
+            <T style={{fontSize:13,fontWeight:'700',color:'#EF4444'}}>{coverError==='noInternet'?'ইন্টারনেট নেই':'আপলোড ব্যর্থ'}</T>
             <T style={{fontSize:11,color:t.muted}}>আবার চেষ্টা করুন</T>
           </View>:
           coverPreview?<View style={{height:180,backgroundColor:t.card,alignItems:'center',justifyContent:'center'}}>
@@ -2945,7 +2945,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
         </View>
         <View style={{marginBottom:16}}>
           <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>কভার ছবি *</T>
-          <Pressable onPress={async()=>{try{const url=await pickAndResizeImage('cover',token);if(url){setCover(url);setCoverPreview(url)}}catch{}}} style={{backgroundColor:t.card,borderWidth:1.5,borderColor:cover?'#10B981':t.line,borderRadius:12,padding:16,flexDirection:'row',alignItems:'center',gap:12}}>
+          <Pressable onPress={async()=>{try{const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}}catch{}}} style={{backgroundColor:t.card,borderWidth:1.5,borderColor:cover?'#10B981':t.line,borderRadius:12,padding:16,flexDirection:'row',alignItems:'center',gap:12}}>
             {coverPreview?<Image source={{uri:coverPreview}} style={{width:50,height:65,borderRadius:8}}/>:<View style={{width:50,height:65,borderRadius:8,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}><Feather name="image" size={20} color={t.muted}/></View>}
             <View style={{flex:1}}>
               <T style={{fontSize:13,fontWeight:'700',color:cover?'#10B981':t.ink}}>{cover?'কভার আপলোড হয়েছে':'কভার ছবি দিন'}</T>
@@ -3293,7 +3293,7 @@ function EditStoryScreen({token,theme:t,lang,storyId,initialTitle,initialDesc,in
   const[saving,setSaving]=useState(false);
   const[saved,setSaved]=useState(false);
   const[uploadingImg,setUploadingImg]=useState(false);
-  const pickCover=async()=>{setUploadingImg(true);try{const url=await pickAndResizeImage('cover',token);if(url){setCover(url);setCoverPreview(url)}}catch{}setUploadingImg(false)};
+  const pickCover=async()=>{setUploadingImg(true);try{const url=await pickAndResizeImage('cover');if(url){setCover(url);setCoverPreview(url)}}catch{}setUploadingImg(false)};
   const save=async()=>{if(!title.trim())return;setSaving(true);try{let pdfUrl=newPdfUrl||undefined;if(pdfFile&&!newPdfUrl){setUploadingPdf(true);try{const uploaded=await uploadWriterPdf(token,pdfFile.uri,pdfFile.name);if(uploaded){pdfUrl=uploaded;setNewPdfUrl(uploaded)}else{Alert.alert('ত্রুটি','PDF আপলোড ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');setUploadingPdf(false);setSaving(false);return}}catch{Alert.alert('ত্রুটি','PDF আপলোড ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');setUploadingPdf(false);setSaving(false);return}setUploadingPdf(false)}const ok=await updateWriterStoryEx(token,storyId,{title:title.trim(),description:desc.trim(),cover_url:cover||undefined,writer_status:writerStatus||undefined,...(pdfUrl?{pdf_url:pdfUrl}:{})});if(!ok.ok){Alert.alert('ত্রুটি',ok.error||'সংরক্ষণ ব্যর্থ হয়েছে। আবার চেষ্টা করুন।');setSaving(false);return}onSaved();setSaved(true);setTimeout(()=>onBack(),1200)}catch(e){Alert.alert('ত্রুটি','সংরক্ষণ ব্যর্থ হয়েছে। আবার চেষ্টা করুন।')}finally{setSaving(false)}};
   return <View style={{flex:1,backgroundColor:t.bg}}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
@@ -3564,7 +3564,7 @@ function WriterProfileStudio({token,theme:t,writer,lang,onUpdate,onDeleteAccount
   const[err,setErr]=useState('');
   const handlePickAvatar=async()=>{
     setUploadingImg(true);setErr('');
-    try{const url=await pickAndResizeImage('avatar',token);
+    try{const url=await pickAndResizeImage('avatar');
     if(url){setAvatar(url);await updateWriterProfile(token,{avatar_url:url});onUpdate({avatar_url:url})}}catch{}
     setUploadingImg(false);
   };
