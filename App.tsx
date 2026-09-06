@@ -3635,8 +3635,6 @@ function WriterProfileStudio({token,theme:t,writer,lang,onUpdate,onDeleteAccount
   const[saved,setSaved]=useState(false);
   const[uploadingImg,setUploadingImg]=useState(false);
   const[err,setErr]=useState('');
-  const profScroll=useRef<ScrollView|null>(null);
-  const scrollProfEnd=()=>{setTimeout(()=>{try{profScroll.current?.scrollToEnd({animated:true})}catch{}},150);};
   const handlePickAvatar=async()=>{
     setUploadingImg(true);setErr('');
     try{const url=await pickAndResizeImage('avatar');
@@ -3651,7 +3649,7 @@ function WriterProfileStudio({token,theme:t,writer,lang,onUpdate,onDeleteAccount
     else setErr(r.error==='Username already taken'?copy(lang,'usernameTaken'):r.error||'');
   };
   return <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={Platform.OS==='ios'?90:0}>
-    <ScrollView ref={profScroll} showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:40}} keyboardShouldPersistTaps="handled">
+    <View style={{paddingBottom:40}}>
     <View style={{borderRadius:22,overflow:'hidden',backgroundColor:'#7B1E2B',marginBottom:20}}>
       <LinearGradient colors={['#7B1E2B','#4A1220']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
       <Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="88%" cy={10} r={80} fill="#C9972B26"/><Circle cx="4%" cy={150} r={70} fill="#ffffff10"/></Svg>
@@ -3700,7 +3698,7 @@ function WriterProfileStudio({token,theme:t,writer,lang,onUpdate,onDeleteAccount
       <View style={{marginBottom:16}}>
         <T style={{color:t.muted,fontSize:11,fontWeight:'700',marginBottom:5,marginLeft:4}}>{copy(lang,'bio')}</T>
         <View style={{backgroundColor:t.bg,borderRadius:12,borderWidth:1.5,borderColor:t.line,padding:12,minHeight:80}}>
-          <TextInput value={bio} onChangeText={setBio} onFocus={scrollProfEnd} multiline placeholder={copy(lang,'bioPlaceholder')} placeholderTextColor={t.muted+'88'} style={{color:t.ink,fontSize:14,fontWeight:'500',lineHeight:20,fontFamily:GF()}}/>
+          <TextInput value={bio} onChangeText={setBio} multiline placeholder={copy(lang,'bioPlaceholder')} placeholderTextColor={t.muted+'88'} style={{color:t.ink,fontSize:14,fontWeight:'500',lineHeight:20,fontFamily:GF()}}/>
         </View>
       </View>
       {err?<View style={{backgroundColor:'#FEF2F2',borderRadius:10,padding:10,marginBottom:12,flexDirection:'row',alignItems:'center',gap:6}}><Feather name="alert-circle" size={14} color="#EF4444"/><T style={{fontSize:12,fontWeight:'600',color:'#EF4444',flex:1}}>{err}</T></View>:null}
@@ -3715,7 +3713,7 @@ function WriterProfileStudio({token,theme:t,writer,lang,onUpdate,onDeleteAccount
           <T style={{fontSize:13,fontWeight:'700',color:'#EF4444'}}>{lang==='bn'?'অ্যাকাউন্ট মুছুন':lang==='hi'?'खाता हटाएँ':'Delete Account'}</T>
         </Pressable>
       </View>}
-  </ScrollView></KeyboardAvoidingView>}
+  </View></KeyboardAvoidingView>}
 
 function WriterFollowers({token,theme:t,lang}:{token:string;theme:Theme;lang:Language}){
   const[followers,setFollowers]=useState<{id:string;username:string;writer_name:string;bio?:string;avatar_url?:string;follower_count?:number;badge?:string}[]>([]);
