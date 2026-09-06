@@ -18,13 +18,6 @@
     "android": {
       "package": "com.lekhoni.kahini",
       "versionCode": 2,
-      "permissions": [
-        "android.permission.READ_MEDIA_IMAGES"
-      ],
-      "blockedPermissions": [
-        "android.permission.SYSTEM_ALERT_WINDOW",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
-      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4A1220"
@@ -39,6 +32,12 @@
     "plugins": [
       "expo-font",
       "expo-web-browser",
+      [
+        "expo-av",
+        {
+          "microphonePermission": false
+        }
+      ],
       [
         "expo-build-properties",
         {
