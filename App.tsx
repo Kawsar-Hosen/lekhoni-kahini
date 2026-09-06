@@ -2720,7 +2720,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   const[displayStatus,setDisplayStatus]=useState<'complete'|'ongoing'>('ongoing');
   const[saving,setSaving]=useState(false);
   const[uploadingImg,setUploadingImg]=useState(false);
-  const[coverError,setCoverError]=useState<'failed'|'noInternet'|null>(null);
+  const[coverError,setCoverError]=useState<'failed'|'noInternet'|'permission'|'unauthorized'|'too-large'|null>(null);
   const[showNewCat,setShowNewCat]=useState(false);
   const[newCatName,setNewCatName]=useState('');
   const[localCats,setLocalCats]=useState<string[]>(categories);
@@ -2746,7 +2746,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   if(mode==='pdf'&&!cover)missingFields.push('কভার ছবি');
   if(!category&&localCats.length>0)missingFields.push(copy(lang,'selectCategory'));
   const canPublish=missingFields.length===0;
-  const pickCover=async()=>{setUploadingImg(true);setCoverError(null);try{const url=await pickAndResizeImage('cover',token);if(url){setCover(url);setCoverPreview(url)}else{setCoverError('failed')}}catch(e:any){if(e?.message?.includes('Network')||e?.message?.includes('fetch'))setCoverError('noInternet');else setCoverError('failed')}finally{setUploadingImg(false)}};
+  const pickCover=async()=>{setUploadingImg(true);setCoverError(null);try{const url=await pickAndResizeImage('cover',token);if(url){setCover(url);setCoverPreview(url)}else{setCoverError('failed')}}catch(e:any){const m=e?.message||'';if(m==='cancelled'){setCoverError(null)}else if(m==='permission'){setCoverError('permission')}else if(m==='unauthorized'){setCoverError('unauthorized')}else if(m==='too-large'){setCoverError('too-large')}else if(m?.includes('Network')||m?.includes('fetch')||m?.includes('abort'))setCoverError('noInternet');else setCoverError('failed')}finally{setUploadingImg(false)}};
   const pickPdf=async()=>{try{const r=await DocumentPicker.getDocumentAsync({type:'application/pdf',copyToCacheDirectory:true});if(!r.canceled&&r.assets?.length){const uri=r.assets[0].uri;const name=r.assets[0].name;try{const info=await LFS.getInfoAsync(uri);if(info.exists&&(info.size||0)>50*1024*1024){Alert.alert('ত্রুটি','PDF ফাইল 50MB-এর বেশি হতে পারবে না।');return}}catch{}const extracted=await extractPdfTitle(uri);setPdfFile({uri,name});if(extracted&&!title.trim())setTitle(extracted)}}catch{}};
   const handleCreate=async()=>{
     if(!canPublish)return;setSaving(true);
@@ -2849,7 +2849,7 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
           </View>:
           coverError?<View style={{height:140,alignItems:'center',justifyContent:'center',backgroundColor:t.card,gap:8}}>
             <View style={{width:50,height:50,borderRadius:25,backgroundColor:'#FEE2E2',alignItems:'center',justifyContent:'center'}}><Feather name={coverError==='noInternet'?'wifi-off':'alert-circle'} size={22} color="#EF4444"/></View>
-            <T style={{fontSize:13,fontWeight:'700',color:'#EF4444'}}>{coverError==='noInternet'?'ইন্টারনেট নেই':'আপলোড ব্যর্থ'}</T>
+            <T style={{fontSize:13,fontWeight:'700',color:'#EF4444'}}>{coverError==='noInternet'?'ইন্টারনেট নেই':coverError==='permission'?'গ্যালারি অনুমতি দিন':coverError==='unauthorized'?'আবার লগইন করুন':coverError==='too-large'?'ছবি অনেক বড়':'আপলোড ব্যর্থ'}</T>
             <T style={{fontSize:11,color:t.muted}}>আবার চেষ্টা করুন</T>
           </View>:
           coverPreview?<View style={{height:180,backgroundColor:t.card,alignItems:'center',justifyContent:'center'}}>

@@ -10,7 +10,7 @@ const COVER_WIDTH = 800; // outputs 800×1200 (high quality)
 
 export async function pickAndResizeImage(type: 'avatar' | 'cover', token?: string): Promise<string | null> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!perm.granted) return null;
+  if (!perm.granted) throw new Error('permission');
 
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: ['images'],
@@ -18,7 +18,7 @@ export async function pickAndResizeImage(type: 'avatar' | 'cover', token?: strin
     allowsEditing: true,
     aspect: type === 'avatar' ? [1, 1] : COVER_ASPECT,
   });
-  if (result.canceled || !result.assets?.[0]) return null;
+  if (result.canceled || !result.assets?.[0]) throw new Error('cancelled');
 
   const size = type === 'avatar' ? 400 : COVER_WIDTH;
   const manipulated = await ImageManipulator.manipulateAsync(
@@ -49,7 +49,11 @@ export async function pickAndResizeImage(type: 'avatar' | 'cover', token?: strin
   } catch (e: any) {
     throw new Error('Network error');
   }
-  if (!uploadRes.ok) return null;
+  if (!uploadRes.ok) {
+    if (uploadRes.status === 401) throw new Error('unauthorized');
+    if (uploadRes.status === 413) throw new Error('too-large');
+    throw new Error('server');
+  }
   const data = await uploadRes.json();
   return data.url || null;
 }
