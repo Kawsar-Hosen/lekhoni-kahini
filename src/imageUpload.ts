@@ -9,20 +9,31 @@ const COVER_ASPECT: [number, number] = [2, 3];
 const COVER_WIDTH = 800; // outputs 800×1200 (high quality)
 
 export async function pickAndResizeImage(type: 'avatar' | 'cover', token?: string): Promise<string | null> {
-  const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (!perm.granted) throw new Error('permission');
+  let permGranted = false;
+  try {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    permGranted = perm.granted;
+  } catch { permGranted = false; }
 
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ['images'],
-    quality: 0.85,
-    allowsEditing: true,
-    aspect: type === 'avatar' ? [1, 1] : COVER_ASPECT,
-  });
-  if (result.canceled || !result.assets?.[0]) throw new Error('cancelled');
+  let asset;
+  try {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.85,
+      allowsEditing: true,
+      aspect: type === 'avatar' ? [1, 1] : COVER_ASPECT,
+    });
+    if (result.canceled || !result.assets?.[0]) throw new Error('cancelled');
+    asset = result.assets[0];
+  } catch (e: any) {
+    if (e?.message === 'cancelled') throw e;
+    if (!permGranted) throw new Error('permission');
+    throw e;
+  }
 
   const size = type === 'avatar' ? 400 : COVER_WIDTH;
   const manipulated = await ImageManipulator.manipulateAsync(
-    result.assets[0].uri,
+    asset.uri,
     [{ resize: { width: size } }],
     { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
   );
