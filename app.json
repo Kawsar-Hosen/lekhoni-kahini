@@ -17,7 +17,10 @@
     ],
     "android": {
       "package": "com.lekhoni.kahini",
-      "versionCode": 3,
+      "versionCode": 4,
+      "blockedPermissions": [
+        "com.google.android.gms.permission.AD_ID"
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#4A1220"
@@ -36,16 +39,6 @@
         "expo-av",
         {
           "microphonePermission": false
-        }
-      ],
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "compileSdkVersion": 36,
-            "targetSdkVersion": 36,
-            "minSdkVersion": 24
-          }
         }
       ],
       [
