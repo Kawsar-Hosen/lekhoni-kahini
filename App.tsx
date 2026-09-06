@@ -3648,7 +3648,7 @@ function WriterProfileStudio({token,theme:t,writer,lang,onUpdate,onDeleteAccount
     if(r.ok){setSaved(true);onUpdate({writer_name:name.trim(),bio:bio.trim(),avatar_url:avatar||undefined,username:username.trim()||undefined});setTimeout(()=>{setSaved(false);setEditing(false)},1500)}
     else setErr(r.error==='Username already taken'?copy(lang,'usernameTaken'):r.error||'');
   };
-  return <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={Platform.OS==='ios'?90:0}>
+  return <KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined} keyboardVerticalOffset={Platform.OS==='ios'?90:0}>
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:40}} keyboardShouldPersistTaps="handled">
     <View style={{borderRadius:22,overflow:'hidden',backgroundColor:'#7B1E2B',marginBottom:20}}>
       <LinearGradient colors={['#7B1E2B','#4A1220']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
