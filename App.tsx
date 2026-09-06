@@ -25,7 +25,7 @@ import { saveBookOffline, loadBookOffline, removeBookOffline, isBookOffline, get
 import { initAllAds, showAppOpenAd, maybeShowInterstitial, showRewardedAd, isRewardedAdReady, resetAdSession } from './src/ads';
 
 type Tab = 'home'|'library'|'categories'|'episodes'|'profile';
-type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'pdfReader', id:string, pdfUrl:string, title:string } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' } | { type:'newStory' } | { type:'newPdfStory' } | { type:'editStory', id:string, title:string, desc:string, coverUrl:string|null, writerStatus:string, pdfUrl?:string } | { type:'aboutApp' } | { type:'terms' } | { type:'guide' };
+type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'pdfReader', id:string, pdfUrl:string, title:string } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' } | { type:'newStory' } | { type:'newPdfStory' } | { type:'editStory', id:string, title:string, desc:string, coverUrl:string|null, writerStatus:string, pdfUrl?:string } | { type:'aboutApp' } | { type:'terms' } | { type:'privacyPolicy' } | { type:'guide' };
 type Theme = {dark:boolean;primary:string;bg:string;card:string;ink:string;muted:string;line:string;tint:string;reader:string};
 const I = (name:string) => (Feather.glyphMap as Record<string,unknown>)[name] ? name as keyof typeof Feather.glyphMap : 'bell';
 
@@ -276,7 +276,8 @@ const sameScreen=(a:Screen,b:Screen)=>JSON.stringify(a)===JSON.stringify(b); con
   if(screen.type==='pdfReader')body=<PDFReaderScreen theme={theme} lang={state.settings.language} pdfUrl={screen.pdfUrl} title={screen.title} onBack={goBack} registerTopDismiss={registerTopDismiss}/>;
   if(screen.type==='editStory')body=<EditStoryScreen token={state.writerToken||''} theme={theme} lang={state.settings.language} storyId={screen.id} initialTitle={screen.title} initialDesc={screen.desc} initialCover={screen.coverUrl} initialWriterStatus={screen.writerStatus} pdfUrl={screen.pdfUrl} onBack={goBack} onSaved={syncRemote}/>;
   if(screen.type==='aboutApp')body=<AboutAppScreen theme={theme} lang={state.settings.language} onBack={goBack}/>;
-  if(screen.type==='terms')body=<TermsScreen theme={theme} lang={state.settings.language} onBack={goBack}/>;
+  if(screen.type==='terms')body=<TermsScreen theme={theme} lang={state.settings.language} onBack={goBack} onFullPolicy={()=>setScreen({type:'privacyPolicy'})}/>;
+  if(screen.type==='privacyPolicy')body=<PrivacyPolicyScreen theme={theme} onBack={goBack}/>;
   if(screen.type==='guide')body=<GuideScreen theme={theme} lang={state.settings.language} onBack={goBack} onWriter={()=>setScreen({type:'writer'},true)} setScreen={setScreen}/>;
   if((screen.type==='book'||screen.type==='reader')&&!body)body=<Page theme={theme}><Back title={copy(state.settings.language,'details')} theme={theme} onPress={goBack}/><Empty theme={theme}/></Page>;
   const isNewTheme=['nilkantha','kashful','mala','meghdoot','bashanti','sona','rong','agun','swapna','prithvi'].includes(state.settings.themeId);
@@ -3086,7 +3087,78 @@ function PDFReaderScreen({theme:t,lang,pdfUrl,title,onBack,registerTopDismiss}:{
   </View>;
 }
 
-function TermsScreen({theme:t,lang,onBack}:{theme:Theme;lang:Language;onBack:()=>void}){
+const PRIVACY_POLICY: Record<"en"|"bn", { title: string; updated: string; intro: string; sections: { h: string; p: string }[] }> = {
+en: { title: "Privacy Policy", updated: "Last updated: 6 September 2026", intro: "Lekhoni Kahini is a Bengali stories reading and writing app by Kawsar Hosen. This policy explains what data we collect, how we use it, and the choices you have. By using the app you agree to this policy.",
+sections: [
+{ h: "1. Information We Collect", p: "We collect only what the app needs to work: information you give us (account details and content), and information collected automatically on your device and our servers (reading activity, device identifiers, settings). We do not collect your contacts, location, call logs, SMS, or files outside the app." },
+{ h: "2. Information You Provide", p: "Reader name (a display name stored on your device). Writer or reader account: username, display name, email address, and password. Stories, chapters, PDF books, cover images, avatars, dedications, author names, comments, reports, and account-deletion requests you submit." },
+{ h: "3. Automatically Collected Information", p: "A random device identifier, reading history, chapter positions, bookmarks, favorites, downloads, reading-activity summaries, search history, app settings (language, theme, reader options), push notification token (only if you enable notifications), and book view events used for view counts." },
+{ h: "4. How We Use Information", p: "To run the app, sync your library across your sessions, personalize your experience, send new-episode, comment and follower notifications you asked for, moderate content and keep the community safe, verify accounts, and answer support and deletion requests." },
+{ h: "5. Accounts and Authentication", p: "Passwords are never stored in plain text. They are protected with PBKDF2-HMAC-SHA256 (100,000 iterations) with a unique salt on our servers. Email verification and password-reset codes expire after 10 minutes and are rate-limited. Login sessions use 30-day tokens stored encrypted on your device. Google Sign-In verifies your Google token on our servers (audience, issuer, expiry and email verification) before creating your account." },
+{ h: "6. Your Content", p: "Stories, chapters, PDF books, covers, comments and other content you publish may be shown to other users of the app. You keep ownership of your original works. Do not publish other people's private information. Reported content is reviewed by our team, and violating content may be removed." },
+{ h: "7. Downloads and Offline Data", p: "Books you download for offline reading are stored only on your own device and are never uploaded. Clearing downloads or resetting the app removes them from the device." },
+{ h: "8. Email Verification and Password Reset", p: "We send one-time codes to your email address for verification and password reset. Codes expire after 10 minutes and are limited per hour to prevent abuse." },
+{ h: "9. Data Sharing and Third Parties", p: "We do not sell your personal data, and we show no advertisements. We use only these service providers to operate the app: Cloudflare (app hosting and file storage), Neon (managed database), Google (Sign-In only, when you choose it), and Expo (push notification delivery). We do not use analytics SDKs or crash-reporting SDKs." },
+{ h: "10. Data Security", p: "All app traffic uses encrypted HTTPS. Passwords are salted and hashed. Login tokens are stored encrypted on your device. Sensitive admin operations require authentication, security limits apply to repeated requests, and published content passes moderation review." },
+{ h: "11. Data Retention", p: "Verification codes expire after 10 minutes. Abuse-prevention counters are kept for a limited time. Accounts and published content are kept until you delete them. When you delete data, related records are removed from our servers; copies in routine backups expire on their normal cycle." },
+{ h: "12. Account and Data Deletion", p: "Writers can permanently delete their account and all stories, books, chapters, follows and notifications from inside the app (Writer Studio, with email-code confirmation). Readers can delete all their server data from Settings, and clear everything on the device with Reset. You can also send a deletion request from our website deletion page or by email; requests are processed within 30 days and confirmed by email." },
+{ h: "13. Children's Privacy", p: "Lekhoni Kahini is for users aged 15 and older. The app asks you to confirm you are at least 15 before use. We do not knowingly collect data from children under 15. If you are a parent and believe your child provided data, contact us and we will delete it." },
+{ h: "14. Your Choices and Rights", p: "You can turn notifications on or off, change language and reader settings, and access, correct or delete your data through the app or by emailing us. Deleting the app from your device removes local data; server data is removed through the deletion options above." },
+{ h: "15. Changes to This Policy", p: "We may update this policy when the app changes. Material changes will be announced inside the app, and the updated date at the top will change. Continued use of the app after changes means you accept the updated policy." },
+{ h: "16. Contact Us", p: "Developer: Kawsar Hosen. Email: lekhoni-kahini@xyteee.com. We respond to privacy questions and deletion requests within 48 hours." },
+] },
+bn: { title: "গোপনীয়তা নীতি", updated: "সর্বশেষ আপডেট: ৬ সেপ্টেম্বর ২০২৬", intro: "লেখনী কাহিনি কাওসার হোসেনের একটি বাংলা গল্প পড়া ও লেখার অ্যাপ। এই নীতিতে বলা হয়েছে আমরা কী তথ্য সংগ্রহ করি, কীভাবে ব্যবহার করি এবং আপনার কী কী পছন্দ আছে। অ্যাপ ব্যবহার করলে তুমি এই নীতিতে সম্মত হচ্ছ।",
+sections: [
+{ h: "১. আমরা কী তথ্য সংগ্রহ করি", p: "অ্যাপ চালানোর জন্য যতটুকু দরকার শুধু ততটুকুই সংগ্রহ করি: তুমি যা দাও (অ্যাকাউন্টের তথ্য ও কন্টেন্ট) এবং যা স্বয়ংক্রিয়ভাবে সংগ্রহ হয় (পড়ার কার্যকলাপ, ডিভাইস শনাক্তকারী, সেটিংস)। তোমার কন্টাক্ট, লোকেশন, কল লগ, SMS বা অ্যাপের বাইরের ফাইল আমরা সংগ্রহ করি না।" },
+{ h: "২. তুমি যে তথ্য দাও", p: "পাঠকের নাম (শুধু ডিভাইসে থাকা প্রদর্শন নাম)। লেখক বা পাঠক অ্যাকাউন্ট: ইউজারনেম, প্রদর্শন নাম, ইমেইল ঠিকানা ও পাসওয়ার্ড। তোমার প্রকাশ করা গল্প, অধ্যায়, PDF বই, কভার ছবি, মন্তব্য, রিপোর্ট ও অ্যাকাউন্ট মোছার অনুরোধ।" },
+{ h: "৩. স্বয়ংক্রিয়ভাবে সংগৃহীত তথ্য", p: "এলোমেলো ডিভাইস শনাক্তকারী, পড়ার ইতিহাস, অধ্যায়ের অবস্থান, বুকমার্ক, পছন্দ, ডাউনলোড, পড়ার সারসংক্ষেপ, সার্চ ইতিহাস, অ্যাপ সেটিংস (ভাষা, থিম, পড়ার ধরন), পুশ নোটিফিকেশন টোকেন (শুধু নোটিফিকেশন চালু থাকলে) এবং বই দেখার গণনা।" },
+{ h: "৪. তথ্য কীভাবে ব্যবহার করি", p: "অ্যাপ চালানো, তোমার লাইব্রেরি সিঙ্ক করা, অভিজ্ঞতা ব্যক্তিগত করা, চাওয়া নতুন পর্ব, মন্তব্য ও ফলোয়ার নোটিফিকেশন পাঠানো, কন্টেন্ট পর্যালোচনা ও কমিউনিটি নিরাপদ রাখা, অ্যাকাউন্ট যাচাই এবং সাপোর্ট ও মোছার অনুরোধের উত্তর দেওয়া।" },
+{ h: "৫. অ্যাকাউন্ট ও লগইন নিরাপত্তা", p: "পাসওয়ার্ড কখনো সরাসরি সংরক্ষণ করা হয় না। সার্ভারে PBKDF2-HMAC-SHA256 (১,০০,০০০ বার) ও আলাদা সল্ট দিয়ে সুরক্ষিত থাকে। ইমেইল যাচাই ও পাসওয়ার্ড রিসেট কোড ১০ মিনিট পর মেয়াদোত্তীর্ণ হয় এবং অপব্যবহার রোধে সীমিত। লগইন সেশন ৩০ দিনের টোকনে তোমার ডিভাইসে এনক্রিপ্টেড থাকে। Google Sign-In-এ তোমার Google টোকেন আমাদের সার্ভারে যাচাই করা হয়।" },
+{ h: "৬. তোমার কন্টেন্ট", p: "তোমার প্রকাশ করা গল্প, অধ্যায়, PDF বই, কভার, মন্তব্য অ্যাপের অন্য ব্যবহারকারীরা দেখতে পারে। মূল রচনার মালিকানা তোমারই থাকে। অন্যের ব্যক্তিগত তথ্য প্রকাশ কোরো না। রিপোর্ট করা কন্টেন্ট আমাদের দল পর্যালোচনা করে, নিয়মভঙ্গকারী কন্টেন্ট সরিয়ে দেওয়া হতে পারে।" },
+{ h: "৭. ডাউনলোড ও অফলাইন তথ্য", p: "অফলাইনে পড়ার জন্য ডাউনলোড করা বই শুধু তোমার ডিভাইসে থাকে, কখনো আপলোড হয় না। ডাউনলোড মুছলে বা অ্যাপ রিসেট করলে ডিভাইস থেকে মুছে যায়।" },
+{ h: "৮. ইমেইল যাচাই ও পাসওয়ার্ড রিসেট", p: "যাচাই ও পাসওয়ার্ড রিসেটের জন্য তোমার ইমেইলে একবার ব্যবহারযোগ্য কোড পাঠাই। কোড ১০ মিনিট পর মেয়াদোত্তীর্ণ হয় এবং প্রতি ঘণ্টায় সীমিত থাকে।" },
+{ h: "৯. তথ্য ভাগাভাগি ও তৃতীয় পক্ষ", p: "আমরা তোমার ব্যক্তিগত তথ্য বিক্রি করি না এবং কোনো বিজ্ঞাপন দেখাই না। শুধু এই সেবাগুলো অ্যাপ চালাতে ব্যবহার হয়: Cloudflare (হোস্টিং ও ফাইল সংরক্ষণ), Neon (ডাটাবেস), Google (শুধু তুমি বেছে নিলে Sign-In), Expo (পুশ নোটিফিকেশন পাঠানো)। কোনো অ্যানালিটিক্স বা ক্র্যাশ-রিপোর্টিং SDK নেই।" },
+{ h: "১০. তথ্য নিরাপত্তা", p: "অ্যাপের সব যোগাযোগ এনক্রিপ্টেড HTTPS-এ হয়। পাসওয়ার্ড সল্টসহ হ্যাশ করা থাকে। লগইন টোকেন ডিভাইসে এনক্রিপ্টেড থাকে। গুরুত্বপূর্ণ কাজে প্রমাণীকরণ লাগে, বারবার অনুরোধে সীমা আছে এবং প্রকাশিত কন্টেন্ট পর্যালোচনা হয়।" },
+{ h: "১১. তথ্য সংরক্ষণের মেয়াদ", p: "যাচাই কোড ১০ মিনিট পর মেয়াদোত্তীর্ণ হয়। অপব্যবহার-রোধ গণনা সীমিত সময় থাকে। অ্যাকাউন্ট ও প্রকাশিত কন্টেন্ট তুমি না মোছা পর্যন্ত থাকে। মোছার সময় সংশ্লিষ্ট সব রেকর্ড সার্ভার থেকে সরিয়ে দেওয়া হয়; নিয়মিত ব্যাকআপের কপি স্বাভাবিক চক্রে মেয়াদোত্তীর্ণ হয়।" },
+{ h: "১২. অ্যাকাউন্ট ও তথ্য মোছা", p: "লেখকরা অ্যাপের ভেতর থেকে (রাইটার স্টুডিও, ইমেইল-কোড নিশ্চিতকরণে) অ্যাকাউন্ট ও সব গল্প, বই, অধ্যায়, ফলো, নোটিফিকেশন স্থায়ীভাবে মুছতে পারে। পাঠকরা সেটিংস থেকে সার্ভারের সব তথ্য মুছতে পারে, আর রিসেটে ডিভাইসের সব মুছে যায়। ওয়েবসাইটের মোছার ফর্ম বা ইমেইলেও অনুরোধ পাঠাতে পারো; অনুরোধ ৩০ দিনের মধ্যে নিষ্পত্তি করে ইমেইলে জানানো হয়।" },
+{ h: "১৩. শিশুদের গোপনীয়তা", p: "লেখনী কাহিনি ১৫ বছর বা ততোধিক বয়সীদের জন্য। ব্যবহারের আগে তোমার বয়স কমপক্ষে ১৫ তা নিশ্চিত করতে বলা হয়। ১৫ বছরের কম কারো তথ্য জেনে সংগ্রহ করি না। অভিভাবক হিসেবে মনে হলে তোমার সন্তান তথ্য দিয়েছে, আমাদের জানাও — মুছে দেবো।" },
+{ h: "১৪. তোমার পছন্দ ও অধিকার", p: "নোটিফিকেশন চালু/বন্ধ, ভাষা ও পড়ার সেটিংস বদলাতে পারো। অ্যাপ বা ইমেইলের মাধ্যমে তোমার তথ্য দেখতে, ঠিক করতে বা মুছতে পারো। ডিভাইস থেকে অ্যাপ মুছলে স্থানীয় তথ্য মুছে যায়; সার্ভারের তথ্য উপরের মোছার পদ্ধতিতে মুছে।" },
+{ h: "১৫. নীতির পরিবর্তন", p: "অ্যাপ বদলালে এই নীতি আপডেট হতে পারে। গুরুত্বপূর্ণ পরিবর্তন অ্যাপের ভেতরে জানানো হবে এবং উপরের তারিখ বদলাবে। পরিবর্তনের পর অ্যাপ ব্যবহার চালিয়ে গেলে নতুন নীতি মেনে নিলে বলে ধরা হবে।" },
+{ h: "১৬. যোগাযোগ", p: "ডেভেলপার: কাওসার হোসেন। ইমেইল: lekhoni-kahini@xyteee.com। গোপনীয়তা প্রশ্ন ও মোছার অনুরোধের উত্তর ৪৮ ঘণ্টার মধ্যে দিই।" },
+] } };
+
+function PrivacyPolicyScreen({theme:t,onBack}:{theme:Theme;onBack:()=>void}){
+  const insets=useSafeAreaInsets();
+  const[plang,setPlang]=useState<'en'|'bn'>('en');
+  const c=PRIVACY_POLICY[plang];
+  return <View style={{flex:1,backgroundColor:t.bg}}>
+    <View style={{flexDirection:'row',alignItems:'center',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
+      <Pressable onPress={onBack} hitSlop={10}><Feather name="arrow-left" size={22} color={t.ink}/></Pressable>
+      <T style={{fontSize:16,fontWeight:'900',color:t.ink,marginLeft:14,flex:1}}>{c.title}</T>
+      <View style={{flexDirection:'row',backgroundColor:t.tint,borderRadius:9,padding:2,borderWidth:1,borderColor:t.line}}>
+        {(['en','bn'] as const).map(l=><Pressable key={l} onPress={()=>setPlang(l)} style={{paddingHorizontal:10,paddingVertical:5,borderRadius:7,backgroundColor:plang===l?t.primary:'transparent'}}><T style={{fontSize:11,fontWeight:'800',color:plang===l?'#fff':t.muted}}>{l==='en'?'EN':'বাং'}</T></Pressable>)}
+      </View>
+    </View>
+    <ScrollView contentContainerStyle={{padding:16,paddingBottom:40}} showsVerticalScrollIndicator={false}>
+      <View style={{borderRadius:18,overflow:'hidden',marginBottom:14,backgroundColor:'#7B1E2B',padding:18,borderWidth:1,borderColor:'#C9972B55'}}>
+        <View style={{flexDirection:'row',alignItems:'center',gap:8,marginBottom:6}}><Feather name="shield" size={18} color="#EAC97A"/><T style={{fontSize:17,fontWeight:'900',color:'#fff'}}>Lekhoni Kahini</T></View>
+        <T style={{fontSize:12,color:'#EAC97A',marginBottom:4}}>{c.updated}</T>
+        <T style={{fontSize:12,color:'#ffffffDD',lineHeight:19}}>{c.intro}</T>
+      </View>
+      {c.sections.map((s,i)=><View key={i} style={{backgroundColor:t.card,borderRadius:12,padding:14,borderWidth:1,borderColor:t.line,marginBottom:10}}>
+        <T style={{fontSize:13,fontWeight:'800',color:t.primary,marginBottom:6}}>{s.h}</T>
+        <T style={{fontSize:12,color:t.ink,lineHeight:20}}>{s.p}</T>
+      </View>)}
+      <Pressable onPress={()=>{try{Linking.openURL('https://lekhoni-terms.pages.dev/privacy.html')}catch{}}} style={{backgroundColor:t.card,borderRadius:12,padding:14,borderWidth:1,borderColor:t.line,flexDirection:'row',alignItems:'center',gap:8}}>
+        <Feather name="globe" size={15} color={t.primary}/>
+        <T style={{fontSize:12,fontWeight:'700',color:t.ink,flex:1}}>{plang==='bn'?'ওয়েবে পড়ুন':'Read on the web'}</T>
+        <Feather name="external-link" size={14} color={t.muted}/>
+      </Pressable>
+    </ScrollView>
+  </View>;
+}
+
+function TermsScreen({theme:t,lang,onBack,onFullPolicy}:{theme:Theme;lang:Language;onBack:()=>void;onFullPolicy?:()=>void}){
   const insets=useSafeAreaInsets();
   const[tab,setTab]=useState<'terms'|'privacy'|'content'>('terms');
   const tabs={terms:copy(lang,'termsOfService'),privacy:copy(lang,'privacyPolicy'),content:copy(lang,'contentPolicy')} as const;
@@ -3108,6 +3180,7 @@ function TermsScreen({theme:t,lang,onBack}:{theme:Theme;lang:Language;onBack:()=
         <T style={{fontSize:14,fontWeight:'800',color:t.ink,marginBottom:4}}>{content[tab].title}</T>
         <T style={{fontSize:10,color:t.muted,marginBottom:12}}>{copy(lang,'lastUpdated')}: 2026-08-31</T>
         {content[tab].sections.map((s,i)=><T key={i} style={{fontSize:12,color:t.ink,lineHeight:20,marginBottom:10}}>{s}</T>)}
+        {tab==='privacy'&&onFullPolicy&&<Pressable onPress={onFullPolicy} style={{marginTop:4,backgroundColor:t.primary,borderRadius:10,paddingVertical:11,alignItems:'center',flexDirection:'row',justifyContent:'center',gap:6}}><Feather name="shield" size={14} color="#fff"/><T style={{color:'#fff',fontWeight:'800',fontSize:12}}>{lang==='bn'?'সম্পূর্ণ গোপনীয়তা নীতি':lang==='hi'?'पूर्ण गोपनीयता नीति':'Full Privacy Policy'}</T></Pressable>}
       </View>
       <View style={{backgroundColor:t.card,borderRadius:12,padding:14,borderWidth:1,borderColor:t.line,marginTop:12}}>
         <View style={{flexDirection:'row',alignItems:'center',gap:6,marginBottom:6}}>
