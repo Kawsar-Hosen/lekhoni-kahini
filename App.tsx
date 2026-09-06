@@ -2526,25 +2526,25 @@ function Writer(p:C){
     {studioTab==='profile'&&<WriterProfileStudio token={token} theme={t} writer={p.state.writer} lang={lang} onUpdate={(patch)=>p.update({writer:{...p.state.writer!,...patch}})} onDeleteAccount={()=>setShowDeleteConfirm(true)}/>}
     {studioTab==='notifications'&&<WriterNotifs token={token} theme={t} lang={lang} deviceID={p.state.deviceId} p={p}/>}
     </>}
-    {showLogoutConfirm&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.5)',justifyContent:'center',alignItems:'center',padding:24,zIndex:999}}>
-      <View style={{width:'100%',backgroundColor:t.card,borderRadius:22,padding:24,alignItems:'center',borderWidth:1,borderColor:t.line}}>
-        <View style={{width:56,height:56,borderRadius:28,backgroundColor:'#FEE2E2',alignItems:'center',justifyContent:'center',marginBottom:16}}>
-          <Feather name="log-out" size={28} color="#EF4444"/>
+    {showLogoutConfirm&&<View style={{backgroundColor:t.card,borderRadius:18,padding:20,alignItems:'center',borderWidth:1.5,borderColor:'#EF444466',marginTop:4}}>
+      <View style={{flexDirection:'row',alignItems:'center',gap:10,marginBottom:8}}>
+        <View style={{width:40,height:40,borderRadius:20,backgroundColor:'#FEE2E2',alignItems:'center',justifyContent:'center'}}>
+          <Feather name="log-out" size={20} color="#EF4444"/>
         </View>
-        <T style={{fontSize:18,fontWeight:'900',color:t.ink,textAlign:'center',marginBottom:8}}>লগ আউট করবেন?</T>
-        <T style={{fontSize:13,color:t.muted,textAlign:'center',lineHeight:20,marginBottom:20}}>
-          {lang==='bn'?'আপনি রাইটার স্টুডিও থেকে লগ আউট করতে চাচ্ছেন। লগ আউট করলে আপনাকে আবার লগইন করতে হবে।':
-          lang==='hi'?'आप राइटर स्टूडियो से लॉग आउट करने जा रहे हैं। लॉग आउट करने के बाद आपको फिर से लॉगिन करना होगा।':
-          'You are about to log out from Writer Studio. You will need to log in again.'}
-        </T>
-        <View style={{flexDirection:'row',gap:10,width:'100%'}}>
-          <Pressable onPress={()=>setShowLogoutConfirm(false)} style={{flex:1,height:48,borderRadius:14,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
-            <T style={{color:t.primary,fontWeight:'800',fontSize:14}}>{lang==='bn'?'বাতিল':lang==='hi'?'रद्द करें':'Cancel'}</T>
-          </Pressable>
-          <Pressable onPress={()=>{setShowLogoutConfirm(false);clearTokens().catch(()=>{});p.update({writer:null,writerToken:null,followedWriters:[]})}} style={{flex:1,height:48,borderRadius:14,backgroundColor:'#EF4444',alignItems:'center',justifyContent:'center'}}>
-            <T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{lang==='bn'?'হ্যাঁ, লগ আউট':lang==='hi'?'हाँ, लॉग आउट':'Yes, Log out'}</T>
-          </Pressable>
-        </View>
+        <T style={{fontSize:17,fontWeight:'900',color:t.ink}}>লগ আউট করবেন?</T>
+      </View>
+      <T style={{fontSize:13,color:t.muted,textAlign:'center',lineHeight:20,marginBottom:16}}>
+        {lang==='bn'?'আপনি রাইটার স্টুডিও থেকে লগ আউট করতে চাচ্ছেন। লগ আউট করলে আপনাকে আবার লগইন করতে হবে।':
+        lang==='hi'?'आप राइटर स्टूडियो से लॉग आउट करने जा रहे हैं। लॉग आउट करने के बाद आपको फिर से लॉगिन करना होगा।':
+        'You are about to log out from Writer Studio. You will need to log in again.'}
+      </T>
+      <View style={{flexDirection:'row',gap:10,width:'100%'}}>
+        <Pressable onPress={()=>setShowLogoutConfirm(false)} style={{flex:1,height:48,borderRadius:14,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}>
+          <T style={{color:t.primary,fontWeight:'800',fontSize:14}}>{lang==='bn'?'বাতিল':lang==='hi'?'रद्द करें':'Cancel'}</T>
+        </Pressable>
+        <Pressable onPress={()=>{setShowLogoutConfirm(false);clearTokens().catch(()=>{});p.update({writer:null,writerToken:null,followedWriters:[]})}} style={{flex:1,height:48,borderRadius:14,backgroundColor:'#EF4444',alignItems:'center',justifyContent:'center'}}>
+          <T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{lang==='bn'?'হ্যাঁ, লগ আউট':lang==='hi'?'हाँ, लॉग आउट':'Yes, Log out'}</T>
+        </Pressable>
       </View>
     </View>}
     {showDeleteConfirm&&<DeleteAccountModal token={token} theme={t} lang={lang} onClose={()=>setShowDeleteConfirm(false)} onDeleted={()=>{setShowDeleteConfirm(false);clearTokens().catch(()=>{});p.update({writer:null,writerToken:null,followedWriters:[]})}}/>}
