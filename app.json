@@ -38,17 +38,7 @@
           "microphonePermission": false
         }
       ],
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "compileSdkVersion": 36,
-            "targetSdkVersion": 36,
-            "minSdkVersion": 24
-          }
-        }
-      ],
-      [
+        [
         "expo-image-picker",
         {
           "cameraPermission": false,
