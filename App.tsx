@@ -2526,7 +2526,9 @@ function Writer(p:C){
     {studioTab==='profile'&&<WriterProfileStudio token={token} theme={t} writer={p.state.writer} lang={lang} onUpdate={(patch)=>p.update({writer:{...p.state.writer!,...patch}})} onDeleteAccount={()=>setShowDeleteConfirm(true)}/>}
     {studioTab==='notifications'&&<WriterNotifs token={token} theme={t} lang={lang} deviceID={p.state.deviceId} p={p}/>}
     </>}
-    {showLogoutConfirm&&<View style={{backgroundColor:t.card,borderRadius:18,padding:20,alignItems:'center',borderWidth:1.5,borderColor:'#EF444466',marginTop:4}}>
+    {showLogoutConfirm&&<View style={{position:'absolute',top:0,left:0,right:0,bottom:0,justifyContent:'center',alignItems:'center',padding:24,zIndex:999}}>
+      <Pressable onPress={()=>setShowLogoutConfirm(false)} style={{position:'absolute',top:0,left:0,right:0,bottom:0}}/>
+      <View style={{width:'100%',backgroundColor:t.card,borderRadius:22,padding:24,alignItems:'center',borderWidth:1.5,borderColor:'#EF444466',elevation:12,shadowColor:'#000',shadowOpacity:0.3,shadowRadius:16,shadowOffset:{width:0,height:6}}}>
       <View style={{flexDirection:'row',alignItems:'center',gap:10,marginBottom:8}}>
         <View style={{width:40,height:40,borderRadius:20,backgroundColor:'#FEE2E2',alignItems:'center',justifyContent:'center'}}>
           <Feather name="log-out" size={20} color="#EF4444"/>
@@ -2545,6 +2547,7 @@ function Writer(p:C){
         <Pressable onPress={()=>{setShowLogoutConfirm(false);clearTokens().catch(()=>{});p.update({writer:null,writerToken:null,followedWriters:[]})}} style={{flex:1,height:48,borderRadius:14,backgroundColor:'#EF4444',alignItems:'center',justifyContent:'center'}}>
           <T style={{color:'#fff',fontWeight:'800',fontSize:14}}>{lang==='bn'?'হ্যাঁ, লগ আউট':lang==='hi'?'हाँ, लॉग आउट':'Yes, Log out'}</T>
         </Pressable>
+      </View>
       </View>
     </View>}
     {showDeleteConfirm&&<DeleteAccountModal token={token} theme={t} lang={lang} onClose={()=>setShowDeleteConfirm(false)} onDeleted={()=>{setShowDeleteConfirm(false);clearTokens().catch(()=>{});p.update({writer:null,writerToken:null,followedWriters:[]})}}/>}
