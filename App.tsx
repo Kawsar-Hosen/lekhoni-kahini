@@ -2739,6 +2739,9 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   const[uploadingPdf,setUploadingPdf]=useState(false);
   const[dedication,setDedication]=useState('');
   const[authorName,setAuthorName]=useState('');
+  const[created,setCreated]=useState<any|null>(null);
+  const[submitting,setSubmitting]=useState(false);
+  const[submitted,setSubmitted]=useState<string|null>(null);
   const formScroll=useRef<ScrollView|null>(null);
   const scrollFormEnd=()=>{try{formScroll.current?.scrollToEnd({animated:true})}catch{}};
   const onDedicationChange=(v:string)=>{const w=v.trim()?v.trim().split(/\s+/):[];if(w.length<=50)setDedication(v);else setDedication(w.slice(0,50).join(' ')+(v.endsWith(' ')||v.endsWith('\n')?' ':''))};
@@ -2764,16 +2767,47 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
     }
     const r=await createWriterStory(token,finalTitle,desc.trim(),category||localCats[0]||'',cover||undefined,mode==='pdf'?'complete':(displayStatus==='ongoing'?'ongoing':'complete'),mode==='pdf'?'complete':(displayStatus==='ongoing'?'ongoing':'complete'),hideTitle,pdfUrl,dedication,authorName.trim());
     if(r){
-      onCreated();
+      setCreated(r);
     }else{Alert.alert('ত্রুটি','গল্প তৈরি ব্যর্থ হয়েছে। আবার চেষ্টা করুন।')}
     setSaving(false);
   };
+  const doSubmitReview=async()=>{if(!created||submitting)return;setSubmitting(true);try{const rs=await submitStoryForReviewEx(token,created.id);if(rs.ok)setSubmitted(rs.status||'pending');else Alert.alert('ত্রুটি',(rs as any).error||'জমা ব্যর্থ হয়েছে। আবার চেষ্টা করুন।')}catch{Alert.alert('ত্রুটি','জমা ব্যর্থ হয়েছে। আবার চেষ্টা করুন।')}setSubmitting(false)};
   const addNewCat=()=>{if(newCatName.trim()&&!localCats.includes(newCatName.trim())){setLocalCats(c=>[...c,newCatName.trim()]);setCategory(newCatName.trim());setNewCatName('');setShowNewCat(false)}};
   const fmtCover=():React.ReactNode=>{
     if(!coverPreview)return <View style={{width:80,height:110,borderRadius:10,backgroundColor:t.primary+'22',alignItems:'center',justifyContent:'center'}}><Feather name="book-open" size={22} color={t.primary}/></View>;
     if(hideTitle)return <Image source={{uri:coverPreview}} style={{width:80,height:110,borderRadius:10}} resizeMode="cover"/>;
     return <View style={{width:80,height:110,borderRadius:10,overflow:'hidden',backgroundColor:'#4A1220'}}><Image source={{uri:coverPreview}} style={{position:'absolute',top:0,left:0,right:0,bottom:0}} resizeMode="cover"/><View style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'rgba(0,0,0,0.2)'}}/><Feather name="book-open" size={18} color="#C9972B" style={{position:'absolute',top:10,left:10}}/><T numberOfLines={2} style={{position:'absolute',bottom:10,left:10,right:10,color:'#fff',fontWeight:'900',fontSize:11,lineHeight:14}}>{title||'...'}</T></View>;
   };
+  if(created)return <View style={{flex:1,backgroundColor:t.bg}}>
+    <View style={{flexDirection:'row',alignItems:'center',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
+      <Feather name="feather" size={16} color={t.primary}/>
+      <T style={{fontSize:13,fontWeight:'800',color:t.primary,marginLeft:6}}>{copy(lang,'writeStudio')}</T>
+    </View>
+    <ScrollView contentContainerStyle={{flexGrow:1,justifyContent:'center',padding:24}} showsVerticalScrollIndicator={false}>
+      <View style={{alignItems:'center',marginBottom:20}}>
+        <View style={{width:84,height:84,borderRadius:42,backgroundColor:submitted?'#10B981':'#C9972B',alignItems:'center',justifyContent:'center',marginBottom:14}}>
+          <Feather name="check" size={38} color="#fff"/>
+        </View>
+        <T style={{fontSize:20,fontWeight:'900',color:t.ink,textAlign:'center'}}>{submitted?(submitted==='published'?(lang==='bn'?'গল্প প্রকাশিত হয়েছে!':lang==='hi'?'कहानी प्रकाशित हो गई!':'Story published!'):(lang==='bn'?'পর্যালোচনায় পাঠানো হয়েছে!':lang==='hi'?'समीक्षा के लिए भेजा गया!':'Sent for review!')):(lang==='bn'?'গল্প তৈরি হয়েছে!':lang==='hi'?'कहानी बन गई!':'Story created!')}</T>
+        <T numberOfLines={2} style={{fontSize:14,fontWeight:'700',color:t.primary,textAlign:'center',marginTop:6}}>{created.title}</T>
+      </View>
+      <View style={{backgroundColor:t.card,borderRadius:14,padding:16,borderWidth:1,borderColor:t.line,marginBottom:20}}>
+        <T style={{fontSize:13,color:t.ink,lineHeight:21,textAlign:'center'}}>{submitted?(submitted==='published'?(lang==='bn'?'তোমার গল্প এখন পাঠকরা পড়তে পারবে। আমার গল্প থেকে অধ্যায় যোগ করতে পারো।':lang==='hi'?'आपकी कहानी अब पाठक पढ़ सकते हैं। मेरी कहानियों से अध्याय जोड़ें।':'Readers can now read your story. Add chapters from My Stories.'):(lang==='bn'?'আমাদের দল পর্যালোচনা করে প্রকাশ করবে। অনুমোদনের পর আমার গল্প থেকে প্রথম অধ্যায় যোগ কোরো।':lang==='hi'?'हमारी टीम समीक्षा करके प्रकाशित करेगी। अनुमोदन के बाद मेरी कहानियों से पहला अध्याय जोड़ें।':'Our team will review and publish. After approval, add the first chapter from My Stories.')):(lang==='bn'?'এখন পর্যালোচনার জন্য পাঠাও, তাহলে আমাদের দল দেখে প্রকাশ করবে। পরে পাঠাতে চাইলে আমার গল্প থেকে পাঠাতে পারবে।':lang==='hi'?'अब समीक्षा के लिए भेजें, हमारी टीम देखकर प्रकाशित करेगी। बाद में भेजना हो तो मेरी कहानियों से भेज सकते हैं।':'Submit for review now and our team will publish after checking. Or submit later from My Stories.')}</T>
+      </View>
+      {!submitted?<>
+        <Pressable disabled={submitting} onPress={doSubmitReview} style={{backgroundColor:t.primary,borderRadius:14,height:52,alignItems:'center',justifyContent:'center',flexDirection:'row',gap:8,opacity:submitting?0.6:1,marginBottom:10}}>
+          {submitting?<ActivityIndicator color="#fff" size="small"/>:<Feather name="send" size={16} color="#fff"/>}
+          <T style={{color:'#fff',fontWeight:'800',fontSize:15}}>{copy(lang,'submitReview')}</T>
+        </Pressable>
+        <Pressable onPress={onCreated} style={{borderRadius:14,height:52,alignItems:'center',justifyContent:'center',borderWidth:1.5,borderColor:t.primary}}>
+          <T style={{color:t.primary,fontWeight:'800',fontSize:15}}>{lang==='bn'?'পরে':lang==='hi'?'बाद में':'Later'}</T>
+        </Pressable>
+      </>:
+      <Pressable onPress={onCreated} style={{backgroundColor:'#10B981',borderRadius:14,height:52,alignItems:'center',justifyContent:'center'}}>
+        <T style={{color:'#fff',fontWeight:'800',fontSize:15}}>{lang==='bn'?'ঠিক আছে':lang==='hi'?'ठीक है':'OK'}</T>
+      </Pressable>}
+    </ScrollView>
+  </View>;
   return <KeyboardAvoidingView style={{flex:1,backgroundColor:t.bg}} behavior={Platform.OS==='ios'?'padding':'height'} keyboardVerticalOffset={insets.top}>
     <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingHorizontal:14,paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
       <Pressable onPress={onBack} style={{flexDirection:'row',alignItems:'center',gap:4}}>
