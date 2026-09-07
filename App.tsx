@@ -819,6 +819,7 @@ function Profile(p:C){
   </Page>}
 
 function calcStreak(a:Record<string,{minutes:number;episodes:number}>):number{let s=0;const today=new Date();const tkey=today.toISOString().slice(0,10);let i=a[tkey]?.episodes?0:1;for(;i<366;i++){const d=new Date(today);d.setDate(d.getDate()-i);if(a[d.toISOString().slice(0,10)]?.episodes)s++;else break}return s}
+function fmtCount(n:number):string{const v=Math.round(n||0);if(v<1000)return `${v}`;if(v<1000000){const k=v/1000;return `${k>=100?Math.round(k):Math.round(k*10)/10}k`.replace('.0k','k')}const m=v/1000000;return `${m>=100?Math.round(m):Math.round(m*10)/10}M`.replace('.0M','M')}
 function calcWeekMins(a:Record<string,{minutes:number;episodes:number}>):number{let t2=0;const today=new Date();for(let i=0;i<7;i++){const d=new Date(today);d.setDate(d.getDate()-6+i);t2+=a[d.toISOString().slice(0,10)]?.minutes||0}return t2}
 function calcWeekEps(a:Record<string,{minutes:number;episodes:number}>):number{let t2=0;const today=new Date();for(let i=0;i<7;i++){const d=new Date(today);d.setDate(d.getDate()-6+i);t2+=a[d.toISOString().slice(0,10)]?.episodes||0}return t2}
 
@@ -1119,11 +1120,11 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
             <T style={{fontSize:14,fontWeight:'800',color:phase==='followed'?'#fff':'#4A1220'}}>{phase==='followed'?'ফলো করছেন':tr(p,'follow')}</T>
           </Pressable>}
           <View style={{flexDirection:'row',alignItems:'center',marginTop:16,backgroundColor:'rgba(0,0,0,0.25)',borderRadius:14,paddingVertical:12}}>
-            <View style={{alignItems:'center',flex:1}}><T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{published}</T><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A',marginTop:2}}>প্রকাশিত</T></View>
+            <View style={{alignItems:'center',flex:1}}><T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{fmtCount(published)}</T><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A',marginTop:2}}>প্রকাশিত</T></View>
             <View style={{width:1,height:34,backgroundColor:'#ffffff22'}}/>
-            <View style={{alignItems:'center',flex:1}}><T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{liveTotalReads}</T><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A',marginTop:2}}>মোট পাঠ</T></View>
+            <View style={{alignItems:'center',flex:1}}><T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{fmtCount(liveTotalReads)}</T><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A',marginTop:2}}>মোট পাঠ</T></View>
             <View style={{width:1,height:34,backgroundColor:'#ffffff22'}}/>
-            <View style={{alignItems:'center',flex:1}}><T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{liveFollowers}</T><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A',marginTop:2}}>অনুসারী</T></View>
+            <View style={{alignItems:'center',flex:1}}><T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{fmtCount(liveFollowers)}</T><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A',marginTop:2}}>অনুসারী</T></View>
           </View>
         </View>
       </View>
