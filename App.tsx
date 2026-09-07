@@ -1121,7 +1121,6 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
             <T style={{fontSize:14,fontWeight:'800',color:phase==='followed'?'#fff':'#4A1220'}}>{phase==='followed'?'ফলো করছেন':tr(p,'follow')}</T>
           </Pressable>}</StaggerIn>}
           <StaggerIn delay={250}><View style={{flexDirection:'row',alignItems:'center',marginTop:16,backgroundColor:'rgba(0,0,0,0.25)',borderRadius:14,paddingVertical:12}}>
-          <View style={{flexDirection:'row',alignItems:'center',marginTop:16,backgroundColor:'rgba(0,0,0,0.25)',borderRadius:14,paddingVertical:12}}>
             <View style={{alignItems:'center',flex:1}}><T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{fmtCount(published)}</T><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A',marginTop:2}}>প্রকাশিত</T></View>
             <View style={{width:1,height:34,backgroundColor:'#ffffff22'}}/>
             <View style={{alignItems:'center',flex:1}}><T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{fmtCount(liveTotalReads)}</T><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A',marginTop:2}}>মোট পাঠ</T></View>
