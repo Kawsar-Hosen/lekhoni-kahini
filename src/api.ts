@@ -528,6 +528,13 @@ export async function deleteReaderData(deviceKey: string): Promise<{ ok: boolean
   return { ok: false, error: r.error || 'Delete failed' };
 }
 
+export type AppVersionInfo = { androidVersionCode: number; androidVersionName: string; force: boolean };
+export async function fetchAppVersion(): Promise<AppVersionInfo | null> {
+  const r = await apiFetch<AppVersionInfo>('/api/public/app-version', undefined, { timeout: 10000 });
+  if (!r || typeof r.androidVersionCode !== 'number') return null;
+  return r;
+}
+
 export async function submitReport(bookId: string, reason: string, details: string, deviceId: string, reporterName: string): Promise<{ ok: boolean; error?: string }> {
   try {
     const controller = new AbortController();
