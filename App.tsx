@@ -818,7 +818,7 @@ function Profile(p:C){
     </ScrollView>
   </Page>}
 
-function calcStreak(a:Record<string,{minutes:number;episodes:number}>):number{let s=0;const today=new Date();for(let i=0;i<365;i++){const d=new Date(today);d.setDate(d.getDate()-i);if(a[d.toISOString().slice(0,10)]?.episodes)s++;else break}return s}
+function calcStreak(a:Record<string,{minutes:number;episodes:number}>):number{let s=0;const today=new Date();const tkey=today.toISOString().slice(0,10);let i=a[tkey]?.episodes?0:1;for(;i<366;i++){const d=new Date(today);d.setDate(d.getDate()-i);if(a[d.toISOString().slice(0,10)]?.episodes)s++;else break}return s}
 function calcWeekMins(a:Record<string,{minutes:number;episodes:number}>):number{let t2=0;const today=new Date();for(let i=0;i<7;i++){const d=new Date(today);d.setDate(d.getDate()-6+i);t2+=a[d.toISOString().slice(0,10)]?.minutes||0}return t2}
 function calcWeekEps(a:Record<string,{minutes:number;episodes:number}>):number{let t2=0;const today=new Date();for(let i=0;i<7;i++){const d=new Date(today);d.setDate(d.getDate()-6+i);t2+=a[d.toISOString().slice(0,10)]?.episodes||0}return t2}
 
@@ -1298,7 +1298,7 @@ function PdfDetailsScreen(p:C&{book:Book}){
     }catch{}
   };
   const ensurePdfRegistered=()=>{if(!p.state.downloads.includes(b.id))p.update({downloads:[...p.state.downloads,b.id]})};
-  const openPdf=(localUri?:string|null)=>{const src=localUri||pdfLocalUri||b.pdf_url;if(src)p.setScreen({type:'pdfReader',id:b.id,pdfUrl:src,title:b.title})};
+  const openPdf=(localUri?:string|null)=>{const src=localUri||pdfLocalUri||b.pdf_url;if(src){const today=new Date().toISOString().slice(0,10);const ra=p.state.readingActivity;const cur=ra[today]||{minutes:0,episodes:0};p.update({readingActivity:{...ra,[today]:{minutes:cur.minutes||0,episodes:(cur.episodes||0)+1}});p.setScreen({type:'pdfReader',id:b.id,pdfUrl:src,title:b.title})}};
   const startPdf=async()=>{
     if(downloading)return;
     if(pdfLocalUri||!b.pdf_url){openPdf();return}
@@ -1867,7 +1867,7 @@ useEffect(()=>{let loop:any=null;if(speaking){loop=Animated.loop(Animated.sequen
 useEffect(()=>{const timer=setInterval(()=>{setReadSeconds(prev=>prev+1)},60000);return()=>clearInterval(timer)},[]);
 useEffect(()=>{if(s.keepScreenOn)activateKeepAwake('lekhoni');else deactivateKeepAwake();return()=>{deactivateKeepAwake().catch(()=>{})}},[s.keepScreenOn]);
 useEffect(()=>{const timer=setInterval(()=>{const today=new Date().toISOString().slice(0,10);const cur=stRef.current.readingActivity[today]||{minutes:0,episodes:0};p.update({readingActivity:{...stRef.current.readingActivity,[today]:{minutes:(cur.minutes||0)+1,episodes:cur.episodes||0}}})},60000);return()=>clearInterval(timer)},[]);
-useEffect(()=>{p.update({positions:{...stRef.current.positions,[p.book.id+'_lastChapter']:p.chapter}});},[p.chapter]);
+useEffect(()=>{const today=new Date().toISOString().slice(0,10);const ra=stRef.current.readingActivity;const cur=ra[today]||{minutes:0,episodes:0};p.update({positions:{...stRef.current.positions,[p.book.id+'_lastChapter']:p.chapter},readingActivity:{...ra,[today]:{minutes:cur.minutes||0,episodes:(cur.episodes||0)+1}}});},[p.chapter]);
 useEffect(()=>{trackEvent(p.state.deviceId,p.book.id,'view').catch(()=>{});},[p.book.id]);
 const change=(patch:Partial<LocalState['settings']>)=>p.update({settings:{...p.state.settings,...patch}});
 useEffect(()=>{if(autoScrollRef.current){clearInterval(autoScrollRef.current);autoScrollRef.current=null}if(s.autoScroll){const ms=Math.max(30,120-s.autoScrollSpeed*20);autoScrollRef.current=setInterval(()=>{autoOffsetRef.current+=2;scrollRef.current?.scrollTo({y:autoOffsetRef.current,animated:false})},ms)}return()=>{if(autoScrollRef.current){clearInterval(autoScrollRef.current);autoScrollRef.current=null}}},[s.autoScroll,s.autoScrollSpeed]);
