@@ -69,7 +69,7 @@ function SplashScreen({theme}:{theme:Theme}){
     </Animated.View>
     <View style={{position:'absolute',bottom:32,alignItems:'center'}}>
       <T style={{color:'rgba(250,246,241,0.35)',fontSize:9,fontWeight:'500',letterSpacing:1}}>LEKHONI KAHINI</T>
-      <T style={{color:'rgba(250,246,241,0.3)',fontSize:10,marginTop:3}}>v1.1.0</T>
+      <T style={{color:'rgba(250,246,241,0.3)',fontSize:10,marginTop:3}}>v1.2.0</T>
     </View>
   </View>;
 }
@@ -2244,7 +2244,7 @@ function Settings(p:C){
           <T style={[styles.rowTitle,{color:t.ink}]}>Lekhoni Kahini</T>
           <T style={{fontSize:11,color:t.muted,marginTop:1}}>© 2026 Kawsar Hosen</T>
         </View>
-         <T style={{color:t.primary,fontSize:12,fontWeight:'700'}}>v1.1.0</T></View></View>
+         <T style={{color:t.primary,fontSize:12,fontWeight:'700'}}>v1.2.0</T></View></View>
     </Section>
   </Page>{confirm&&<ConfirmModal theme={t} lang={language} kind={confirm.kind} onClose={()=>setConfirm(null)} onConfirm={async()=>{const k=confirm.kind;if(k==='search')p.update({searchHistory:[]});else if(k==='downloads')p.update({downloads:[]});else if(k==='reset'){p.update(initialState);await clearState();}else if(k==='deleteData'){try{const r=await deleteReaderData(p.state.deviceId);if(!r.ok){Alert.alert('ত্রুটি',r.error||copy(language,'networkError'));return}}catch{Alert.alert('ত্রুটি',copy(language,'networkError'));return}p.update(initialState);await clearState();}setConfirm(null);}}/>}</View>}
 function GoogleSignInButton({onResult,onError,theme:t,lang}:{onResult:(w:any,token:string)=>void;onError:(msg:string)=>void;theme:Theme;lang:Language}){
@@ -3453,7 +3453,7 @@ function AboutAppScreen({theme:t,lang,onBack}:{theme:Theme;lang:Language;onBack:
           <Feather name="heart" size={11} color="#EF4444"/>
           <T style={{fontSize:10,color:t.muted}}>{apiData?.developer||'Kawsar Hosen'}</T>
         </View>
-         <T style={{fontSize:9,color:t.muted}}>Version {apiData?.version||'1.1.0'}</T>
+         <T style={{fontSize:9,color:t.muted}}>Version {apiData?.version||'1.2.0'}</T>
       </View>
     </ScrollView>
   </View>;
