@@ -2732,8 +2732,6 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   const[showNewCat,setShowNewCat]=useState(false);
   const[newCatName,setNewCatName]=useState('');
   const[localCats,setLocalCats]=useState<string[]>(categories);
-  const[chTitle,setChTitle]=useState('');
-  const[chBody,setChBody]=useState('');
   const[showPreview,setShowPreview]=useState(false);
   useEffect(()=>{registerTopDismiss?.(showPreview?()=>{setShowPreview(false);return true}:showNewCat?()=>{setShowNewCat(false);return true}:catOpen?()=>{setCatOpen(false);return true}:null)},[showPreview,showNewCat,catOpen]);
   const[hideTitle,setHideTitle]=useState(false);
@@ -2747,7 +2745,6 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
   const TITLE_MAX=60;const DESC_MAX=500;
   const missingFields:string[]=[];
   if(mode!=='pdf'&&!title.trim())missingFields.push(copy(lang,'storyTitle'));
-  if(mode==='text'&&(!chTitle.trim()||!chBody.trim()))missingFields.push(copy(lang,'firstChapter'));
   if(mode==='pdf'&&!pdfFile)missingFields.push('PDF ফাইল');
   if(mode==='pdf'&&!title.trim())missingFields.push('শিরোনাম');
   if(mode==='pdf'&&!authorName.trim())missingFields.push('লেখকের নাম');
@@ -2767,7 +2764,6 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
     }
     const r=await createWriterStory(token,finalTitle,desc.trim(),category||localCats[0]||'',cover||undefined,mode==='pdf'?'complete':(displayStatus==='ongoing'?'ongoing':'complete'),mode==='pdf'?'complete':(displayStatus==='ongoing'?'ongoing':'complete'),hideTitle,pdfUrl,dedication,authorName.trim());
     if(r){
-      if(mode==='text'&&chTitle.trim()&&chBody.trim())await createStoryChapter(token,r.id,chTitle.trim(),chBody.trim());
       onCreated();
     }else{Alert.alert('ত্রুটি','গল্প তৈরি ব্যর্থ হয়েছে। আবার চেষ্টা করুন।')}
     setSaving(false);
@@ -2879,18 +2875,6 @@ function NewStoryScreen({token,theme:t,lang,categories,onBack,onCreated,initialM
             <View style={{width:22,height:22,borderRadius:11,backgroundColor:'#fff',alignItems:'center',justifyContent:'center',elevation:2,transform:[{translateX:hideTitle?18:0}]}}/>
           </View>
         </Pressable>}
-      </View>
-      <View style={{marginBottom:16}}>
-        <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',marginBottom:6}}>
-          <T style={{fontSize:11,fontWeight:'700',color:t.muted}}>{copy(lang,'firstChapter')}</T>
-        </View>
-        <TextInput value={chTitle} onChangeText={setChTitle} placeholder={copy(lang,'chapterTitle')} placeholderTextColor={t.muted+'88'} style={{color:t.ink,fontSize:14,fontWeight:'700',backgroundColor:t.card,borderWidth:1,borderColor:t.line,borderRadius:10,padding:10,marginBottom:8,fontFamily:GF()}}/>
-        <View style={{backgroundColor:t.card,borderWidth:1,borderColor:chBody.length>0?t.primary:t.line,borderRadius:12,overflow:'hidden'}}>
-          <TextInput value={chBody} onChangeText={setChBody} multiline placeholder={copy(lang,'chapterContentHint')} placeholderTextColor={t.muted+'88'} style={{color:t.ink,fontSize:14,minHeight:200,maxHeight:400,textAlignVertical:'top',padding:12,fontFamily:GF(),lineHeight:22}}/>
-          {chBody.length>0&&<View style={{flexDirection:'row',alignItems:'center',justifyContent:'flex-end',paddingHorizontal:12,paddingBottom:8}}>
-            <T style={{fontSize:10,color:t.muted}}>{chBody.length} {'\u0985\u0995\u09CD\u09B7\u09B0'}</T>
-          </View>}
-        </View>
       </View>
       <View style={{marginBottom:16}}>
         <T style={{fontSize:11,fontWeight:'700',color:t.muted,marginBottom:6}}>{copy(lang,'selectCategory')}</T>
