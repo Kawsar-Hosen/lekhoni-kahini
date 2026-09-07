@@ -1298,7 +1298,7 @@ function PdfDetailsScreen(p:C&{book:Book}){
     }catch{}
   };
   const ensurePdfRegistered=()=>{if(!p.state.downloads.includes(b.id))p.update({downloads:[...p.state.downloads,b.id]})};
-  const openPdf=(localUri?:string|null)=>{const src=localUri||pdfLocalUri||b.pdf_url;if(src){const today=new Date().toISOString().slice(0,10);const ra=p.state.readingActivity;const cur=ra[today]||{minutes:0,episodes:0};p.update({readingActivity:{...ra,[today]:{minutes:cur.minutes||0,episodes:(cur.episodes||0)+1}});p.setScreen({type:'pdfReader',id:b.id,pdfUrl:src,title:b.title})}};
+  const openPdf=(localUri?:string|null)=>{const src=localUri||pdfLocalUri||b.pdf_url;if(src){const today=new Date().toISOString().slice(0,10);const ra=p.state.readingActivity;const cur=ra[today]||{minutes:0,episodes:0};p.update({readingActivity:{...ra,[today]:{minutes:cur.minutes||0,episodes:(cur.episodes||0)+1}}});p.setScreen({type:'pdfReader',id:b.id,pdfUrl:src,title:b.title})}};
   const startPdf=async()=>{
     if(downloading)return;
     if(pdfLocalUri||!b.pdf_url){openPdf();return}
