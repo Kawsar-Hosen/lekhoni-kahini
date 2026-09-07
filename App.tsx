@@ -1119,7 +1119,7 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
           </View>:<Pressable onPress={phase==='followed'?doUnfollow:doFollow} style={{marginTop:14,height:48,borderRadius:14,backgroundColor:phase==='followed'?'rgba(255,255,255,0.15)':'#C9972B',borderWidth:phase==='followed'?1.5:0,borderColor:'#EAC97A88',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,alignSelf:'stretch'}}>
             <Feather name={phase==='followed'?'user-check':'user-plus'} size={16} color={phase==='followed'?'#fff':'#4A1220'}/>
             <T style={{fontSize:14,fontWeight:'800',color:phase==='followed'?'#fff':'#4A1220'}}>{phase==='followed'?'ফলো করছেন':tr(p,'follow')}</T>
-          </Pressable>}</StaggerIn>}
+          </Pressable></StaggerIn>}
           <StaggerIn delay={250}><View style={{flexDirection:'row',alignItems:'center',marginTop:16,backgroundColor:'rgba(0,0,0,0.25)',borderRadius:14,paddingVertical:12}}>
             <View style={{alignItems:'center',flex:1}}><T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{fmtCount(published)}</T><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A',marginTop:2}}>প্রকাশিত</T></View>
             <View style={{width:1,height:34,backgroundColor:'#ffffff22'}}/>
@@ -1147,7 +1147,7 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
             </View>
           </View>
           <Feather name="chevron-right" size={18} color={t.muted}/>
-        </Pressable>}</StaggerIn>)}
+        </Pressable></StaggerIn>)}
       </>}
       {writerBooks.length===0&&<StaggerIn delay={300}><View style={{alignItems:'center',paddingVertical:40}}>
   <Svg width={120} height={80} viewBox="0 0 120 80">
@@ -1158,7 +1158,7 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
   </Svg>
   <T style={{color:t.muted,fontSize:14,fontWeight:'700',marginTop:12}}>এর গল্পসমূহ ০</T>
   <T style={{color:t.muted,fontSize:12,marginTop:4}}>এই লেখক এখনো কোনো গল্প প্রকাশ করেননি</T>
-</View>}</StaggerIn>}
+</View></StaggerIn>}
     </ScrollView>
     {showAuth&&<AuthModal theme={t} lang={p.state.settings.language} onClose={()=>setShowAuth(false)} onGoto={()=>p.setScreen({type:'writer'})}/>}
   </Page>}
