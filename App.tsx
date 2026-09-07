@@ -1113,13 +1113,14 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
           </View>
           <T style={{fontSize:13,fontWeight:'700',color:'#EAC97A',marginTop:3}}>@{w.username}</T>
           {w.bio?<T style={{fontSize:13,color:'#F3E4D8',marginTop:8,textAlign:'center',lineHeight:20,maxWidth:300}}>{w.bio}</T>:null}
-          {isGuestWriter?null:<StaggerIn delay={150} style={{alignSelf:'stretch'}}>{phase==='spinning'?<View style={{marginTop:14,height:48,borderRadius:14,backgroundColor:'rgba(255,255,255,0.15)',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,alignSelf:'stretch'}}>
+          {!isGuestWriter&&phase==='spinning'&&<View style={{marginTop:14,height:48,borderRadius:14,backgroundColor:'rgba(255,255,255,0.15)',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,alignSelf:'stretch'}}>
             <Animated.View style={{transform:[{rotate:spinDeg}]}}><Feather name="loader" size={16} color="#EAC97A"/></Animated.View>
             <T style={{fontSize:14,fontWeight:'800',color:'#EAC97A'}}>{tr(p,'follow')}</T>
-          </View>:<Pressable onPress={phase==='followed'?doUnfollow:doFollow} style={{marginTop:14,height:48,borderRadius:14,backgroundColor:phase==='followed'?'rgba(255,255,255,0.15)':'#C9972B',borderWidth:phase==='followed'?1.5:0,borderColor:'#EAC97A88',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,alignSelf:'stretch'}}>
+          </View>}
+          {!isGuestWriter&&phase!=='spinning'&&<Pressable onPress={phase==='followed'?doUnfollow:doFollow} style={{marginTop:14,height:48,borderRadius:14,backgroundColor:phase==='followed'?'rgba(255,255,255,0.15)':'#C9972B',borderWidth:phase==='followed'?1.5:0,borderColor:'#EAC97A88',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,alignSelf:'stretch'}}>
             <Feather name={phase==='followed'?'user-check':'user-plus'} size={16} color={phase==='followed'?'#fff':'#4A1220'}/>
             <T style={{fontSize:14,fontWeight:'800',color:phase==='followed'?'#fff':'#4A1220'}}>{phase==='followed'?'ফলো করছেন':tr(p,'follow')}</T>
-          </Pressable></StaggerIn>}
+          </Pressable>}
           <StaggerIn delay={250}><View style={{flexDirection:'row',alignItems:'center',marginTop:16,backgroundColor:'rgba(0,0,0,0.25)',borderRadius:14,paddingVertical:12}}>
             <View style={{alignItems:'center',flex:1}}><T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{fmtCount(published)}</T><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A',marginTop:2}}>প্রকাশিত</T></View>
             <View style={{width:1,height:34,backgroundColor:'#ffffff22'}}/>
