@@ -17,7 +17,7 @@
     ],
     "android": {
       "package": "com.lekhoni.kahini",
-      "versionCode": 4,
+      "versionCode": 5,
       "blockedPermissions": [
         "com.google.android.gms.permission.AD_ID"
       ],
