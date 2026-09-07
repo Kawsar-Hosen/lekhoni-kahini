@@ -1099,36 +1099,52 @@ function WriterProfileView(p:C&{writer:import('./src/types').WriterProfile}){
     <Back title={tr(p,'writer')} theme={t} onPress={()=>p.goBack()}/>
     {p.isOffline&&<OfflineBanner theme={t} onRetry={()=>p.syncRemote?.()}/>}
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{paddingBottom:30}}>
-      <View style={{alignItems:'center',paddingTop:10,marginBottom:20}}>
-        {w.avatar_url?<Image source={{uri:w.avatar_url}} style={{width:100,height:100,borderRadius:24,backgroundColor:t.tint}}/>:<View style={{width:100,height:100,borderRadius:24,backgroundColor:t.tint,alignItems:'center',justifyContent:'center'}}><T style={{fontSize:40,fontWeight:'900',color:t.primary}}>{w.writer_name[0]?.toUpperCase()||'?'}</T></View>}
-        <View style={{flexDirection:'row',alignItems:'center',gap:6}}>
-          <T style={{fontSize:22,fontWeight:'900',color:t.ink}}>{w.writer_name}</T>
-          <BadgeIcon badge={w.badge} size={22}/>
+      <View style={{borderRadius:22,overflow:'hidden',backgroundColor:'#7B1E2B',marginBottom:8}}>
+        <LinearGradient colors={['#7B1E2B','#4A1220']} start={{x:0,y:0}} end={{x:1,y:1}} style={StyleSheet.absoluteFill}/>
+        <Svg style={StyleSheet.absoluteFill} pointerEvents="none"><Circle cx="90%" cy={8} r={70} fill="#C9972B26"/><Circle cx="2%" cy={120} r={60} fill="#ffffff10"/></Svg>
+        <View style={{height:96}}/>
+        <View style={{alignItems:'center',paddingHorizontal:18,paddingBottom:18,marginTop:-52}}>
+          {w.avatar_url?<Image source={{uri:w.avatar_url}} style={{width:96,height:96,borderRadius:48,borderWidth:4,borderColor:'#EAC97A'}}/>:<View style={{width:96,height:96,borderRadius:48,backgroundColor:'#ffffff1A',borderWidth:4,borderColor:'#EAC97A',alignItems:'center',justifyContent:'center'}}><T style={{fontSize:38,fontWeight:'900',color:'#fff'}}>{w.writer_name[0]?.toUpperCase()||'?'}</T></View>}
+          <View style={{flexDirection:'row',alignItems:'center',gap:6,marginTop:10}}>
+            <T style={{fontSize:22,fontWeight:'900',color:'#fff'}}>{w.writer_name}</T>
+            <BadgeIcon badge={w.badge} size={22}/>
+          </View>
+          <T style={{fontSize:13,fontWeight:'700',color:'#EAC97A',marginTop:3}}>@{w.username}</T>
+          {w.bio?<T style={{fontSize:13,color:'#F3E4D8',marginTop:8,textAlign:'center',lineHeight:20,maxWidth:300}}>{w.bio}</T>:null}
+          {isGuestWriter?null:phase==='spinning'?<View style={{marginTop:14,height:48,borderRadius:14,backgroundColor:'rgba(255,255,255,0.15)',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,alignSelf:'stretch'}}>
+            <Animated.View style={{transform:[{rotate:spinDeg}]}}><Feather name="loader" size={16} color="#EAC97A"/></Animated.View>
+            <T style={{fontSize:14,fontWeight:'800',color:'#EAC97A'}}>{tr(p,'follow')}</T>
+          </View>:<Pressable onPress={phase==='followed'?doUnfollow:doFollow} style={{marginTop:14,height:48,borderRadius:14,backgroundColor:phase==='followed'?'rgba(255,255,255,0.15)':'#C9972B',borderWidth:phase==='followed'?1.5:0,borderColor:'#EAC97A88',flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,alignSelf:'stretch'}}>
+            <Feather name={phase==='followed'?'user-check':'user-plus'} size={16} color={phase==='followed'?'#fff':'#4A1220'}/>
+            <T style={{fontSize:14,fontWeight:'800',color:phase==='followed'?'#fff':'#4A1220'}}>{phase==='followed'?'ফলো করছেন':tr(p,'follow')}</T>
+          </Pressable>}
+          <View style={{flexDirection:'row',alignItems:'center',marginTop:16,backgroundColor:'rgba(0,0,0,0.25)',borderRadius:14,paddingVertical:12}}>
+            <View style={{alignItems:'center',flex:1}}><T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{published}</T><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A',marginTop:2}}>প্রকাশিত</T></View>
+            <View style={{width:1,height:34,backgroundColor:'#ffffff22'}}/>
+            <View style={{alignItems:'center',flex:1}}><T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{liveTotalReads}</T><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A',marginTop:2}}>মোট পাঠ</T></View>
+            <View style={{width:1,height:34,backgroundColor:'#ffffff22'}}/>
+            <View style={{alignItems:'center',flex:1}}><T style={{fontSize:20,fontWeight:'900',color:'#fff'}}>{liveFollowers}</T><T style={{fontSize:10,fontWeight:'700',color:'#EAC97A',marginTop:2}}>অনুসারী</T></View>
+          </View>
         </View>
-        <T style={{fontSize:13,fontWeight:'500',color:t.muted,marginTop:3}}>@{w.username}</T>
-        {w.bio&&<T style={{fontSize:13,color:t.muted,marginTop:8,textAlign:'center',lineHeight:20,maxWidth:300}}>{w.bio}</T>}
       </View>
-      <View style={{flexDirection:'row',alignItems:'center',justifyContent:'center',paddingVertical:16,marginBottom:16,gap:0}}>
-  <View style={{alignItems:'center',flex:1}}><T style={{fontSize:22,fontWeight:'900',color:t.ink}}>{published}</T><T style={{fontSize:10,fontWeight:'700',color:t.muted,marginTop:2}}>প্রকাশিত</T></View>
-  <View style={{width:1, height:36, backgroundColor:t.line}}/>
-  <View style={{alignItems:'center',flex:1}}><T style={{fontSize:22,fontWeight:'900',color:t.ink}}>{liveTotalReads}</T><T style={{fontSize:10,fontWeight:'700',color:t.muted,marginTop:2}}>মোট পাঠ</T></View>
-  <View style={{width:1, height:36, backgroundColor:t.line}}/>
-  <View style={{alignItems:'center',flex:1}}><T style={{fontSize:22,fontWeight:'900',color:t.ink}}>{liveFollowers}</T><T style={{fontSize:10,fontWeight:'700',color:t.muted,marginTop:2}}>অনুসারী</T></View>
-</View>
-      {isGuestWriter?null:phase==='spinning'?<View style={{marginHorizontal:16,height:48,borderRadius:14,backgroundColor:t.tint,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,marginBottom:6}}>
-        <Animated.View style={{transform:[{rotate:spinDeg}]}}><Feather name="loader" size={16} color={t.primary}/></Animated.View>
-        <T style={{fontSize:14,fontWeight:'800',color:t.primary}}>{tr(p,'follow')}</T>
-      </View>:<Pressable onPress={phase==='followed'?doUnfollow:doFollow} style={{marginHorizontal:16,height:48,borderRadius:14,backgroundColor:phase==='followed'?t.bg:t.primary,borderWidth:phase==='followed'?1.5:0,borderColor:t.line,flexDirection:'row',alignItems:'center',justifyContent:'center',gap:8,marginBottom:6}}>
-        <Feather name={phase==='followed'?'user-check':'user-plus'} size={16} color={phase==='followed'?t.ink:'#fff'}/>
-        <T style={{fontSize:14,fontWeight:'800',color:phase==='followed'?t.ink:'#fff'}}>{phase==='followed'?'ফলো করছেন':tr(p,'follow')}</T>
-      </Pressable>}
-      <T style={{fontSize:11,color:t.muted,textAlign:'center',marginBottom:20,lineHeight:17,paddingHorizontal:28}}>{tr(p,'followHint')}</T>
+      <T style={{fontSize:11,color:t.muted,textAlign:'center',marginBottom:16,marginTop:4,lineHeight:17,paddingHorizontal:28}}>{tr(p,'followHint')}</T>
       {writerBooks.length>0&&<>
         <View style={{flexDirection:'row',alignItems:'center',marginHorizontal:16,marginBottom:12}}>
           <T style={{fontSize:16,fontWeight:'900',color:t.ink,flex:1}}>{tr(p,'storiesBy')} {w.writer_name}</T>
           <T style={{fontSize:12,fontWeight:'700',color:t.muted}}>{published} {tr(p,'books')}</T>
         </View>
-        {writerBooks.map(b=><Row key={b.id} book={b} theme={t} onPress={()=>p.open(b.id)}/>)}
+        {writerBooks.map(b=><Pressable key={b.id} onPress={()=>p.open(b.id)} style={{flexDirection:'row',alignItems:'center',gap:12,backgroundColor:t.card,borderRadius:16,padding:10,marginBottom:10,borderWidth:1,borderColor:t.line}}>
+          {b.cover_url?<Image source={{uri:b.cover_url}} style={{width:64,height:86,borderRadius:10}} resizeMode="cover"/>:<View style={{width:64,height:86,borderRadius:10,backgroundColor:t.primary,alignItems:'center',justifyContent:'center',padding:6}}><T numberOfLines={3} style={{color:'#fff',fontWeight:'800',fontSize:9,textAlign:'center',lineHeight:13}}>{b.title}</T></View>}
+          <View style={{flex:1}}>
+            <T numberOfLines={2} style={{fontSize:15,fontWeight:'800',color:t.ink,lineHeight:20}}>{b.title}</T>
+            <View style={{flexDirection:'row',alignItems:'center',gap:6,marginTop:6}}>
+              {b.category?<View style={{backgroundColor:t.primary+'1F',borderRadius:6,paddingHorizontal:7,paddingVertical:2}}><T numberOfLines={1} style={{fontSize:10,fontWeight:'700',color:t.primary}}>{b.category}</T></View>:null}
+              <Feather name="eye" size={12} color={t.muted}/>
+              <T style={{fontSize:11,fontWeight:'600',color:t.muted}}>{b.views}</T>
+            </View>
+          </View>
+          <Feather name="chevron-right" size={18} color={t.muted}/>
+        </Pressable>)}
       </>}
       {writerBooks.length===0&&<View style={{alignItems:'center',paddingVertical:40}}>
   <Svg width={120} height={80} viewBox="0 0 120 80">
