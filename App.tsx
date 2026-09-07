@@ -2231,8 +2231,39 @@ function GoogleSignInButton({onResult,onError,theme:t,lang}:{onResult:(w:any,tok
   </Pressable>
 }
 
+function WriterAvatarGate({token,theme:t,lang,writerName,onDone}:{token:string;theme:Theme;lang:Language;writerName:string;onDone:(url:string)=>void}){
+  const insets=useSafeAreaInsets();
+  const[avatar,setAvatar]=useState('');
+  const[uploading,setUploading]=useState(false);
+  const[err,setErr]=useState('');
+  const pick=async()=>{setUploading(true);setErr('');try{const url=await pickAndResizeImage('avatar',token);if(url)setAvatar(url);else setErr(lang==='bn'?'ছবি পাওয়া যায়নি। আবার চেষ্টা করুন।':lang==='hi'?'तस्वीर नहीं मिली। पुनः प्रयास करें।':'No image. Please try again.')}catch{setErr(lang==='bn'?'ছবি পাওয়া যায়নি। আবার চেষ্টা করুন।':lang==='hi'?'तस्वीर नहीं मिली। पुनः प्रयास करें।':'No image. Please try again.')}setUploading(false)};
+  const done=async()=>{if(!avatar||uploading)return;setUploading(true);setErr('');try{const r=await updateWriterProfile(token,{avatar_url:avatar});if(r&&r.ok!==false){onDone(avatar)}else setErr(lang==='bn'?'সংরক্ষণ ব্যর্থ। আবার চেষ্টা করুন।':lang==='hi'?'सहेजना विफल। पुनः प्रयास करें।':'Save failed. Try again.')}catch{setErr(lang==='bn'?'সংরক্ষণ ব্যর্থ। আবার চেষ্টা করুন।':lang==='hi'?'सहेजना विफल। पुनः प्रयास करें।':'Save failed. Try again.')}setUploading(false)};
+  const hello=lang==='bn'?`স্বাগতম, ${writerName}!`:lang==='hi'?`स्वागत है, ${writerName}!`:`Welcome, ${writerName}!`;
+  return <View style={{flex:1,backgroundColor:t.bg}}>
+    <View style={{alignItems:'center',paddingTop:insets.top+8,paddingBottom:10,backgroundColor:t.card,borderBottomWidth:1,borderBottomColor:t.line}}>
+      <T style={{fontSize:15,fontWeight:'900',color:t.ink}}>{lang==='bn'?'প্রোফাইল ছবি':lang==='hi'?'प्रोफ़ाइल फ़ोटो':'Profile photo'}</T>
+    </View>
+    <ScrollView contentContainerStyle={{flexGrow:1,justifyContent:'center',padding:24}} showsVerticalScrollIndicator={false}>
+      <View style={{alignItems:'center',marginBottom:20}}>
+        {avatar?<Image source={{uri:avatar}} style={{width:110,height:110,borderRadius:55,borderWidth:3,borderColor:'#C9972B'}}/>:<View style={{width:110,height:110,borderRadius:55,backgroundColor:t.card,borderWidth:2,borderColor:t.primary,borderStyle:'dashed',alignItems:'center',justifyContent:'center'}}><Feather name="camera" size={30} color={t.primary}/></View>}
+        <T style={{fontSize:18,fontWeight:'900',color:t.ink,marginTop:14,textAlign:'center'}}>{hello}</T>
+        <T style={{fontSize:13,color:t.muted,marginTop:6,textAlign:'center',lineHeight:20}}>{lang==='bn'?'লেখক হতে প্রোফাইল ছবি আবশ্যক। সুন্দর একটি ছবি দিন।':lang==='hi'?'लेखक बनने के लिए प्रोफ़ाइल फ़ोटो आवश्यक है। एक अच्छी तस्वीर दें।':'A profile photo is required to be a writer. Please add a nice photo.'}</T>
+      </View>
+      <Pressable disabled={uploading} onPress={pick} style={{backgroundColor:t.card,borderRadius:14,paddingVertical:14,alignItems:'center',flexDirection:'row',justifyContent:'center',gap:8,borderWidth:1.5,borderColor:t.primary,marginBottom:10,opacity:uploading?0.6:1}}>
+        {uploading?<ActivityIndicator color={t.primary} size="small"/>:<Feather name="image" size={16} color={t.primary}/>}
+        <T style={{color:t.primary,fontWeight:'800',fontSize:14}}>{avatar?(lang==='bn'?'অন্য ছবি':lang==='hi'?'दूसरी तस्वीर':'Change photo'):(lang==='bn'?'ছবি বাছুন':lang==='hi'?'फ़ोटो चुनें':'Choose photo')}</T>
+      </Pressable>
+      {err?<T style={{color:'#EF4444',fontSize:12,fontWeight:'700',textAlign:'center',marginBottom:10}}>{err}</T>:null}
+      <Pressable disabled={!avatar||uploading} onPress={done} style={{backgroundColor:t.primary,borderRadius:14,height:52,alignItems:'center',justifyContent:'center',opacity:!avatar||uploading?0.5:1}}>
+        {uploading?<ActivityIndicator color="#fff" size="small"/>:<T style={{color:'#fff',fontWeight:'800',fontSize:15}}>{lang==='bn'?'এগিয়ে যান':lang==='hi'?'आगे बढ़ें':'Continue'}</T>}
+      </Pressable>
+    </ScrollView>
+  </View>;
+}
+
 function Writer(p:C){
   const[authTab,setAuthTab]=useState<'login'|'register'>('login');
+  const[showPw,setShowPw]=useState(false);
   const[form,setForm]=useState({username:'',writerName:'',email:'',password:''});
   const[privacyConsent,setPrivacyConsent]=useState(false);
   const[authErr,setAuthErr]=useState('');
@@ -2434,7 +2465,8 @@ function Writer(p:C){
         <T style={{color:t.muted,fontSize:11,fontWeight:'500',marginBottom:5,marginLeft:4}}>{tr(p,'password')}</T>
         <View style={{flexDirection:'row',alignItems:'center',backgroundColor:t.bg,borderRadius:12,borderWidth:1,borderColor:t.line,paddingHorizontal:12,height:46}}>
           <Feather name="lock" size={16} color={t.muted} style={{marginRight:8}}/>
-          <TextInput value={form.password} onChangeText={v=>setForm({...form,password:v})} placeholder={tr(p,'password')} placeholderTextColor={t.muted+'88'} secureTextEntry style={{flex:1,color:t.ink,fontSize:14,fontWeight:'400',fontFamily:GF()}}/>
+          <TextInput value={form.password} onChangeText={v=>setForm({...form,password:v})} placeholder={tr(p,'password')} placeholderTextColor={t.muted+'88'} secureTextEntry={!showPw} style={{flex:1,color:t.ink,fontSize:14,fontWeight:'400',fontFamily:GF()}}/>
+          <Pressable onPress={()=>setShowPw(v=>!v)} hitSlop={8}><Feather name={showPw?'eye-off':'eye'} size={16} color={t.muted}/></Pressable>
         </View>
       </View>
       {authTab==='register'&&<Pressable onPress={()=>setPrivacyConsent(!privacyConsent)} style={{flexDirection:'row',alignItems:'flex-start',gap:8,marginBottom:14,marginTop:2}}>
@@ -2466,6 +2498,7 @@ function Writer(p:C){
   </KeyboardAvoidingView>;
 
   const tabs:[string,string,string][]=[['dashboard',tr(p,'dashboard'),'bar-chart-2'],['stories',tr(p,'myStories'),'book-open'],['profile',tr(p,'profile'),'user']];
+  if(isLoggedIn&&!p.state.writer?.avatar_url)return <WriterAvatarGate token={token} theme={t} lang={lang} writerName={p.state.writer?.writer_name||''} onDone={(url)=>p.update({writer:{...p.state.writer!,avatar_url:url}})} />;
 
   return <Page theme={t}>
     {p.isOffline&&<OfflineBanner theme={t} onRetry={()=>p.syncRemote?.()}/>}
