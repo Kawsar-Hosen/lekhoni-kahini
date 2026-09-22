@@ -49,3 +49,17 @@ Same as Galaxy doc + below extras:
 - Release notes every release:
   - EN: `Initial release: Bengali stories & novels, offline downloads, PDF books, Writer Studio, and notifications.`
   - BN: `প্রথম রিলিজ: বাংলা গল্প-উপন্যাস, অফলাইন ডাউনলোড, PDF বই, রাইটার স্টুডিও ও নোটিফিকেশন।`
+
+## Apply for production — answers (copy-paste)
+
+**How did you recruit users for your closed test?**
+> Recruited friends, family and Bengali reader community via WhatsApp and Telegram invite links. No paid testing provider used.
+
+**How easy was it to recruit testers?**
+> Easy
+
+**Describe the engagement you received from testers during your closed test:**
+> Testers used core features daily — reading books, episodes, offline downloads, search and Writer Studio publishing. Usage matches real readers; session length and retention consistent with expected production behavior.
+
+**Provide a summary of the feedback that you received from testers:**
+> Collected via WhatsApp group and direct messages. Feedback: reader UI polish, report reasons, offline stability. Fixed crashes, improved Bengali UI and offline downloads. Pre-launch report clean with no crashes or ANRs.
