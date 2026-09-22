@@ -63,3 +63,12 @@ Same as Galaxy doc + below extras:
 
 **Provide a summary of the feedback that you received from testers:**
 > Collected via WhatsApp group and direct messages. Feedback: reader UI polish, report reasons, offline stability. Fixed crashes, improved Bengali UI and offline downloads. Pre-launch report clean with no crashes or ANRs.
+
+**Who is the intended audience of your app?**
+> Bengali-speaking readers and writers ages 15+, mainly in Bangladesh and West Bengal, who want free Bengali novels, stories, poems and a platform to publish their own writing.
+
+**Describe how your app provides value to users:**
+> Free Bengali library: novels, episodes, poems and offline reading with PDF collection. Writer Studio lets anyone publish stories, build followers and track earnings toward monetization. No ads, clean reading experience.
+
+**How many installs do you expect in your first year?**
+> 0 - 10K
