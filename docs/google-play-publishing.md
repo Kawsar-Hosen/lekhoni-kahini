@@ -72,3 +72,9 @@ Same as Galaxy doc + below extras:
 
 **How many installs do you expect in your first year?**
 > 0 - 10K
+
+**What changes did you make to your app based on what you learned during your closed test?**
+> Fixed reader crashes and offline download stability, redesigned report reasons, polished Bengali UI and profile, added update prompt and 15+ age gate. Same tested AAB promoted, no new permissions or SDKs.
+
+**How did you decide that your app is ready for production?**
+> 14-day closed test with 12+ active testers, clean pre-launch report with zero crashes/ANRs, all feedback addressed, core flows (reading, offline, publishing, accounts) verified on multiple devices.
