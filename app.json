@@ -17,7 +17,7 @@
     ],
     "android": {
       "package": "com.lekhoni.kahini",
-      "versionCode": 5,
+      "versionCode": 6,
       "blockedPermissions": [
         "com.google.android.gms.permission.AD_ID"
       ],
@@ -64,7 +64,7 @@
         {
           "iosUrlScheme": "com.googleusercontent.apps.940343114841-pd5po6gp5dij90nlp5k28tigp5qqr1rt",
           "androidPackage": "com.lekhoni.kahini",
-          "androidSha1": "BF306ABAE8D1650D973FE3E678A00A270A0BB40F"
+          "androidSha1": "CEC85E8EDE55D96D81111E1B42E9A5F9031F8988"
         }
       ],
       [

@@ -5,6 +5,7 @@ export type Book = {
   featured?: boolean; homeSection?: string; views_visible?: boolean; display_status?: string; writer_status?: string;
   description: string; updated: string; chapters: Chapter[]; cover_url?: string | null; hide_title_on_cover?: boolean;
   pdf_url?: string; dedication?: string; author_name?: string; show_ads?: boolean; pdf_reward_ad?: boolean;
+  updatedAt?: string;
 };
 export type Language = 'en' | 'bn' | 'hi';
 export type ThemeId = 'katagolap' | 'sepia' | 'midnight' | 'godhuli' | 'sagar' | 'oronno' | 'lavender' | 'golapi' | 'shapla' | 'golap' | 'nilkantha' | 'kashful' | 'mala' | 'meghdoot' | 'bashanti' | 'sona' | 'rong' | 'agun' | 'swapna' | 'prithvi';
