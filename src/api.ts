@@ -5,7 +5,7 @@ import type { CopyKey } from './i18n';
 const API_BASE = 'https://lekhoni-admin-api.smdkawsar2.workers.dev';
 const TIMEOUT = 6000;
 
-type RemoteBook = { id:string; title:string; author:string; cover_url:string|null; status:string; views:number|string; likes:number|string; dislikes:number|string; description:string|null; category:string|null; color:string; accent:string; is_new?:boolean; featured?:boolean; home_section?:string|null; views_visible?:boolean; display_status?:string; writer_status?:string; hide_title_on_cover?:boolean; pdf_url?:string; dedication?:string; author_name?:string; show_ads?:boolean; pdf_reward_ad?:boolean; updated_at:string };
+type RemoteBook = { id:string; title:string; author:string; cover_url:string|null; status:string; views:number|string; likes:number|string; dislikes:number|string; description:string|null; category:string|null; color:string; accent:string; is_new?:boolean; featured?:boolean; home_section?:string|null; views_visible?:boolean; display_status?:string; writer_status?:string; story_type?:string; hide_title_on_cover?:boolean; pdf_url?:string; dedication?:string; author_name?:string; show_ads?:boolean; pdf_reward_ad?:boolean; updated_at:string };
 type RemoteChapter = { id:string; book_id:string; title:string; body:string; position:number; sort_order?:number; minutes?:number };
 type RemoteComment = { id:string; book_id:string; display_name:string; body:string; status:string; created_at:string };
 type RemoteNotification = { id:string; title:string; body:string; icon:string|null; url:string|null; story_cover?:string; created_at:string };
@@ -64,6 +64,7 @@ function mergeRemoteBooks(remote: RemoteBook[], chaptersByBook: Record<string, R
       description: b.description || '', updated: 'অনলাইন', updatedAt: b.updated_at || '', isNew: Boolean(b.is_new), chapters: chs, cover_url: b.cover_url || null,
       display_status: b.display_status || undefined,
       writer_status: b.writer_status || undefined,
+      story_type: b.story_type || 'episodes',
       hide_title_on_cover: b.hide_title_on_cover || false,
       pdf_url: b.pdf_url || '', dedication: b.dedication || '', author_name: b.author_name || '',
       show_ads: b.show_ads !== false, pdf_reward_ad: b.pdf_reward_ad !== false,
@@ -94,7 +95,7 @@ export async function fetchRemoteBook(id: string): Promise<Book | null> {
     accent: b.accent || toAccent(b.id), views: `${b.views}`, rating: 4.5, likes: Number(b.likes) || 0,
     featured: Boolean(b.featured), homeSection: b.home_section || undefined,
     description: b.description || '', updated: 'অনলাইন', updatedAt: b.updated_at || '', isNew: Boolean(b.is_new), chapters: chs, cover_url: b.cover_url || null,
-    display_status: b.display_status || undefined, writer_status: b.writer_status || undefined,
+    display_status: b.display_status || undefined, writer_status: b.writer_status || undefined, story_type: b.story_type || 'episodes',
     hide_title_on_cover: b.hide_title_on_cover || false,
     pdf_url: b.pdf_url || '', dedication: b.dedication || '', author_name: b.author_name || '',
     show_ads: b.show_ads !== false, pdf_reward_ad: b.pdf_reward_ad !== false,
@@ -354,7 +355,7 @@ export async function unfollowWriter(deviceId: string, writerId: string): Promis
 }
 
 // --- Writer Studio (authenticated) ---
-export type Story = { id: string; title: string; description: string; status: string; cover_url: string | null; category: string; views: number; likes: number; chapters_count: number; created_at: string; updated_at: string };
+export type Story = { id: string; title: string; description: string; status: string; cover_url: string | null; category: string; views: number; likes: number; chapters_count: number; story_type?: string; created_at: string; updated_at: string };
 export type StoryChapter = { id: string; title: string; body: string; position: number; minutes: number; created_at: string };
 export type WriterStats = { stories: number; views: number; followers: number; activities: { id: string; type: string; data: any; created_at: string }[] };
 export type WriterProfileFull = Writer & { email?: string; bio?: string };
@@ -371,9 +372,9 @@ export async function fetchWriterStories(token: string): Promise<Story[]> {
   return (await writerApiFetch<Story[]>('/api/writer/stories', token)) || [];
 }
 
-export async function createWriterStory(token: string, title: string, description: string, category: string, coverUrl?: string, displayStatus?: string, writerStatus?: string, hideTitleOnCover?: boolean, pdfUrl?: string, dedication?: string, authorName?: string): Promise<Story | null> {
+export async function createWriterStory(token: string, title: string, description: string, category: string, coverUrl?: string, displayStatus?: string, writerStatus?: string, hideTitleOnCover?: boolean, pdfUrl?: string, dedication?: string, authorName?: string, storyType?: string): Promise<Story | null> {
   return writerApiFetch<Story>('/api/writer/stories', token, {
-    method: 'POST', body: JSON.stringify({ title, description, category, cover_url: coverUrl, display_status: displayStatus, writer_status: writerStatus, hide_title_on_cover: hideTitleOnCover, pdf_url: pdfUrl, dedication, author_name: authorName }),
+    method: 'POST', body: JSON.stringify({ title, description, category, cover_url: coverUrl, display_status: displayStatus, writer_status: writerStatus, hide_title_on_cover: hideTitleOnCover, pdf_url: pdfUrl, dedication, author_name: authorName, story_type: storyType }),
   }, 25000);
 }
 
@@ -415,6 +416,15 @@ export async function createStoryChapter(token: string, storyId: string, title: 
   return writerApiFetch<StoryChapter>(`/api/writer/stories/${storyId}/chapters`, token, {
     method: 'POST', body: JSON.stringify({ title, body }),
   });
+}
+
+export async function createStoryChapterEx(token: string, storyId: string, title: string, body: string): Promise<{ ok: boolean; chapter?: StoryChapter; error?: string }> {
+  const r = await apiFetch<StoryChapter & { error?: string }>(`/api/writer/stories/${storyId}/chapters`, {
+    method: 'POST', body: JSON.stringify({ title, body }), headers: { Authorization: `Bearer ${token}` },
+  }, { timeout: 25000, errorBody: true, authRoute: true });
+  if (!r) return { ok: false, error: 'Network error' };
+  if ((r as any).error && !(r as any).id) return { ok: false, error: (r as any).error };
+  return { ok: true, chapter: r as StoryChapter };
 }
 
 export async function updateStoryChapter(token: string, storyId: string, chapterId: string, patch: { title?: string; body?: string }): Promise<boolean> {

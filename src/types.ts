@@ -2,7 +2,7 @@ export type Chapter = { id: string; title: string; minutes: number; body: string
 export type Book = {
   id: string; title: string; author: string; category: string; categoryIcon: string;
   color: string; accent: string; views: string; rating: number; likes?: number; isNew?: boolean;
-  featured?: boolean; homeSection?: string; views_visible?: boolean; display_status?: string; writer_status?: string;
+  featured?: boolean; homeSection?: string; views_visible?: boolean; display_status?: string; writer_status?: string; story_type?: string;
   description: string; updated: string; chapters: Chapter[]; cover_url?: string | null; hide_title_on_cover?: boolean;
   pdf_url?: string; dedication?: string; author_name?: string; show_ads?: boolean; pdf_reward_ad?: boolean;
   updatedAt?: string;

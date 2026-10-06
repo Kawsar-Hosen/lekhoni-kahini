@@ -2,7 +2,7 @@
   "expo": {
     "name": "Lekhoni Kahini",
     "slug": "lekhoni-kahini",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -17,7 +17,7 @@
     ],
     "android": {
       "package": "com.lekhoni.kahini",
-      "versionCode": 6,
+      "versionCode": 7,
       "blockedPermissions": [
         "com.google.android.gms.permission.AD_ID"
       ],
