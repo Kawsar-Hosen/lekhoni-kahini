@@ -2,7 +2,7 @@
 
 Bengali stories reading & writing app (ages 15+). Read novels, poems and episodes, download for offline, collect PDF books, and publish your own writing with Writer Studio. Free, no ads.
 
-- **Package:** `com.lekhoni.kahini` · **Version:** 1.2.0 (versionCode 5)
+- **Package:** `com.lekhoni.kahini` · **Version:** 1.4.0 (versionCode 8)
 - **Platform:** React Native (Expo SDK 54) + Cloudflare Workers backend
 - **Status:** LIVE on Google Play (production access granted) + Galaxy Store
 - **Privacy:** https://lekhoni-terms.pages.dev/privacy · **Deletion:** https://lekhoni-terms.pages.dev/delete

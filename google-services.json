@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "331088000917",
+    "project_id": "xyteeeapp",
+    "storage_bucket": "xyteeeapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:331088000917:android:aa566507e1433acb06a89c",
+        "android_client_info": {
+          "package_name": "com.lekhoni.kahini"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "331088000917-2aj8b02frjrntg8o2jvle49d9gfmk09m.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB8wpvmOB3GZxPES2Lf09l9G_pNPSPblrw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "331088000917-2aj8b02frjrntg8o2jvle49d9gfmk09m.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

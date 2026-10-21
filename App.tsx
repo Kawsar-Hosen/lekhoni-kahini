@@ -25,6 +25,16 @@ import { pickAndResizeImage } from './src/imageUpload';
 import { saveBookOffline, loadBookOffline, removeBookOffline, isBookOffline, getOfflineBookIds } from './src/offlineStorage';
 import { initAllAds, showAppOpenAd, maybeShowInterstitial, showRewardedAd, isRewardedAdReady, resetAdSession } from './src/ads';
 
+// Show notifications while the app is in the foreground (Android + iOS).
+ExpoNotifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 type Tab = 'home'|'library'|'categories'|'episodes'|'profile';
 type Screen = { type:'main' } | { type:'book', id:string } | { type:'reader', id:string, chapter:number } | { type:'pdfReader', id:string, pdfUrl:string, title:string } | { type:'search' } | { type:'notifications' } | { type:'settings' } | { type:'writer' } | { type:'list', title:string, ids:string[] } | { type:'profileDetails' } | { type:'followedWriters' } | { type:'writerProfile', writer:import('./src/types').WriterProfile } | { type:'comments', id:string } | { type:'allWriters' } | { type:'newStory' } | { type:'newPdfStory' } | { type:'editStory', id:string, title:string, desc:string, coverUrl:string|null, writerStatus:string, pdfUrl?:string } | { type:'addChapter', id:string, title:string } | { type:'aboutApp' } | { type:'terms' } | { type:'privacyPolicy' } | { type:'guide' };
 type Theme = {dark:boolean;primary:string;bg:string;card:string;ink:string;muted:string;line:string;tint:string;reader:string};
@@ -70,7 +80,7 @@ function SplashScreen({theme}:{theme:Theme}){
     </Animated.View>
     <View style={{position:'absolute',bottom:32,alignItems:'center'}}>
       <T style={{color:'rgba(250,246,241,0.35)',fontSize:9,fontWeight:'500',letterSpacing:1}}>LEKHONI KAHINI</T>
-      <T style={{color:'rgba(250,246,241,0.3)',fontSize:10,marginTop:3}}>v1.2.0</T>
+      <T style={{color:'rgba(250,246,241,0.3)',fontSize:10,marginTop:3}}>v1.4.0</T>
     </View>
   </View>;
 }
@@ -125,6 +135,9 @@ function OfflineBanner({theme,onRetry}:{theme:Theme;onRetry:()=>void}){
 async function registerForPushNotificationsAsync(handler:(n:any)=>void){
   try{
     if(!Device||!Device.isDevice){return}
+    if(Platform.OS==='android'){
+      await ExpoNotifications.setNotificationChannelAsync('default',{name:'default',importance:ExpoNotifications.AndroidImportance.DEFAULT,vibrationPattern:[0,250,250,250],lightColor:'#FF231F7C'});
+    }
     const {status:existingStatus}=await ExpoNotifications.getPermissionsAsync();
     let finalStatus=existingStatus;
     if(existingStatus!=='granted'){
@@ -133,10 +146,12 @@ async function registerForPushNotificationsAsync(handler:(n:any)=>void){
     }
     if(finalStatus!=='granted'){return}
     const token=(await ExpoNotifications.getExpoPushTokenAsync({projectId:'659b4215-d07c-41f8-881b-c3e7cd7e951a'})).data;
-    if(Platform.OS==='android'){ExpoNotifications.setNotificationChannelAsync('default',{name:'default',importance:ExpoNotifications.AndroidImportance.DEFAULT,vibrationPattern:[0,250,250,250],lightColor:'#FF231F7C'});}
     const sub=ExpoNotifications.addNotificationReceivedListener(handler);
     return{sub,token};
-  }catch{return}
+  }catch(e){
+    console.warn('[push] registration failed:',e);
+    return;
+  }
 }
 
 export default function App(){ return <SafeAreaProvider><AppShell/></SafeAreaProvider>; }
@@ -2366,7 +2381,7 @@ function Settings(p:C){
           <T style={[styles.rowTitle,{color:t.ink}]}>Lekhoni Kahini</T>
           <T style={{fontSize:11,color:t.muted,marginTop:1}}>© 2026 Kawsar Hosen</T>
         </View>
-         <T style={{color:t.primary,fontSize:12,fontWeight:'700'}}>v1.2.0</T></View></View>
+         <T style={{color:t.primary,fontSize:12,fontWeight:'700'}}>v1.4.0</T></View></View>
     </Section>
   </Page>{confirm&&<ConfirmModal theme={t} lang={language} kind={confirm.kind} onClose={()=>setConfirm(null)} onConfirm={async()=>{const k=confirm.kind;if(k==='search')p.update({searchHistory:[]});else if(k==='downloads')p.update({downloads:[]});else if(k==='reset'){p.update(initialState);await clearState();}else if(k==='deleteData'){try{const r=await deleteReaderData(p.state.deviceId);if(!r.ok){toast(r.error||copy(language,'networkError'),'err');return}}catch{toast(copy(language,'networkError'),'err');return}p.update(initialState);await clearState();}setConfirm(null);}}/>}</View>}
 function GoogleSignInButton({onResult,onError,theme:t,lang}:{onResult:(w:any,token:string)=>void;onError:(msg:string)=>void;theme:Theme;lang:Language}){
@@ -3578,7 +3593,7 @@ function AboutAppScreen({theme:t,lang,onBack}:{theme:Theme;lang:Language;onBack:
           <Feather name="heart" size={11} color="#EF4444"/>
           <T style={{fontSize:10,color:t.muted}}>{apiData?.developer||'Kawsar Hosen'}</T>
         </View>
-         <T style={{fontSize:9,color:t.muted}}>Version {apiData?.version||'1.2.0'}</T>
+         <T style={{fontSize:9,color:t.muted}}>Version {apiData?.version||'1.4.0'}</T>
       </View>
     </ScrollView>
   </View>;

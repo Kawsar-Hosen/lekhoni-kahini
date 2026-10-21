@@ -2,8 +2,10 @@ node_modules/
 .expo/
 dist/
 *.tsbuildinfo
-google-services.json
 google-service-account.json
+*firebase-adminsdk*.json
+# NOTE: google-services.json is intentionally NOT ignored — it contains only
+# public Firebase identifiers and must be committed so EAS Build can read it.
 
 android/
 ios/
