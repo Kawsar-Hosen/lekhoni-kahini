@@ -3,7 +3,8 @@
 Bengali stories reading & writing app (ages 15+). Read novels, poems and episodes, download for offline, collect PDF books, and publish your own writing with Writer Studio. Free, no ads.
 
 - **Package:** `com.lekhoni.kahini` · **Version:** 1.4.0 (versionCode 8)
-- **Platform:** React Native (Expo SDK 54) + Cloudflare Workers backend
+- **Platform:** Current production: React Native (Expo SDK 54). Next redesign: Flutter (planned).
+- **Backend:** Cloudflare Workers (`lekhoni-admin-api`) + Neon Postgres + R2
 - **Status:** LIVE on Google Play (production access granted) + Galaxy Store
 - **Privacy:** https://lekhoni-terms.pages.dev/privacy · **Deletion:** https://lekhoni-terms.pages.dev/delete
 
@@ -19,7 +20,8 @@ Bengali stories reading & writing app (ages 15+). Read novels, poems and episode
 ## Tech stack
 | Layer | Tech |
 |---|---|
-| App | React Native 0.81, Expo 54, TypeScript, AsyncStorage + SecureStore |
+| App (current) | React Native 0.81, Expo 54, TypeScript, AsyncStorage + SecureStore |
+| App (next redesign) | Flutter (planned; same backend APIs and Play listing) |
 | Backend | Cloudflare Workers (`lekhoni-admin-api`), Neon Postgres, R2 media |
 | Admin panel | React + Vite (Cloudflare Pages, Access + secret protected) |
 | Legal pages | Static HTML (Cloudflare Pages) |
@@ -32,7 +34,7 @@ npm install
 npx expo start --clear   # Dev Client build required (not Expo Go)
 ```
 
-## Builds (EAS)
+## Builds — current React Native app (EAS)
 | Profile | Output | Command |
 |---|---|---|
 | development | dev-client APK | `eas build --profile development --platform android` |
@@ -40,6 +42,20 @@ npx expo start --clear   # Dev Client build required (not Expo Go)
 | production | **AAB** (store submission) | `eas build --profile production --platform android` |
 
 Release config: `targetSdkVersion 36`, portrait only, `com.lekhoni.kahini`.
+
+## Flutter redesign (planned)
+
+The next major UI redesign will be a Flutter app. This is a framework rewrite, not a drop-in theme change; the React Native 1.4.0 build stays live until the Flutter build passes testing and is explicitly approved.
+
+- **Same Play listing:** keep the `applicationId` / package name `com.lekhoni.kahini`. A new package name creates a new app, not an update.
+- **Same signing key:** use the existing upload key / Play App Signing setup. A different key will reject the update unless the upload key is reset in Play Console.
+- **Higher versionCode:** every upload must use a versionCode greater than the current production build (currently 8).
+- **API contract unchanged:** keep the same Worker endpoints, auth/JWT flow, and request/response shapes. The app, website, and admin panel share this backend.
+- **Re-implement platform features:** push, Google Sign-In, PDF/download, offline storage, TTS, deep links, notifications, and any billing/ads integrations.
+- **Push caveat:** the current app uses Expo push. Flutter will normally use FCM; if the backend must keep its existing API surface, add a small push adapter instead of changing existing response contracts.
+- **Local data:** React Native AsyncStorage/SecureStore data will not migrate automatically. Add a migration path only if users must keep local downloads, history, bookmarks, or settings.
+- **Release path:** build a signed AAB with `flutter build appbundle --release`, test through Play internal testing, then use a staged production rollout on the same listing.
+- **Approval gate:** do not bump versions, build a production AAB, or submit to Play without explicit user approval.
 
 ## Backend (`../LekhoniAdmin`)
 ```bash
@@ -60,7 +76,8 @@ Deployed on Cloudflare Pages (`admin.xyteee.com`, behind Cloudflare Access). Log
 2. Google Play Store (production AAB, staged rollout)
 
 ## Versioning
-Bump `expo.version` + `android.versionCode` together for every store release.
+- **Current React Native app:** bump `expo.version` + `android.versionCode` together for every store release.
+- **Flutter redesign:** bump the `version` field in `pubspec.yaml` (versionName + build number) and keep the Android `versionCode` greater than the last Play release.
 
 ## Redesign rules (Play Store live app — be careful)
 > Future AI: this app is in production. Mistakes reach real users. Read before redesigning.
@@ -82,3 +99,6 @@ Bump `expo.version` + `android.versionCode` together for every store release.
    `docs/` (store publishing notes), `plugins/`, `patches/`.
 9. Test matrix before any production build: cold start, login/signup/Google,
    reader (scroll/page/TTS), offline library, studio publish, notifications.
+10. **Flutter rewrite:** preserve the package ID, signing key, API contracts, and
+    Play listing; follow the Flutter redesign section above. Production
+    build/submit only after explicit approval.
